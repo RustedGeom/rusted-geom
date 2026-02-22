@@ -15,8 +15,7 @@ import type {
   RgmPolycurveSegment,
   RgmToleranceContext,
 } from "@rusted-geom/bindings-web";
-import { Pane } from "tweakpane";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { Line2 } from "three/examples/jsm/lines/Line2.js";
@@ -34,31 +33,13 @@ const DEFAULT_CAMERA_POSITION = new THREE.Vector3(10, 8, 11);
 const DEFAULT_CAMERA_TARGET = new THREE.Vector3(0, 0, 0);
 const MIN_RENDER_SAMPLES = 2048;
 const MAX_RENDER_SAMPLES = 12000;
+const MOBILE_MEDIA_QUERY = "(max-width: 880px)";
 
 interface CameraSnapshot {
   position: RgmPoint3;
   target: RgmPoint3;
   up: RgmPoint3;
   fov: number;
-}
-
-interface PaneChangeBinding {
-  on(event: "change", handler: (event: { value: unknown; last?: boolean }) => void): void;
-}
-
-interface PaneButtonBinding {
-  on(event: "click", handler: () => void): void;
-}
-
-interface PaneFolderBinding {
-  addBinding(target: object, key: string, options?: Record<string, unknown>): PaneChangeBinding;
-  addButton(options: { title: string }): PaneButtonBinding;
-}
-
-interface PaneLike {
-  addFolder(options: { title: string }): PaneFolderBinding;
-  refresh?(): void;
-  dispose(): void;
 }
 
 type LogLevel = "info" | "debug" | "error";
@@ -167,6 +148,16 @@ function downloadDataUrl(filename: string, dataUrl: string): void {
   anchor.click();
 }
 
+function downloadText(filename: string, text: string): void {
+  const blob = new Blob([text], { type: "text/plain;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = filename;
+  anchor.click();
+  URL.revokeObjectURL(url);
+}
+
 function nowStamp(): string {
   const d = new Date();
   const hh = String(d.getHours()).padStart(2, "0");
@@ -174,6 +165,42 @@ function nowStamp(): string {
   const ss = String(d.getSeconds()).padStart(2, "0");
   const ms = String(d.getMilliseconds()).padStart(3, "0");
   return `${hh}:${mm}:${ss}.${ms}`;
+}
+
+function fileSafeStamp(): string {
+  const d = new Date();
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  const hh = String(d.getHours()).padStart(2, "0");
+  const mm = String(d.getMinutes()).padStart(2, "0");
+  const ss = String(d.getSeconds()).padStart(2, "0");
+  return `${year}-${month}-${day}_${hh}-${mm}-${ss}`;
+}
+
+function formatLogsAsText(entries: LogEntry[]): string {
+  if (entries.length === 0) {
+    return "[empty] Kernel console has no log entries.\n";
+  }
+
+  return `${entries
+    .map((entry) => `[${entry.time}] ${entry.level.toUpperCase()} ${entry.message}`)
+    .join("\n")}\n`;
+}
+
+function ToolIcon({ children }: { children: ReactNode }) {
+  return (
+    <svg
+      className="tool-icon"
+      viewBox="0 0 16 16"
+      width="14"
+      height="14"
+      aria-hidden="true"
+      focusable="false"
+    >
+      {children}
+    </svg>
+  );
 }
 
 function dist(a: RgmPoint3, b: RgmPoint3): number {
@@ -424,7 +451,6 @@ function planeVisualSize(points: RgmPoint3[]): number {
 
 export function KernelViewer() {
   const viewportRef = useRef<HTMLDivElement | null>(null);
-  const paneHostRef = useRef<HTMLDivElement | null>(null);
   const logBodyRef = useRef<HTMLDivElement | null>(null);
   const sessionFileInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -438,7 +464,6 @@ export function KernelViewer() {
   const sceneRef = useRef<THREE.Scene | null>(null);
   const cameraRef = useRef<THREE.PerspectiveCamera | null>(null);
   const controlsRef = useRef<OrbitControls | null>(null);
-  const paneRef = useRef<PaneLike | null>(null);
   const lineRef = useRef<Line2 | null>(null);
   const overlayLineRefs = useRef<Line2[]>([]);
   const intersectionMarkerRefs = useRef<
@@ -458,7 +483,6 @@ export function KernelViewer() {
   const axesRef = useRef<THREE.AxesHelper | null>(null);
   const probeTNormRef = useRef(0.35);
   const probePointRef = useRef<RgmPoint3 | null>(null);
-  const probeUiStateRef = useRef<ProbeUiState | null>(null);
   const totalLengthRef = useRef(0);
   const logSequenceRef = useRef(1);
 
@@ -478,7 +502,17 @@ export function KernelViewer() {
   const [showGrid, setShowGrid] = useState(true);
   const [showAxes, setShowAxes] = useState(false);
   const [orbitEnabled, setOrbitEnabled] = useState(true);
-  const [mobilePaneOpen, setMobilePaneOpen] = useState(false);
+  const [probeUiState, setProbeUiState] = useState<ProbeUiState>({
+    tNorm: 0.35,
+    x: 0,
+    y: 0,
+    z: 0,
+    probeLength: 0,
+    totalLength: 0,
+  });
+  const [isInspectorOpen, setIsInspectorOpen] = useState(true);
+  const [isConsoleOpen, setIsConsoleOpen] = useState(true);
+  const [isMobileLayout, setIsMobileLayout] = useState(false);
 
   const appendLog = useCallback((level: LogLevel, message: string): void => {
     setLogs((previous) => {
@@ -890,15 +924,14 @@ export function KernelViewer() {
         probeRef.current.position.set(evaluatedProbe.x, evaluatedProbe.y, evaluatedProbe.z);
         probeRef.current.visible = shouldShowProbeForExample(example);
       }
-      if (probeUiStateRef.current) {
-        probeUiStateRef.current.tNorm = probeTNormRef.current;
-        probeUiStateRef.current.x = evaluatedProbe.x;
-        probeUiStateRef.current.y = evaluatedProbe.y;
-        probeUiStateRef.current.z = evaluatedProbe.z;
-        probeUiStateRef.current.probeLength = probeLength;
-        probeUiStateRef.current.totalLength = totalLength;
-        paneRef.current?.refresh?.();
-      }
+      setProbeUiState({
+        tNorm: probeTNormRef.current,
+        x: evaluatedProbe.x,
+        y: evaluatedProbe.y,
+        z: evaluatedProbe.z,
+        probeLength,
+        totalLength,
+      });
 
       if (nurbsPresetOverride) {
         nurbsPresetRef.current = nurbsPresetOverride;
@@ -990,6 +1023,72 @@ export function KernelViewer() {
     controls.update();
   }, []);
 
+  const updateProbeForT = useCallback(
+    (nextValue: number, logCommit: boolean): void => {
+      const next = Math.min(1, Math.max(0, nextValue));
+      probeTNormRef.current = next;
+
+      const liveSession = sessionRef.current;
+      const liveCurveHandle = curveHandleRef.current;
+      if (!liveSession || liveCurveHandle === null) {
+        setProbeUiState((previous) => ({ ...previous, tNorm: next }));
+        return;
+      }
+
+      try {
+        const point = liveSession.pointAt(liveCurveHandle, next);
+        const probeLength = liveSession.curveLengthAt(liveCurveHandle, next);
+        const totalLength = totalLengthRef.current;
+
+        probePointRef.current = point;
+        if (probeRef.current) {
+          probeRef.current.position.set(point.x, point.y, point.z);
+          probeRef.current.visible = shouldShowProbeForExample(activeExample);
+        }
+
+        setProbeUiState({
+          tNorm: next,
+          x: point.x,
+          y: point.y,
+          z: point.z,
+          probeLength,
+          totalLength,
+        });
+        setErrorMessage(null);
+
+        if (logCommit) {
+          appendLog(
+            "debug",
+            `Probe t=${next.toFixed(5)} point=(${point.x.toFixed(5)}, ${point.y.toFixed(5)}, ${point.z.toFixed(5)}) len=${probeLength.toFixed(5)}/${totalLength.toFixed(5)}`,
+          );
+        }
+      } catch (error) {
+        setErrorMessage(error instanceof Error ? error.message : String(error));
+      }
+    },
+    [activeExample, appendLog],
+  );
+
+  const toggleInspector = useCallback((): void => {
+    setIsInspectorOpen((current) => {
+      const next = !current;
+      if (next && isMobileLayout) {
+        setIsConsoleOpen(false);
+      }
+      return next;
+    });
+  }, [isMobileLayout]);
+
+  const toggleConsole = useCallback((): void => {
+    setIsConsoleOpen((current) => {
+      const next = !current;
+      if (next && isMobileLayout) {
+        setIsInspectorOpen(false);
+      }
+      return next;
+    });
+  }, [isMobileLayout]);
+
   const applySession = useCallback(
     (sessionFile: ViewerSessionFile): void => {
       updateCurveForExample("nurbs", "Session loaded", sessionFile.preset);
@@ -1056,6 +1155,28 @@ export function KernelViewer() {
   }, [appendLog, loadDefaultPreset, releaseOwnedCurveHandles, updateCurveForExample]);
 
   useEffect(() => {
+    const media = window.matchMedia(MOBILE_MEDIA_QUERY);
+    const syncLayout = (matches: boolean): void => {
+      setIsMobileLayout(matches);
+      if (matches) {
+        setIsInspectorOpen(false);
+      } else {
+        setIsInspectorOpen(true);
+      }
+    };
+
+    syncLayout(media.matches);
+    const listener = (event: MediaQueryListEvent): void => {
+      syncLayout(event.matches);
+    };
+    media.addEventListener("change", listener);
+
+    return () => {
+      media.removeEventListener("change", listener);
+    };
+  }, []);
+
+  useEffect(() => {
     const container = logBodyRef.current;
     if (!container) {
       return;
@@ -1070,8 +1191,8 @@ export function KernelViewer() {
     }
 
     const scene = new THREE.Scene();
-    scene.background = new THREE.Color("#0b1220");
-    scene.fog = new THREE.Fog("#0b1220", 24, 118);
+    scene.background = new THREE.Color("#edf1f7");
+    scene.fog = new THREE.Fog("#edf1f7", 34, 138);
 
     const camera = new THREE.PerspectiveCamera(
       46,
@@ -1115,7 +1236,7 @@ export function KernelViewer() {
     controls.target.copy(DEFAULT_CAMERA_TARGET);
     controls.update();
 
-    const grid = new THREE.GridHelper(30, 30, "#33415f", "#1d2740");
+    const grid = new THREE.GridHelper(30, 30, "#8596b6", "#b9c4d8");
     grid.material.opacity = 0.5;
     grid.material.transparent = true;
     scene.add(grid);
@@ -1145,10 +1266,10 @@ export function KernelViewer() {
     }
     scene.add(probe);
 
-    const key = new THREE.DirectionalLight("#cfdbff", 0.62);
+    const key = new THREE.DirectionalLight("#f6fbff", 0.65);
     key.position.set(3, 10, 7);
     scene.add(key);
-    scene.add(new THREE.AmbientLight("#6078ac", 0.45));
+    scene.add(new THREE.AmbientLight("#9eb0d2", 0.52));
 
     const onResize = (): void => {
       const width = viewport.clientWidth;
@@ -1166,9 +1287,9 @@ export function KernelViewer() {
           fallbackContext.save();
           fallbackContext.scale(window.devicePixelRatio, window.devicePixelRatio);
           fallbackContext.clearRect(0, 0, width, height);
-          fallbackContext.fillStyle = "#0b1220";
+          fallbackContext.fillStyle = "#edf1f7";
           fallbackContext.fillRect(0, 0, width, height);
-          fallbackContext.fillStyle = "#a7b6d8";
+          fallbackContext.fillStyle = "#576b89";
           fallbackContext.font = "600 13px sans-serif";
           fallbackContext.fillText("WebGL unavailable in this environment", 14, 28);
           fallbackContext.restore();
@@ -1454,121 +1575,9 @@ export function KernelViewer() {
     }
   }, [sampledPoints, zoomExtents]);
 
-  useEffect(() => {
-    const paneHost = paneHostRef.current;
-    if (!paneHost || !preset || !sessionRef.current) {
-      return;
-    }
-
-    paneHost.innerHTML = "";
-    const pane = new Pane({
-      container: paneHost,
-      title: "Curve Probe",
-    }) as unknown as PaneLike;
-    paneRef.current = pane;
-
-    const session = sessionRef.current;
-    const curveHandle = curveHandleRef.current;
-    const initialProbeLength =
-      session && curveHandle !== null ? session.curveLengthAt(curveHandle, probeTNormRef.current) : 0;
-
-    const exampleState = {
-      example: activeExample,
-      active: activeCurveName,
-      degree: activeDegreeLabel,
-    };
-    const showProbeControls = shouldShowProbeForExample(activeExample);
-
-    const exampleFolder = pane.addFolder({ title: "Example" });
-    exampleFolder
-      .addBinding(exampleState, "example", { options: EXAMPLE_OPTIONS, label: "curve" })
-      .on("change", (event: { value: unknown }) => {
-        const next = parseExampleSelection(event.value);
-        if (!next) {
-          appendLog("error", `Unknown example selection: ${String(event.value)}`);
-          return;
-        }
-        if (next === activeExample) {
-          return;
-        }
-        try {
-          updateCurveForExample(next, "Example switched");
-        } catch (error) {
-          setErrorMessage(error instanceof Error ? error.message : String(error));
-          appendLog("error", `Example switch failed: ${String(error)}`);
-        }
-      });
-    exampleFolder.addBinding(exampleState, "active", { readonly: true, label: "name" });
-    exampleFolder.addBinding(exampleState, "degree", { readonly: true, label: "type" });
-
-    if (showProbeControls) {
-      const probeState: ProbeUiState = {
-        tNorm: probeTNormRef.current,
-        x: probePointRef.current?.x ?? 0,
-        y: probePointRef.current?.y ?? 0,
-        z: probePointRef.current?.z ?? 0,
-        probeLength: initialProbeLength,
-        totalLength: totalLengthRef.current,
-      };
-      probeUiStateRef.current = probeState;
-
-      const probeFolder = pane.addFolder({ title: "Probe" });
-      probeFolder
-        .addBinding(probeState, "tNorm", { min: 0, max: 1, step: 0.0005, label: "t" })
-        .on("change", (event: { value: unknown; last?: boolean }) => {
-          const next = Math.min(1, Math.max(0, Number(event.value)));
-          probeTNormRef.current = next;
-          probeState.tNorm = next;
-
-          const liveSession = sessionRef.current;
-          const liveCurveHandle = curveHandleRef.current;
-
-          if (!liveSession || liveCurveHandle === null) {
-            return;
-          }
-
-          try {
-            const point = liveSession.pointAt(liveCurveHandle, next);
-            probePointRef.current = point;
-            if (probeRef.current) {
-              probeRef.current.position.set(point.x, point.y, point.z);
-              probeRef.current.visible = shouldShowProbeForExample(activeExample);
-            }
-            probeState.x = point.x;
-            probeState.y = point.y;
-            probeState.z = point.z;
-            probeState.probeLength = liveSession.curveLengthAt(liveCurveHandle, next);
-            probeState.totalLength = totalLengthRef.current;
-            setErrorMessage(null);
-            if (event.last) {
-              appendLog(
-                "debug",
-                `Probe t=${next.toFixed(5)} point=(${point.x.toFixed(5)}, ${point.y.toFixed(5)}, ${point.z.toFixed(5)}) len=${probeState.probeLength.toFixed(5)}/${probeState.totalLength.toFixed(5)}`,
-              );
-            }
-            pane.refresh?.();
-          } catch (error) {
-            setErrorMessage(error instanceof Error ? error.message : String(error));
-          }
-        });
-      probeFolder.addBinding(probeState, "x", { readonly: true });
-      probeFolder.addBinding(probeState, "y", { readonly: true });
-      probeFolder.addBinding(probeState, "z", { readonly: true });
-      probeFolder.addBinding(probeState, "probeLength", { readonly: true, label: "s(t)" });
-      probeFolder.addBinding(probeState, "totalLength", { readonly: true, label: "s(total)" });
-    } else {
-      probeUiStateRef.current = null;
-    }
-
-    return () => {
-      paneRef.current = null;
-      probeUiStateRef.current = null;
-      pane.dispose();
-    };
-  }, [activeCurveName, activeDegreeLabel, activeExample, appendLog, preset, updateCurveForExample]);
-
   const canExportIges = useMemo(() => capabilities.igesExport, [capabilities.igesExport]);
   const canImportIges = useMemo(() => capabilities.igesImport, [capabilities.igesImport]);
+  const showProbeControls = useMemo(() => shouldShowProbeForExample(activeExample), [activeExample]);
 
   const onSaveSession = useCallback(() => {
     if (!preset) {
@@ -1622,6 +1631,34 @@ export function KernelViewer() {
     sessionFileInputRef.current?.click();
   }, []);
 
+  const onClearLogs = useCallback(() => {
+    clearLogs();
+    setStatusMessage("Console cleared");
+  }, [clearLogs]);
+
+  const onExportLogs = useCallback(() => {
+    const filename = `rusted-geom-console-${fileSafeStamp()}.log`;
+    downloadText(filename, formatLogsAsText(logs));
+    setStatusMessage(`Console exported (${logs.length} entries)`);
+  }, [logs]);
+
+  const onExampleSelectionChange = useCallback(
+    (value: string): void => {
+      const next = parseExampleSelection(value);
+      if (!next || next === activeExample) {
+        return;
+      }
+      try {
+        updateCurveForExample(next, "Example switched");
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        setErrorMessage(message);
+        appendLog("error", `Example switch failed: ${message}`);
+      }
+    },
+    [activeExample, appendLog, updateCurveForExample],
+  );
+
   return (
     <div className="viewer-shell">
       <input
@@ -1639,75 +1676,224 @@ export function KernelViewer() {
       />
 
       <header className="toolbar" role="toolbar" aria-label="Viewer actions">
-        <div className="toolbar-left">
-          <button type="button" className="tool-btn" onClick={onLoadSessionClick}>
-            Load Session
+        <div className="toolbar-group">
+          <button
+            type="button"
+            className="tool-btn"
+            onClick={onLoadSessionClick}
+            aria-label="Load Session"
+            title="Load Session"
+          >
+            <ToolIcon>
+              <path d="M2.5 5.5h4.2l1.2 1.2h5.8v5.8H2.5z" />
+              <path d="M8 9.1v3.4" />
+              <path d="m6.6 11.1 1.4 1.4 1.4-1.4" />
+            </ToolIcon>
+            <span className="tool-label">Load Session</span>
           </button>
-          <button type="button" className="tool-btn" onClick={onSaveSession}>
-            Save Session
+          <button
+            type="button"
+            className="tool-btn"
+            onClick={onSaveSession}
+            aria-label="Save Session"
+            title="Save Session"
+          >
+            <ToolIcon>
+              <path d="M3 2.7h8.4l1.6 1.6V13.3H3z" />
+              <path d="M5 2.7v3.2h5.5V2.7" />
+              <path d="M5.2 10.6h5.5" />
+            </ToolIcon>
+            <span className="tool-label">Save Session</span>
           </button>
           <button
             type="button"
             className="tool-btn"
             disabled={!canImportIges}
             title="Kernel IGES import API pending"
+            aria-label="Load IGES"
           >
-            Load IGES
+            <ToolIcon>
+              <path d="M2.8 3.2h10.4v9.6H2.8z" />
+              <path d="M4.9 6.2h6.2" />
+              <path d="M4.9 8h4.2" />
+              <path d="M4.9 9.8h6.2" />
+            </ToolIcon>
+            <span className="tool-label">Load IGES</span>
           </button>
           <button
             type="button"
             className="tool-btn"
             disabled={!canExportIges}
             title="Kernel IGES export API pending"
+            aria-label="Save IGES"
           >
-            Save IGES
+            <ToolIcon>
+              <path d="M2.8 3.2h10.4v9.6H2.8z" />
+              <path d="M8 6v4.2" />
+              <path d="m6.4 8.7 1.6 1.6 1.6-1.6" />
+            </ToolIcon>
+            <span className="tool-label">Save IGES</span>
           </button>
         </div>
 
-        <div className="toolbar-center">
-          <button type="button" className="tool-btn" onClick={zoomExtents}>
-            Zoom Extents
+        <div className="toolbar-group">
+          <button
+            type="button"
+            className="tool-btn"
+            onClick={zoomExtents}
+            aria-label="Zoom Extents"
+            title="Zoom Extents"
+          >
+            <ToolIcon>
+              <rect x="3.2" y="3.2" width="9.6" height="9.6" />
+              <path d="M1.6 1.6 4 4" />
+              <path d="m14.4 1.6-2.4 2.4" />
+              <path d="m1.6 14.4 2.4-2.4" />
+              <path d="m14.4 14.4-2.4-2.4" />
+            </ToolIcon>
+            <span className="tool-label">Zoom Extents</span>
           </button>
-          <button type="button" className="tool-btn" onClick={resetCamera}>
-            Reset View
+          <button
+            type="button"
+            className="tool-btn"
+            onClick={resetCamera}
+            aria-label="Reset View"
+            title="Reset View"
+          >
+            <ToolIcon>
+              <path d="M8 2.6a5.4 5.4 0 1 0 5.1 7.2" />
+              <path d="M10.6 2.8h2.8v2.8" />
+              <path d="m10.8 5.6 2.6-2.8" />
+            </ToolIcon>
+            <span className="tool-label">Reset View</span>
           </button>
           <button
             type="button"
             className={`tool-btn ${orbitEnabled ? "is-active" : ""}`}
             onClick={() => setOrbitEnabled((value) => !value)}
+            aria-label="Orbit"
+            title="Orbit"
           >
-            Orbit
+            <ToolIcon>
+              <circle cx="8" cy="8" r="1.8" />
+              <ellipse cx="8" cy="8" rx="5.2" ry="2.8" />
+              <path d="M8 2.8a5.2 5.2 0 0 1 0 10.4" />
+            </ToolIcon>
+            <span className="tool-label">Orbit</span>
           </button>
           <button
             type="button"
             className={`tool-btn ${showGrid ? "is-active" : ""}`}
             onClick={() => setShowGrid((value) => !value)}
+            aria-label="Grid"
+            title="Grid"
           >
-            Grid
+            <ToolIcon>
+              <path d="M3 3h10v10H3z" />
+              <path d="M6.3 3v10" />
+              <path d="M9.7 3v10" />
+              <path d="M3 6.3h10" />
+              <path d="M3 9.7h10" />
+            </ToolIcon>
+            <span className="tool-label">Grid</span>
           </button>
           <button
             type="button"
             className={`tool-btn ${showAxes ? "is-active" : ""}`}
             onClick={() => setShowAxes((value) => !value)}
+            aria-label="Axes"
+            title="Axes"
           >
-            Axes
+            <ToolIcon>
+              <path d="M2.8 12.8 8 8" />
+              <path d="M8 8 13.2 3.2" />
+              <path d="M8 8v5.2" />
+              <circle cx="8" cy="8" r="1.1" />
+            </ToolIcon>
+            <span className="tool-label">Axes</span>
           </button>
-          <button type="button" className="tool-btn" onClick={onSaveScreenshot}>
-            Save PNG
+          <button
+            type="button"
+            className="tool-btn"
+            onClick={onSaveScreenshot}
+            aria-label="Save PNG"
+            title="Save PNG"
+          >
+            <ToolIcon>
+              <rect x="2.8" y="4.1" width="10.4" height="8.2" rx="1.2" ry="1.2" />
+              <path d="m5.2 9.8 1.8-1.8 1.8 1.8 1.3-1.3 1.9 1.9" />
+              <circle cx="6.1" cy="6.6" r="0.8" />
+            </ToolIcon>
+            <span className="tool-label">Save PNG</span>
           </button>
         </div>
 
-        <div className="toolbar-right">
+        <div className="toolbar-group">
           <button
             type="button"
-            className="tool-btn mobile-pane-toggle"
-            onClick={() => setMobilePaneOpen((open) => !open)}
+            className={`tool-btn ${isInspectorOpen ? "is-active" : ""}`}
+            onClick={toggleInspector}
+            aria-label="Toggle Controls"
+            title="Toggle Controls"
           >
-            Params
+            <ToolIcon>
+              <path d="M3 4.2h10" />
+              <path d="M3 8h10" />
+              <path d="M3 11.8h10" />
+              <circle cx="5.4" cy="4.2" r="0.9" />
+              <circle cx="10.6" cy="8" r="0.9" />
+              <circle cx="7.2" cy="11.8" r="0.9" />
+            </ToolIcon>
+            <span className="tool-label">Controls</span>
           </button>
-          <div className="status-pill" aria-live="polite">
-            {errorMessage ? `Error: ${errorMessage}` : statusMessage}
-          </div>
+          <button
+            type="button"
+            className={`tool-btn ${isConsoleOpen ? "is-active" : ""}`}
+            onClick={toggleConsole}
+            aria-label="Toggle Console"
+            title="Toggle Console"
+          >
+            <ToolIcon>
+              <rect x="2.6" y="3.1" width="10.8" height="9.8" rx="1.4" ry="1.4" />
+              <path d="M4.7 10.2h6.6" />
+              <path d="M4.7 7.8h3.8" />
+            </ToolIcon>
+            <span className="tool-label">Console</span>
+          </button>
+          <button
+            type="button"
+            className="tool-btn"
+            onClick={onExportLogs}
+            aria-label="Export Logs"
+            title="Export Logs"
+          >
+            <ToolIcon>
+              <path d="M8 2.5v7.2" />
+              <path d="m5.6 7.3 2.4 2.4 2.4-2.4" />
+              <path d="M3 11.1h10v2.2H3z" />
+            </ToolIcon>
+            <span className="tool-label">Export Logs</span>
+          </button>
+          <button
+            type="button"
+            className="tool-btn"
+            onClick={onClearLogs}
+            aria-label="Clear Logs"
+            title="Clear Logs"
+          >
+            <ToolIcon>
+              <path d="M3.9 4.2h8.2" />
+              <path d="M5 4.2v8.1h6v-8.1" />
+              <path d="M6.3 6.1v4.2" />
+              <path d="M9.7 6.1v4.2" />
+              <path d="M6.1 2.8h3.8" />
+            </ToolIcon>
+            <span className="tool-label">Clear Logs</span>
+          </button>
+        </div>
+
+        <div className="status-pill" aria-live="polite">
+          {errorMessage ? `Error: ${errorMessage}` : statusMessage}
         </div>
       </header>
 
@@ -1716,26 +1902,129 @@ export function KernelViewer() {
           <div ref={viewportRef} className="viewport" aria-label="Three.js viewport" />
         </section>
       </main>
-      <div
-        ref={paneHostRef}
-        className={`pane-host ${mobilePaneOpen ? "mobile-open" : ""}`}
-        aria-label="Tweakpane controls"
-      />
-      <aside className="kernel-console" aria-label="Kernel console">
+
+      <aside
+        className={`inspector-panel ${isInspectorOpen ? "is-open" : "is-collapsed"}`}
+        aria-label="Viewer controls"
+        aria-hidden={!isInspectorOpen}
+      >
+        <div className="inspector-header">
+          <strong>Controls</strong>
+        </div>
+        <div className="inspector-body">
+          <section className="inspector-section" aria-label="Example selection">
+            <h2>Example</h2>
+            <label className="inspector-field">
+              <span>Curve</span>
+              <select
+                value={activeExample}
+                onChange={(event) => {
+                  onExampleSelectionChange(event.currentTarget.value);
+                }}
+              >
+                {Object.entries(EXAMPLE_OPTIONS).map(([label, value]) => (
+                  <option key={value} value={value}>
+                    {label}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <div className="inspector-readout">
+              <span>Name</span>
+              <output>{activeCurveName}</output>
+            </div>
+            <div className="inspector-readout">
+              <span>Type</span>
+              <output>{activeDegreeLabel}</output>
+            </div>
+          </section>
+
+          {showProbeControls ? (
+            <section className="inspector-section" aria-label="Probe controls">
+              <h2>Probe</h2>
+              <label className="inspector-field">
+                <span>t</span>
+                <input
+                  type="range"
+                  min={0}
+                  max={1}
+                  step={0.0005}
+                  value={probeUiState.tNorm}
+                  onChange={(event) => {
+                    updateProbeForT(Number(event.currentTarget.value), false);
+                  }}
+                  onPointerUp={(event) => {
+                    updateProbeForT(Number(event.currentTarget.value), true);
+                  }}
+                  onTouchEnd={(event) => {
+                    updateProbeForT(Number(event.currentTarget.value), true);
+                  }}
+                />
+              </label>
+              <div className="inspector-readout">
+                <span>t value</span>
+                <output>{probeUiState.tNorm.toFixed(5)}</output>
+              </div>
+              <div className="inspector-readout">
+                <span>x</span>
+                <output>{probeUiState.x.toFixed(5)}</output>
+              </div>
+              <div className="inspector-readout">
+                <span>y</span>
+                <output>{probeUiState.y.toFixed(5)}</output>
+              </div>
+              <div className="inspector-readout">
+                <span>z</span>
+                <output>{probeUiState.z.toFixed(5)}</output>
+              </div>
+              <div className="inspector-readout">
+                <span>s(t)</span>
+                <output>{probeUiState.probeLength.toFixed(5)}</output>
+              </div>
+              <div className="inspector-readout">
+                <span>s(total)</span>
+                <output>{probeUiState.totalLength.toFixed(5)}</output>
+              </div>
+            </section>
+          ) : (
+            <section className="inspector-section" aria-label="Probe controls unavailable">
+              <h2>Probe</h2>
+              <p className="inspector-note">
+                Probe readout is hidden for intersection-focused examples.
+              </p>
+            </section>
+          )}
+        </div>
+      </aside>
+
+      <aside
+        className={`kernel-console ${isConsoleOpen ? "is-open" : "is-collapsed"}`}
+        aria-label="Kernel console"
+        aria-hidden={!isConsoleOpen}
+      >
         <div className="kernel-console-header">
           <strong>Kernel Console</strong>
-          <button type="button" className="tool-btn" onClick={clearLogs}>
-            Clear
-          </button>
+          <div className="kernel-console-actions">
+            <button type="button" className="tool-btn" onClick={onExportLogs}>
+              Export
+            </button>
+            <button type="button" className="tool-btn" onClick={onClearLogs}>
+              Clear
+            </button>
+          </div>
         </div>
         <div ref={logBodyRef} className="kernel-console-body">
-          {logs.map((entry) => (
-            <div key={entry.id} className={`kernel-log kernel-log-${entry.level}`}>
-              <span className="kernel-log-time">{entry.time}</span>
-              <span className="kernel-log-level">{entry.level.toUpperCase()}</span>
-              <span className="kernel-log-message">{entry.message}</span>
-            </div>
-          ))}
+          {logs.length > 0 ? (
+            logs.map((entry) => (
+              <div key={entry.id} className={`kernel-log kernel-log-${entry.level}`}>
+                <span className="kernel-log-time">{entry.time}</span>
+                <span className="kernel-log-level">{entry.level.toUpperCase()}</span>
+                <span className="kernel-log-message">{entry.message}</span>
+              </div>
+            ))
+          ) : (
+            <div className="kernel-console-empty">No logs yet.</div>
+          )}
         </div>
       </aside>
     </div>

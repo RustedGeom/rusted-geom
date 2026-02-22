@@ -1,6 +1,6 @@
 # Rusted Geom Showcase
 
-Next.js 16 app that visualizes Rusted Geom kernel output through wasm using a full-page Three.js viewer and Tweakpane controls.
+Next.js 16 app that visualizes Rusted Geom kernel output through wasm using a full-page Three.js viewer with custom toolbar, inspector, and console panels.
 
 ## Dev Workflow
 

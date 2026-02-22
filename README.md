@@ -7,7 +7,7 @@ Metadata-driven geometry kernel binding pipeline in Rust.
 - `crates/kernel-ffi`: session-scoped C ABI surface.
 - `tools/abi-gen`: metadata extractor and binding generator.
 - `bindings/web`: generated TypeScript facade + typed WASM runtime bridge.
-- `showcase`: Next.js full-page Three.js + Tweakpane kernel viewer.
+- `showcase`: Next.js full-page Three.js kernel viewer with a custom inspector/console UI.
 
 ## Scripts
 

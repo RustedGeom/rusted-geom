@@ -1,12 +1,14 @@
 import { expect, test } from "@playwright/test";
 
 test.describe("viewer shell", () => {
-  test("loads, renders viewport, and shows toolbar controls", async ({ page, isMobile }) => {
+  test("loads, renders viewport, and exposes toolbar and console actions", async ({ page, isMobile }) => {
     test.skip(isMobile, "Desktop-only smoke check");
     await page.goto("/");
 
     await expect(page.locator(".toolbar")).toBeVisible();
     await expect(page.locator(".viewport canvas")).toBeVisible();
+    await expect(page.locator(".inspector-panel.is-open")).toBeVisible();
+    await expect(page.locator(".kernel-console.is-open")).toBeVisible();
 
     await expect(page.getByRole("button", { name: "Load IGES" })).toBeDisabled();
     await expect(page.getByRole("button", { name: "Save IGES" })).toBeDisabled();
@@ -14,6 +16,21 @@ test.describe("viewer shell", () => {
     await page.getByRole("button", { name: "Zoom Extents" }).click();
     await page.getByRole("button", { name: "Orbit" }).click();
     await page.getByRole("button", { name: "Orbit" }).click();
+
+    await page.getByRole("button", { name: "Toggle Console" }).click();
+    await expect(page.locator(".kernel-console.is-collapsed")).toBeVisible();
+    await page.getByRole("button", { name: "Toggle Console" }).click();
+    await expect(page.locator(".kernel-console.is-open")).toBeVisible();
+
+    const logDownloadPromise = page.waitForEvent("download");
+    await page.getByRole("button", { name: "Export Logs" }).click();
+    const logDownload = await logDownloadPromise;
+    expect(logDownload.suggestedFilename()).toMatch(/^rusted-geom-console-.*\.log$/);
+
+    await expect(page.locator(".kernel-log").first()).toBeVisible();
+    await page.getByRole("button", { name: "Clear Logs" }).click();
+    await expect(page.locator(".kernel-log")).toHaveCount(0);
+    await expect(page.locator(".kernel-console-empty")).toBeVisible();
   });
 
   test("saves and loads a session json", async ({ page, isMobile }) => {
@@ -68,13 +85,19 @@ test.describe("viewer shell", () => {
     await expect(page.getByText("Session loaded")).toBeVisible();
   });
 
-  test("mobile viewport exposes params toggle", async ({ page, isMobile }) => {
+  test("mobile viewport coordinates controls drawer and console dock", async ({ page, isMobile }) => {
     test.skip(!isMobile, "Mobile-only expectation");
     await page.goto("/");
 
-    const paramsButton = page.locator(".mobile-pane-toggle");
-    await expect(paramsButton).toBeVisible();
-    await paramsButton.click();
-    await expect(page.locator(".pane-host.mobile-open")).toBeVisible();
+    const controlsButton = page.getByRole("button", { name: "Toggle Controls" });
+    const consoleButton = page.getByRole("button", { name: "Toggle Console" });
+
+    await controlsButton.click();
+    await expect(page.locator(".inspector-panel.is-open")).toBeVisible();
+    await expect(page.locator(".kernel-console.is-collapsed")).toBeVisible();
+
+    await consoleButton.click();
+    await expect(page.locator(".kernel-console.is-open")).toBeVisible();
+    await expect(page.locator(".inspector-panel.is-collapsed")).toBeVisible();
   });
 });
