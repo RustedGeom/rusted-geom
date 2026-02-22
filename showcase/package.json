@@ -1,0 +1,34 @@
+{
+  "name": "showcase",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "wasm:build": "../scripts/build_kernel_wasm.sh",
+    "dev": "pnpm wasm:build && next dev",
+    "build": "pnpm wasm:build && next build",
+    "start": "next start",
+    "lint": "eslint",
+    "test:unit": "vitest run",
+    "test:e2e": "playwright test",
+    "test": "pnpm test:unit && pnpm test:e2e"
+  },
+  "dependencies": {
+    "@rusted-geom/bindings-web": "workspace:*",
+    "next": "16.1.6",
+    "react": "19.2.4",
+    "react-dom": "19.2.4",
+    "three": "0.183.1",
+    "tweakpane": "4.0.5"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.55.0",
+    "@types/node": "^24.4.0",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "@types/three": "0.183.1",
+    "eslint": "^9",
+    "eslint-config-next": "16.1.6",
+    "typescript": "^5.9.3",
+    "vitest": "^3.2.4"
+  }
+}

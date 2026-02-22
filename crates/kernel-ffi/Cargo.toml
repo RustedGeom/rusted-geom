@@ -1,0 +1,16 @@
+[package]
+name = "kernel-ffi"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+
+[lib]
+crate-type = ["rlib", "cdylib"]
+
+[dependencies]
+kernel-abi-meta = { path = "../kernel-abi-meta" }
+once_cell.workspace = true
+
+[dev-dependencies]
+serde_json.workspace = true

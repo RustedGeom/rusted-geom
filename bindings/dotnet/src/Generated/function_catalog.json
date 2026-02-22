@@ -1,0 +1,19 @@
+[
+  "Create",
+  "D0",
+  "D0AtLength",
+  "D1",
+  "D1AtLength",
+  "D2",
+  "D2AtLength",
+  "Dispose",
+  "InterpolateNurbsFitPoints",
+  "NormalAt",
+  "NormalAtLength",
+  "PlaneAt",
+  "PlaneAtLength",
+  "PointAt",
+  "PointAtLength",
+  "TangentAt",
+  "TangentAtLength"
+]

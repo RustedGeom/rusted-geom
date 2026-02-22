@@ -1,0 +1,876 @@
+{
+  "crate_name": "kernel-ffi",
+  "version": "1.0.0",
+  "abi_hash": "5e6878cb4cb395d1a3154ead424735a170510dadf75d5a8d7c8175e7b867461b",
+  "functions": [
+    {
+      "rust_name": "rgm_alloc",
+      "c_name": "rgm_alloc",
+      "interop_dotnet_name": "InteropAlloc",
+      "interop_ts_name": "interopAlloc",
+      "compat_ts_name": "alloc",
+      "public_dotnet_name": null,
+      "public_ts_name": null,
+      "receiver": null,
+      "return_type": "RgmStatus",
+      "params": [
+        {
+          "name": "byte_len",
+          "ty": "usize"
+        },
+        {
+          "name": "align",
+          "ty": "usize"
+        },
+        {
+          "name": "out_ptr",
+          "ty": "*mut*mutu8"
+        }
+      ]
+    },
+    {
+      "rust_name": "rgm_alloc_addr",
+      "c_name": "rgm_alloc_addr",
+      "interop_dotnet_name": "InteropAllocAddr",
+      "interop_ts_name": "interopAllocAddr",
+      "compat_ts_name": "allocAddr",
+      "public_dotnet_name": null,
+      "public_ts_name": null,
+      "receiver": null,
+      "return_type": "usize",
+      "params": [
+        {
+          "name": "byte_len",
+          "ty": "usize"
+        },
+        {
+          "name": "align",
+          "ty": "usize"
+        }
+      ]
+    },
+    {
+      "rust_name": "rgm_curve_d0_at",
+      "c_name": "rgm_curve_d0_at",
+      "interop_dotnet_name": "InteropCurveD0At",
+      "interop_ts_name": "interopCurveD0At",
+      "compat_ts_name": "curveD0At",
+      "public_dotnet_name": "D0",
+      "public_ts_name": "d0",
+      "receiver": "curve",
+      "return_type": "RgmStatus",
+      "params": [
+        {
+          "name": "session",
+          "ty": "RgmKernelHandle"
+        },
+        {
+          "name": "curve",
+          "ty": "RgmObjectHandle"
+        },
+        {
+          "name": "t_norm",
+          "ty": "f64"
+        },
+        {
+          "name": "out_point",
+          "ty": "*mutRgmPoint3"
+        }
+      ]
+    },
+    {
+      "rust_name": "rgm_curve_d0_at_length",
+      "c_name": "rgm_curve_d0_at_length",
+      "interop_dotnet_name": "InteropCurveD0AtLength",
+      "interop_ts_name": "interopCurveD0AtLength",
+      "compat_ts_name": "curveD0AtLength",
+      "public_dotnet_name": "D0AtLength",
+      "public_ts_name": "d0AtLength",
+      "receiver": "curve",
+      "return_type": "RgmStatus",
+      "params": [
+        {
+          "name": "session",
+          "ty": "RgmKernelHandle"
+        },
+        {
+          "name": "curve",
+          "ty": "RgmObjectHandle"
+        },
+        {
+          "name": "distance_length",
+          "ty": "f64"
+        },
+        {
+          "name": "out_point",
+          "ty": "*mutRgmPoint3"
+        }
+      ]
+    },
+    {
+      "rust_name": "rgm_curve_d1_at",
+      "c_name": "rgm_curve_d1_at",
+      "interop_dotnet_name": "InteropCurveD1At",
+      "interop_ts_name": "interopCurveD1At",
+      "compat_ts_name": "curveD1At",
+      "public_dotnet_name": "D1",
+      "public_ts_name": "d1",
+      "receiver": "curve",
+      "return_type": "RgmStatus",
+      "params": [
+        {
+          "name": "session",
+          "ty": "RgmKernelHandle"
+        },
+        {
+          "name": "curve",
+          "ty": "RgmObjectHandle"
+        },
+        {
+          "name": "t_norm",
+          "ty": "f64"
+        },
+        {
+          "name": "out_d1",
+          "ty": "*mutRgmVec3"
+        }
+      ]
+    },
+    {
+      "rust_name": "rgm_curve_d1_at_length",
+      "c_name": "rgm_curve_d1_at_length",
+      "interop_dotnet_name": "InteropCurveD1AtLength",
+      "interop_ts_name": "interopCurveD1AtLength",
+      "compat_ts_name": "curveD1AtLength",
+      "public_dotnet_name": "D1AtLength",
+      "public_ts_name": "d1AtLength",
+      "receiver": "curve",
+      "return_type": "RgmStatus",
+      "params": [
+        {
+          "name": "session",
+          "ty": "RgmKernelHandle"
+        },
+        {
+          "name": "curve",
+          "ty": "RgmObjectHandle"
+        },
+        {
+          "name": "distance_length",
+          "ty": "f64"
+        },
+        {
+          "name": "out_d1",
+          "ty": "*mutRgmVec3"
+        }
+      ]
+    },
+    {
+      "rust_name": "rgm_curve_d2_at",
+      "c_name": "rgm_curve_d2_at",
+      "interop_dotnet_name": "InteropCurveD2At",
+      "interop_ts_name": "interopCurveD2At",
+      "compat_ts_name": "curveD2At",
+      "public_dotnet_name": "D2",
+      "public_ts_name": "d2",
+      "receiver": "curve",
+      "return_type": "RgmStatus",
+      "params": [
+        {
+          "name": "session",
+          "ty": "RgmKernelHandle"
+        },
+        {
+          "name": "curve",
+          "ty": "RgmObjectHandle"
+        },
+        {
+          "name": "_t_norm",
+          "ty": "f64"
+        },
+        {
+          "name": "out_derivative",
+          "ty": "*mutRgmVec3"
+        }
+      ]
+    },
+    {
+      "rust_name": "rgm_curve_d2_at_length",
+      "c_name": "rgm_curve_d2_at_length",
+      "interop_dotnet_name": "InteropCurveD2AtLength",
+      "interop_ts_name": "interopCurveD2AtLength",
+      "compat_ts_name": "curveD2AtLength",
+      "public_dotnet_name": "D2AtLength",
+      "public_ts_name": "d2AtLength",
+      "receiver": "curve",
+      "return_type": "RgmStatus",
+      "params": [
+        {
+          "name": "session",
+          "ty": "RgmKernelHandle"
+        },
+        {
+          "name": "curve",
+          "ty": "RgmObjectHandle"
+        },
+        {
+          "name": "_distance_length",
+          "ty": "f64"
+        },
+        {
+          "name": "out_derivative",
+          "ty": "*mutRgmVec3"
+        }
+      ]
+    },
+    {
+      "rust_name": "rgm_curve_normal_at",
+      "c_name": "rgm_curve_normal_at",
+      "interop_dotnet_name": "InteropCurveNormalAt",
+      "interop_ts_name": "interopCurveNormalAt",
+      "compat_ts_name": "curveNormalAt",
+      "public_dotnet_name": "NormalAt",
+      "public_ts_name": "normalAt",
+      "receiver": "curve",
+      "return_type": "RgmStatus",
+      "params": [
+        {
+          "name": "session",
+          "ty": "RgmKernelHandle"
+        },
+        {
+          "name": "curve",
+          "ty": "RgmObjectHandle"
+        },
+        {
+          "name": "t_norm",
+          "ty": "f64"
+        },
+        {
+          "name": "out_normal",
+          "ty": "*mutRgmVec3"
+        }
+      ]
+    },
+    {
+      "rust_name": "rgm_curve_normal_at_length",
+      "c_name": "rgm_curve_normal_at_length",
+      "interop_dotnet_name": "InteropCurveNormalAtLength",
+      "interop_ts_name": "interopCurveNormalAtLength",
+      "compat_ts_name": "curveNormalAtLength",
+      "public_dotnet_name": "NormalAtLength",
+      "public_ts_name": "normalAtLength",
+      "receiver": "curve",
+      "return_type": "RgmStatus",
+      "params": [
+        {
+          "name": "session",
+          "ty": "RgmKernelHandle"
+        },
+        {
+          "name": "curve",
+          "ty": "RgmObjectHandle"
+        },
+        {
+          "name": "distance_length",
+          "ty": "f64"
+        },
+        {
+          "name": "out_normal",
+          "ty": "*mutRgmVec3"
+        }
+      ]
+    },
+    {
+      "rust_name": "rgm_curve_plane_at",
+      "c_name": "rgm_curve_plane_at",
+      "interop_dotnet_name": "InteropCurvePlaneAt",
+      "interop_ts_name": "interopCurvePlaneAt",
+      "compat_ts_name": "curvePlaneAt",
+      "public_dotnet_name": "PlaneAt",
+      "public_ts_name": "planeAt",
+      "receiver": "curve",
+      "return_type": "RgmStatus",
+      "params": [
+        {
+          "name": "session",
+          "ty": "RgmKernelHandle"
+        },
+        {
+          "name": "curve",
+          "ty": "RgmObjectHandle"
+        },
+        {
+          "name": "t_norm",
+          "ty": "f64"
+        },
+        {
+          "name": "out_plane",
+          "ty": "*mutRgmPlane"
+        }
+      ]
+    },
+    {
+      "rust_name": "rgm_curve_plane_at_length",
+      "c_name": "rgm_curve_plane_at_length",
+      "interop_dotnet_name": "InteropCurvePlaneAtLength",
+      "interop_ts_name": "interopCurvePlaneAtLength",
+      "compat_ts_name": "curvePlaneAtLength",
+      "public_dotnet_name": "PlaneAtLength",
+      "public_ts_name": "planeAtLength",
+      "receiver": "curve",
+      "return_type": "RgmStatus",
+      "params": [
+        {
+          "name": "session",
+          "ty": "RgmKernelHandle"
+        },
+        {
+          "name": "curve",
+          "ty": "RgmObjectHandle"
+        },
+        {
+          "name": "distance_length",
+          "ty": "f64"
+        },
+        {
+          "name": "out_plane",
+          "ty": "*mutRgmPlane"
+        }
+      ]
+    },
+    {
+      "rust_name": "rgm_curve_point_at",
+      "c_name": "rgm_curve_point_at",
+      "interop_dotnet_name": "InteropCurvePointAt",
+      "interop_ts_name": "interopCurvePointAt",
+      "compat_ts_name": "curvePointAt",
+      "public_dotnet_name": "PointAt",
+      "public_ts_name": "pointAt",
+      "receiver": "curve",
+      "return_type": "RgmStatus",
+      "params": [
+        {
+          "name": "session",
+          "ty": "RgmKernelHandle"
+        },
+        {
+          "name": "curve",
+          "ty": "RgmObjectHandle"
+        },
+        {
+          "name": "t_norm",
+          "ty": "f64"
+        },
+        {
+          "name": "out_point",
+          "ty": "*mutRgmPoint3"
+        }
+      ]
+    },
+    {
+      "rust_name": "rgm_curve_point_at_length",
+      "c_name": "rgm_curve_point_at_length",
+      "interop_dotnet_name": "InteropCurvePointAtLength",
+      "interop_ts_name": "interopCurvePointAtLength",
+      "compat_ts_name": "curvePointAtLength",
+      "public_dotnet_name": "PointAtLength",
+      "public_ts_name": "pointAtLength",
+      "receiver": "curve",
+      "return_type": "RgmStatus",
+      "params": [
+        {
+          "name": "session",
+          "ty": "RgmKernelHandle"
+        },
+        {
+          "name": "curve",
+          "ty": "RgmObjectHandle"
+        },
+        {
+          "name": "distance_length",
+          "ty": "f64"
+        },
+        {
+          "name": "out_point",
+          "ty": "*mutRgmPoint3"
+        }
+      ]
+    },
+    {
+      "rust_name": "rgm_curve_tangent_at",
+      "c_name": "rgm_curve_tangent_at",
+      "interop_dotnet_name": "InteropCurveTangentAt",
+      "interop_ts_name": "interopCurveTangentAt",
+      "compat_ts_name": "curveTangentAt",
+      "public_dotnet_name": "TangentAt",
+      "public_ts_name": "tangentAt",
+      "receiver": "curve",
+      "return_type": "RgmStatus",
+      "params": [
+        {
+          "name": "session",
+          "ty": "RgmKernelHandle"
+        },
+        {
+          "name": "curve",
+          "ty": "RgmObjectHandle"
+        },
+        {
+          "name": "t_norm",
+          "ty": "f64"
+        },
+        {
+          "name": "out_tangent",
+          "ty": "*mutRgmVec3"
+        }
+      ]
+    },
+    {
+      "rust_name": "rgm_curve_tangent_at_length",
+      "c_name": "rgm_curve_tangent_at_length",
+      "interop_dotnet_name": "InteropCurveTangentAtLength",
+      "interop_ts_name": "interopCurveTangentAtLength",
+      "compat_ts_name": "curveTangentAtLength",
+      "public_dotnet_name": "TangentAtLength",
+      "public_ts_name": "tangentAtLength",
+      "receiver": "curve",
+      "return_type": "RgmStatus",
+      "params": [
+        {
+          "name": "session",
+          "ty": "RgmKernelHandle"
+        },
+        {
+          "name": "curve",
+          "ty": "RgmObjectHandle"
+        },
+        {
+          "name": "distance_length",
+          "ty": "f64"
+        },
+        {
+          "name": "out_tangent",
+          "ty": "*mutRgmVec3"
+        }
+      ]
+    },
+    {
+      "rust_name": "rgm_dealloc",
+      "c_name": "rgm_dealloc",
+      "interop_dotnet_name": "InteropDealloc",
+      "interop_ts_name": "interopDealloc",
+      "compat_ts_name": "dealloc",
+      "public_dotnet_name": null,
+      "public_ts_name": null,
+      "receiver": null,
+      "return_type": "RgmStatus",
+      "params": [
+        {
+          "name": "ptr",
+          "ty": "*mutu8"
+        },
+        {
+          "name": "byte_len",
+          "ty": "usize"
+        },
+        {
+          "name": "align",
+          "ty": "usize"
+        }
+      ]
+    },
+    {
+      "rust_name": "rgm_intersect_curve_curve",
+      "c_name": "rgm_intersect_curve_curve",
+      "interop_dotnet_name": "InteropIntersectCurveCurve",
+      "interop_ts_name": "interopIntersectCurveCurve",
+      "compat_ts_name": "intersectCurveCurve",
+      "public_dotnet_name": null,
+      "public_ts_name": null,
+      "receiver": null,
+      "return_type": "RgmStatus",
+      "params": [
+        {
+          "name": "session",
+          "ty": "RgmKernelHandle"
+        },
+        {
+          "name": "_curve_a",
+          "ty": "RgmObjectHandle"
+        },
+        {
+          "name": "_curve_b",
+          "ty": "RgmObjectHandle"
+        },
+        {
+          "name": "out_count",
+          "ty": "*mutusize"
+        }
+      ]
+    },
+    {
+      "rust_name": "rgm_intersect_curve_plane",
+      "c_name": "rgm_intersect_curve_plane",
+      "interop_dotnet_name": "InteropIntersectCurvePlane",
+      "interop_ts_name": "interopIntersectCurvePlane",
+      "compat_ts_name": "intersectCurvePlane",
+      "public_dotnet_name": null,
+      "public_ts_name": null,
+      "receiver": null,
+      "return_type": "RgmStatus",
+      "params": [
+        {
+          "name": "session",
+          "ty": "RgmKernelHandle"
+        },
+        {
+          "name": "_curve",
+          "ty": "RgmObjectHandle"
+        },
+        {
+          "name": "_plane",
+          "ty": "RgmPlane"
+        },
+        {
+          "name": "out_count",
+          "ty": "*mutusize"
+        }
+      ]
+    },
+    {
+      "rust_name": "rgm_kernel_create",
+      "c_name": "rgm_kernel_create",
+      "interop_dotnet_name": "InteropKernelCreate",
+      "interop_ts_name": "interopKernelCreate",
+      "compat_ts_name": "kernelCreate",
+      "public_dotnet_name": "Create",
+      "public_ts_name": "create",
+      "receiver": "kernel_static",
+      "return_type": "RgmStatus",
+      "params": [
+        {
+          "name": "out_session",
+          "ty": "*mutRgmKernelHandle"
+        }
+      ]
+    },
+    {
+      "rust_name": "rgm_kernel_destroy",
+      "c_name": "rgm_kernel_destroy",
+      "interop_dotnet_name": "InteropKernelDestroy",
+      "interop_ts_name": "interopKernelDestroy",
+      "compat_ts_name": "kernelDestroy",
+      "public_dotnet_name": "Dispose",
+      "public_ts_name": "dispose",
+      "receiver": "kernel",
+      "return_type": "RgmStatus",
+      "params": [
+        {
+          "name": "session",
+          "ty": "RgmKernelHandle"
+        }
+      ]
+    },
+    {
+      "rust_name": "rgm_last_error_code",
+      "c_name": "rgm_last_error_code",
+      "interop_dotnet_name": "InteropLastErrorCode",
+      "interop_ts_name": "interopLastErrorCode",
+      "compat_ts_name": "lastErrorCode",
+      "public_dotnet_name": null,
+      "public_ts_name": null,
+      "receiver": null,
+      "return_type": "RgmStatus",
+      "params": [
+        {
+          "name": "session",
+          "ty": "RgmKernelHandle"
+        },
+        {
+          "name": "out_code",
+          "ty": "*muti32"
+        }
+      ]
+    },
+    {
+      "rust_name": "rgm_last_error_message",
+      "c_name": "rgm_last_error_message",
+      "interop_dotnet_name": "InteropLastErrorMessage",
+      "interop_ts_name": "interopLastErrorMessage",
+      "compat_ts_name": "lastErrorMessage",
+      "public_dotnet_name": null,
+      "public_ts_name": null,
+      "receiver": null,
+      "return_type": "RgmStatus",
+      "params": [
+        {
+          "name": "session",
+          "ty": "RgmKernelHandle"
+        },
+        {
+          "name": "buffer",
+          "ty": "*mutu8"
+        },
+        {
+          "name": "buffer_len",
+          "ty": "usize"
+        },
+        {
+          "name": "out_written",
+          "ty": "*mutusize"
+        }
+      ]
+    },
+    {
+      "rust_name": "rgm_nurbs_interpolate_fit_points",
+      "c_name": "rgm_nurbs_interpolate_fit_points",
+      "interop_dotnet_name": "InteropNurbsInterpolateFitPoints",
+      "interop_ts_name": "interopNurbsInterpolateFitPoints",
+      "compat_ts_name": "nurbsInterpolateFitPoints",
+      "public_dotnet_name": "InterpolateNurbsFitPoints",
+      "public_ts_name": "interpolateNurbsFitPoints",
+      "receiver": "kernel",
+      "return_type": "RgmStatus",
+      "params": [
+        {
+          "name": "session",
+          "ty": "RgmKernelHandle"
+        },
+        {
+          "name": "points",
+          "ty": "*constRgmPoint3"
+        },
+        {
+          "name": "point_count",
+          "ty": "usize"
+        },
+        {
+          "name": "degree",
+          "ty": "u32"
+        },
+        {
+          "name": "closed",
+          "ty": "bool"
+        },
+        {
+          "name": "tol",
+          "ty": "RgmToleranceContext"
+        },
+        {
+          "name": "out_object",
+          "ty": "*mutRgmObjectHandle"
+        }
+      ]
+    },
+    {
+      "rust_name": "rgm_nurbs_interpolate_fit_points_ptr_tol",
+      "c_name": "rgm_nurbs_interpolate_fit_points_ptr_tol",
+      "interop_dotnet_name": "InteropNurbsInterpolateFitPointsPtrTol",
+      "interop_ts_name": "interopNurbsInterpolateFitPointsPtrTol",
+      "compat_ts_name": "nurbsInterpolateFitPointsPtrTol",
+      "public_dotnet_name": null,
+      "public_ts_name": null,
+      "receiver": null,
+      "return_type": "RgmStatus",
+      "params": [
+        {
+          "name": "session",
+          "ty": "RgmKernelHandle"
+        },
+        {
+          "name": "points",
+          "ty": "*constRgmPoint3"
+        },
+        {
+          "name": "point_count",
+          "ty": "usize"
+        },
+        {
+          "name": "degree",
+          "ty": "u32"
+        },
+        {
+          "name": "closed",
+          "ty": "bool"
+        },
+        {
+          "name": "tol",
+          "ty": "*constRgmToleranceContext"
+        },
+        {
+          "name": "out_object",
+          "ty": "*mutRgmObjectHandle"
+        }
+      ]
+    },
+    {
+      "rust_name": "rgm_object_release",
+      "c_name": "rgm_object_release",
+      "interop_dotnet_name": "InteropObjectRelease",
+      "interop_ts_name": "interopObjectRelease",
+      "compat_ts_name": "objectRelease",
+      "public_dotnet_name": null,
+      "public_ts_name": null,
+      "receiver": null,
+      "return_type": "RgmStatus",
+      "params": [
+        {
+          "name": "session",
+          "ty": "RgmKernelHandle"
+        },
+        {
+          "name": "object",
+          "ty": "RgmObjectHandle"
+        }
+      ]
+    }
+  ],
+  "ffi_types": [
+    {
+      "kind": "Struct",
+      "name": "RgmKernelHandle",
+      "repr": "transparent",
+      "fields": [
+        {
+          "name": "field0",
+          "ty": "u64"
+        }
+      ]
+    },
+    {
+      "kind": "Struct",
+      "name": "RgmObjectHandle",
+      "repr": "transparent",
+      "fields": [
+        {
+          "name": "field0",
+          "ty": "u64"
+        }
+      ]
+    },
+    {
+      "kind": "Struct",
+      "name": "RgmPlane",
+      "repr": "C",
+      "fields": [
+        {
+          "name": "origin",
+          "ty": "RgmPoint3"
+        },
+        {
+          "name": "x_axis",
+          "ty": "RgmVec3"
+        },
+        {
+          "name": "y_axis",
+          "ty": "RgmVec3"
+        },
+        {
+          "name": "z_axis",
+          "ty": "RgmVec3"
+        }
+      ]
+    },
+    {
+      "kind": "Struct",
+      "name": "RgmPoint3",
+      "repr": "C",
+      "fields": [
+        {
+          "name": "x",
+          "ty": "f64"
+        },
+        {
+          "name": "y",
+          "ty": "f64"
+        },
+        {
+          "name": "z",
+          "ty": "f64"
+        }
+      ]
+    },
+    {
+      "kind": "Enum",
+      "name": "RgmStatus",
+      "repr": "i32",
+      "variants": [
+        {
+          "name": "Ok",
+          "value": "0"
+        },
+        {
+          "name": "InvalidInput",
+          "value": "1"
+        },
+        {
+          "name": "NotFound",
+          "value": "2"
+        },
+        {
+          "name": "OutOfRange",
+          "value": "3"
+        },
+        {
+          "name": "DegenerateGeometry",
+          "value": "4"
+        },
+        {
+          "name": "NoConvergence",
+          "value": "5"
+        },
+        {
+          "name": "NumericalFailure",
+          "value": "6"
+        },
+        {
+          "name": "NotImplemented",
+          "value": "7"
+        },
+        {
+          "name": "InternalError",
+          "value": "255"
+        }
+      ]
+    },
+    {
+      "kind": "Struct",
+      "name": "RgmToleranceContext",
+      "repr": "C",
+      "fields": [
+        {
+          "name": "abs_tol",
+          "ty": "f64"
+        },
+        {
+          "name": "rel_tol",
+          "ty": "f64"
+        },
+        {
+          "name": "angle_tol",
+          "ty": "f64"
+        }
+      ]
+    },
+    {
+      "kind": "Struct",
+      "name": "RgmVec3",
+      "repr": "C",
+      "fields": [
+        {
+          "name": "x",
+          "ty": "f64"
+        },
+        {
+          "name": "y",
+          "ty": "f64"
+        },
+        {
+          "name": "z",
+          "ty": "f64"
+        }
+      ]
+    }
+  ]
+}

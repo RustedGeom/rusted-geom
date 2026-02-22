@@ -1,0 +1,50 @@
+name: ci
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Rust tests
+        run: cargo test --workspace
+
+      - name: Check generated bindings are up to date
+        run: ./scripts/check_bindings.sh
+
+      - name: Check ABI compatibility
+        run: ./scripts/check_abi_compat.sh
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: .NET smoke build
+        run: dotnet build ./bindings/dotnet/RustedGeom.Bindings.csproj
+
+      - name: NuGet smoke pack (linux-x64)
+        run: ./scripts/pack_dotnet.sh linux-x64
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Web smoke typecheck
+        run: |
+          npm --prefix ./bindings/web install
+          npm --prefix ./bindings/web run typecheck
+
+      - name: Web package smoke build
+        run: npm --prefix ./bindings/web run build
