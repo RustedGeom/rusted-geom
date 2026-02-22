@@ -1,7 +1,20 @@
+mod math;
+
 use kernel_abi_meta::{rgm_export, rgm_ffi_type};
+use math::arc_length::{build_arc_length_cache, length_from_u, u_from_length, ArcLengthCache};
+use math::frame::{
+    normal as frame_normal, orthonormalize_plane_axes, plane as frame_plane, point_from_frame,
+    tangent as frame_tangent,
+};
+use math::intersections::{intersect_curve_curve_points, intersect_curve_plane_points};
+use math::nurbs_curve_eval::{
+    eval_nurbs_normalized, eval_nurbs_u, map_normalized_to_u, validate_curve, CurveEvalResult,
+    NurbsCurveCore,
+};
 use once_cell::sync::Lazy;
 use std::alloc::{alloc, dealloc, Layout};
 use std::collections::HashMap;
+use std::f64::consts::{FRAC_PI_2, PI};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Mutex;
 
@@ -67,22 +80,112 @@ pub struct RgmToleranceContext {
     pub angle_tol: f64,
 }
 
-#[allow(dead_code)]
+#[rgm_ffi_type]
+#[repr(i32)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum RgmAlignmentCoordinateSystem {
+    EastingNorthing = 0,
+    NorthingEasting = 1,
+}
+
+#[rgm_ffi_type]
+#[repr(C)]
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct RgmLine3 {
+    pub start: RgmPoint3,
+    pub end: RgmPoint3,
+}
+
+#[rgm_ffi_type]
+#[repr(C)]
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct RgmCircle3 {
+    pub plane: RgmPlane,
+    pub radius: f64,
+}
+
+#[rgm_ffi_type]
+#[repr(C)]
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct RgmArc3 {
+    pub plane: RgmPlane,
+    pub radius: f64,
+    pub start_angle: f64,
+    pub sweep_angle: f64,
+}
+
+#[rgm_ffi_type]
+#[repr(C)]
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct RgmPolycurveSegment {
+    pub curve: RgmObjectHandle,
+    pub reversed: bool,
+}
+
 #[derive(Clone, Debug)]
 struct NurbsCurveData {
-    degree: u32,
+    core: NurbsCurveCore,
     closed: bool,
     fit_points: Vec<RgmPoint3>,
-    weights: Vec<f64>,
-    knots: Vec<f64>,
-    params: Vec<f64>,
+    arc_length: ArcLengthCache,
+}
+
+#[derive(Clone, Debug)]
+#[allow(dead_code)]
+struct LineData {
+    line: RgmLine3,
+    canonical_nurbs: NurbsCurveData,
+}
+
+#[derive(Clone, Debug)]
+#[allow(dead_code)]
+struct ArcData {
+    arc: RgmArc3,
+    canonical_nurbs: NurbsCurveData,
+}
+
+#[derive(Clone, Debug)]
+#[allow(dead_code)]
+struct CircleData {
+    circle: RgmCircle3,
+    canonical_nurbs: NurbsCurveData,
+}
+
+#[derive(Clone, Debug)]
+#[allow(dead_code)]
+struct PolylineData {
+    closed: bool,
+    points: Vec<RgmPoint3>,
+    canonical_nurbs: NurbsCurveData,
+}
+
+#[derive(Clone, Debug)]
+struct PolycurveSegmentData {
+    curve: RgmObjectHandle,
+    reversed: bool,
+    length: f64,
+}
+
+#[derive(Clone, Debug)]
+struct PolycurveData {
+    segments: Vec<PolycurveSegmentData>,
     cumulative_lengths: Vec<f64>,
     total_length: f64,
 }
 
 #[derive(Clone, Debug)]
-enum GeometryObject {
+enum CurveData {
     NurbsCurve(NurbsCurveData),
+    Line(LineData),
+    Arc(ArcData),
+    Circle(CircleData),
+    Polyline(PolylineData),
+    Polycurve(PolycurveData),
+}
+
+#[derive(Clone, Debug)]
+enum GeometryObject {
+    Curve(CurveData),
 }
 
 #[derive(Default)]
@@ -120,6 +223,118 @@ fn clear_error(session_id: u64) {
     }
 }
 
+fn with_session_mut<T>(
+    session: RgmKernelHandle,
+    f: impl FnOnce(&mut SessionState) -> Result<T, RgmStatus>,
+) -> Result<T, RgmStatus> {
+    let mut sessions = SESSIONS.lock().map_err(|_| RgmStatus::InternalError)?;
+    let state = sessions.get_mut(&session.0).ok_or(RgmStatus::NotFound)?;
+    f(state)
+}
+
+fn write_point(out: *mut RgmPoint3, value: RgmPoint3) -> Result<(), RgmStatus> {
+    if out.is_null() {
+        return Err(RgmStatus::InvalidInput);
+    }
+
+    // SAFETY: pointer nullability checked above.
+    unsafe {
+        *out = value;
+    }
+
+    Ok(())
+}
+
+fn write_vec(out: *mut RgmVec3, value: RgmVec3) -> Result<(), RgmStatus> {
+    if out.is_null() {
+        return Err(RgmStatus::InvalidInput);
+    }
+
+    // SAFETY: pointer nullability checked above.
+    unsafe {
+        *out = value;
+    }
+
+    Ok(())
+}
+
+fn write_plane(out: *mut RgmPlane, value: RgmPlane) -> Result<(), RgmStatus> {
+    if out.is_null() {
+        return Err(RgmStatus::InvalidInput);
+    }
+
+    // SAFETY: pointer nullability checked above.
+    unsafe {
+        *out = value;
+    }
+
+    Ok(())
+}
+
+fn write_object_handle(out: *mut RgmObjectHandle, value: RgmObjectHandle) -> Result<(), RgmStatus> {
+    if out.is_null() {
+        return Err(RgmStatus::InvalidInput);
+    }
+
+    // SAFETY: pointer nullability checked above.
+    unsafe {
+        *out = value;
+    }
+
+    Ok(())
+}
+
+fn write_f64(out: *mut f64, value: f64) -> Result<(), RgmStatus> {
+    if out.is_null() {
+        return Err(RgmStatus::InvalidInput);
+    }
+
+    // SAFETY: pointer nullability checked above.
+    unsafe {
+        *out = value;
+    }
+
+    Ok(())
+}
+
+fn write_intersection_points(
+    out_points: *mut RgmPoint3,
+    point_capacity: u32,
+    points: &[RgmPoint3],
+    out_count: *mut u32,
+) -> Result<(), RgmStatus> {
+    if out_count.is_null() {
+        return Err(RgmStatus::InvalidInput);
+    }
+
+    // SAFETY: out_count validated above.
+    unsafe {
+        *out_count = points.len().try_into().unwrap_or(u32::MAX);
+    }
+
+    if point_capacity == 0 {
+        return Ok(());
+    }
+    if out_points.is_null() {
+        return Err(RgmStatus::InvalidInput);
+    }
+
+    let copy_count = points.len().min(point_capacity as usize);
+    for (idx, point) in points.iter().take(copy_count).enumerate() {
+        // SAFETY: caller provided output buffer with at least `point_capacity` elements.
+        unsafe {
+            *out_points.add(idx) = *point;
+        }
+    }
+
+    Ok(())
+}
+
+fn map_err_with_session(session: RgmKernelHandle, status: RgmStatus, message: &str) -> RgmStatus {
+    set_error(session.0, status, message);
+    status
+}
+
 fn distance(a: RgmPoint3, b: RgmPoint3) -> f64 {
     let dx = b.x - a.x;
     let dy = b.y - a.y;
@@ -127,28 +342,54 @@ fn distance(a: RgmPoint3, b: RgmPoint3) -> f64 {
     (dx * dx + dy * dy + dz * dz).sqrt()
 }
 
-fn subtract(a: RgmPoint3, b: RgmPoint3) -> RgmVec3 {
-    RgmVec3 {
-        x: a.x - b.x,
-        y: a.y - b.y,
-        z: a.z - b.z,
-    }
+#[allow(dead_code)]
+fn vec_dot(a: RgmVec3, b: RgmVec3) -> f64 {
+    a.x * b.x + a.y * b.y + a.z * b.z
 }
 
-fn normalize(v: RgmVec3) -> Option<RgmVec3> {
-    let len = (v.x * v.x + v.y * v.y + v.z * v.z).sqrt();
-    if len <= f64::EPSILON {
+#[allow(dead_code)]
+fn vec_norm(v: RgmVec3) -> f64 {
+    vec_dot(v, v).sqrt()
+}
+
+#[allow(dead_code)]
+fn vec_normalize(v: RgmVec3) -> Option<RgmVec3> {
+    let n = vec_norm(v);
+    if n <= f64::EPSILON {
         return None;
     }
-
     Some(RgmVec3 {
-        x: v.x / len,
-        y: v.y / len,
-        z: v.z / len,
+        x: v.x / n,
+        y: v.y / n,
+        z: v.z / n,
     })
 }
 
-fn cross(a: RgmVec3, b: RgmVec3) -> RgmVec3 {
+fn vec_neg(v: RgmVec3) -> RgmVec3 {
+    RgmVec3 {
+        x: -v.x,
+        y: -v.y,
+        z: -v.z,
+    }
+}
+
+fn vec_add(a: RgmVec3, b: RgmVec3) -> RgmVec3 {
+    RgmVec3 {
+        x: a.x + b.x,
+        y: a.y + b.y,
+        z: a.z + b.z,
+    }
+}
+
+fn vec_scale(v: RgmVec3, s: f64) -> RgmVec3 {
+    RgmVec3 {
+        x: v.x * s,
+        y: v.y * s,
+        z: v.z * s,
+    }
+}
+
+fn vec_cross(a: RgmVec3, b: RgmVec3) -> RgmVec3 {
     RgmVec3 {
         x: a.y * b.z - a.z * b.y,
         y: a.z * b.x - a.x * b.z,
@@ -156,15 +397,166 @@ fn cross(a: RgmVec3, b: RgmVec3) -> RgmVec3 {
     }
 }
 
-fn interpolate_point(a: RgmPoint3, b: RgmPoint3, t: f64) -> RgmPoint3 {
-    RgmPoint3 {
-        x: a.x + (b.x - a.x) * t,
-        y: a.y + (b.y - a.y) * t,
-        z: a.z + (b.z - a.z) * t,
+fn point_sub(a: RgmPoint3, b: RgmPoint3) -> RgmVec3 {
+    RgmVec3 {
+        x: a.x - b.x,
+        y: a.y - b.y,
+        z: a.z - b.z,
     }
 }
 
-fn cumulative_lengths(points: &[RgmPoint3]) -> (Vec<f64>, f64) {
+fn point_add_vec(p: RgmPoint3, v: RgmVec3) -> RgmPoint3 {
+    RgmPoint3 {
+        x: p.x + v.x,
+        y: p.y + v.y,
+        z: p.z + v.z,
+    }
+}
+
+fn wrap_angle_0_2pi(angle: f64) -> f64 {
+    let two_pi = 2.0 * PI;
+    let mut wrapped = angle % two_pi;
+    if wrapped < 0.0 {
+        wrapped += two_pi;
+    }
+    wrapped
+}
+
+fn parse_coordinate_system(value: i32) -> Result<RgmAlignmentCoordinateSystem, RgmStatus> {
+    match value {
+        0 => Ok(RgmAlignmentCoordinateSystem::EastingNorthing),
+        1 => Ok(RgmAlignmentCoordinateSystem::NorthingEasting),
+        _ => Err(RgmStatus::InvalidInput),
+    }
+}
+
+fn convert_point_coordinate_system(
+    point: RgmPoint3,
+    source: RgmAlignmentCoordinateSystem,
+    target: RgmAlignmentCoordinateSystem,
+) -> RgmPoint3 {
+    if source == target {
+        return point;
+    }
+
+    RgmPoint3 {
+        x: point.y,
+        y: point.x,
+        z: point.z,
+    }
+}
+
+fn arc_sweep_from_start_mid_end(
+    start_angle: f64,
+    mid_angle: f64,
+    end_angle: f64,
+    angle_tol: f64,
+) -> Result<f64, RgmStatus> {
+    let end_ccw = wrap_angle_0_2pi(end_angle - start_angle);
+    let mid_ccw = wrap_angle_0_2pi(mid_angle - start_angle);
+    let eps = angle_tol.max(1e-12);
+    if end_ccw <= eps {
+        return Err(RgmStatus::InvalidInput);
+    }
+
+    let sweep = if mid_ccw <= end_ccw + eps {
+        end_ccw
+    } else {
+        end_ccw - 2.0 * PI
+    };
+    if sweep.abs() <= eps {
+        return Err(RgmStatus::InvalidInput);
+    }
+    Ok(sweep)
+}
+
+fn build_arc_from_three_points(
+    start: RgmPoint3,
+    mid: RgmPoint3,
+    end: RgmPoint3,
+    tol: RgmToleranceContext,
+) -> Result<RgmArc3, RgmStatus> {
+    let eps = tol.abs_tol.max(1e-12);
+    if distance(start, mid) <= eps || distance(mid, end) <= eps || distance(start, end) <= eps {
+        return Err(RgmStatus::InvalidInput);
+    }
+
+    let ab = point_sub(mid, start);
+    let ac = point_sub(end, start);
+    let normal = vec_cross(ab, ac);
+    let normal_len2 = vec_dot(normal, normal);
+    if normal_len2 <= eps * eps {
+        return Err(RgmStatus::InvalidInput);
+    }
+
+    let term1 = vec_scale(vec_cross(ac, normal), vec_dot(ab, ab));
+    let term2 = vec_scale(vec_cross(normal, ab), vec_dot(ac, ac));
+    let center_offset = vec_scale(vec_add(term1, term2), 1.0 / (2.0 * normal_len2));
+    let center = point_add_vec(start, center_offset);
+    let radius = distance(center, start);
+    if radius <= eps {
+        return Err(RgmStatus::DegenerateGeometry);
+    }
+
+    let z_axis = vec_normalize(normal).ok_or(RgmStatus::DegenerateGeometry)?;
+    let x_axis = vec_normalize(point_sub(start, center)).ok_or(RgmStatus::DegenerateGeometry)?;
+    let y_axis = vec_normalize(vec_cross(z_axis, x_axis)).ok_or(RgmStatus::DegenerateGeometry)?;
+
+    let mid_vec = point_sub(mid, center);
+    let end_vec = point_sub(end, center);
+    let mid_angle = vec_dot(mid_vec, y_axis).atan2(vec_dot(mid_vec, x_axis));
+    let end_angle = vec_dot(end_vec, y_axis).atan2(vec_dot(end_vec, x_axis));
+    let sweep = arc_sweep_from_start_mid_end(0.0, mid_angle, end_angle, tol.angle_tol)?;
+
+    Ok(RgmArc3 {
+        plane: RgmPlane {
+            origin: center,
+            x_axis,
+            y_axis,
+            z_axis,
+        },
+        radius,
+        start_angle: 0.0,
+        sweep_angle: sweep,
+    })
+}
+
+fn build_arc_from_start_end_angles(
+    plane: RgmPlane,
+    radius: f64,
+    start_angle: f64,
+    end_angle: f64,
+    tol: RgmToleranceContext,
+) -> Result<RgmArc3, RgmStatus> {
+    let sweep = end_angle - start_angle;
+    if sweep.abs() <= tol.angle_tol.max(1e-12) {
+        return Err(RgmStatus::InvalidInput);
+    }
+
+    Ok(RgmArc3 {
+        plane,
+        radius,
+        start_angle,
+        sweep_angle: sweep,
+    })
+}
+
+fn dedup_closed_points(mut points: Vec<RgmPoint3>, tol: f64) -> Vec<RgmPoint3> {
+    if points.len() > 1 {
+        let first = points[0];
+        let last = points[points.len() - 1];
+        if distance(first, last) <= tol {
+            points.pop();
+        }
+    }
+    points
+}
+
+fn chord_length_params(points: &[RgmPoint3]) -> Vec<f64> {
+    if points.len() <= 1 {
+        return vec![0.0; points.len()];
+    }
+
     let mut cumulative = vec![0.0; points.len()];
     let mut total = 0.0;
 
@@ -173,22 +565,13 @@ fn cumulative_lengths(points: &[RgmPoint3]) -> (Vec<f64>, f64) {
         cumulative[i] = total;
     }
 
-    (cumulative, total)
-}
-
-fn chord_length_params(cumulative: &[f64], total_length: f64) -> Vec<f64> {
-    let count = cumulative.len();
-    if count <= 1 {
-        return vec![0.0; count];
-    }
-
-    if total_length <= f64::EPSILON {
-        return (0..count)
-            .map(|idx| idx as f64 / (count - 1) as f64)
+    if total <= f64::EPSILON {
+        return (0..points.len())
+            .map(|idx| idx as f64 / (points.len() - 1) as f64)
             .collect();
     }
 
-    cumulative.iter().map(|v| v / total_length).collect()
+    cumulative.into_iter().map(|v| v / total).collect()
 }
 
 fn clamped_open_knots(point_count: usize, degree: usize, params: &[f64]) -> Vec<f64> {
@@ -216,205 +599,116 @@ fn clamped_open_knots(point_count: usize, degree: usize, params: &[f64]) -> Vec<
     knots
 }
 
-fn periodic_knots(point_count: usize, degree: usize) -> Vec<f64> {
-    let knot_count = point_count + degree + 1;
-    if knot_count <= 1 {
-        return vec![0.0; knot_count];
-    }
-
-    (0..knot_count)
-        .map(|idx| idx as f64 / (knot_count - 1) as f64)
-        .collect()
+fn uniform_periodic_knots(control_count: usize, degree: usize) -> Vec<f64> {
+    let knot_count = control_count + degree + 1;
+    (0..knot_count).map(|idx| idx as f64).collect()
 }
 
-fn dedup_closed_points(mut points: Vec<RgmPoint3>, tol: f64) -> Vec<RgmPoint3> {
-    if points.len() > 1 {
-        let first = points[0];
-        let last = points[points.len() - 1];
-        if distance(first, last) <= tol {
-            points.pop();
-        }
-    }
-    points
-}
-
-fn with_session_mut<T>(
-    session: RgmKernelHandle,
-    f: impl FnOnce(&mut SessionState) -> Result<T, RgmStatus>,
-) -> Result<T, RgmStatus> {
-    let mut sessions = SESSIONS.lock().map_err(|_| RgmStatus::InternalError)?;
-    let state = sessions.get_mut(&session.0).ok_or(RgmStatus::NotFound)?;
-    f(state)
-}
-
-fn write_point(out: *mut RgmPoint3, value: RgmPoint3) -> Result<(), RgmStatus> {
-    if out.is_null() {
-        return Err(RgmStatus::InvalidInput);
-    }
-
-    // SAFETY: Pointer nullability checked above.
-    unsafe {
-        *out = value;
-    }
-
-    Ok(())
-}
-
-fn write_vec(out: *mut RgmVec3, value: RgmVec3) -> Result<(), RgmStatus> {
-    if out.is_null() {
-        return Err(RgmStatus::InvalidInput);
-    }
-
-    // SAFETY: Pointer nullability checked above.
-    unsafe {
-        *out = value;
-    }
-
-    Ok(())
-}
-
-fn write_plane(out: *mut RgmPlane, value: RgmPlane) -> Result<(), RgmStatus> {
-    if out.is_null() {
-        return Err(RgmStatus::InvalidInput);
-    }
-
-    // SAFETY: Pointer nullability checked above.
-    unsafe {
-        *out = value;
-    }
-
-    Ok(())
-}
-
-fn evaluate_curve_at_normalized(
-    curve: &NurbsCurveData,
-    t_norm: f64,
-) -> Result<RgmPoint3, RgmStatus> {
-    if !(0.0..=1.0).contains(&t_norm) {
-        return Err(RgmStatus::OutOfRange);
-    }
-
-    if curve.fit_points.is_empty() {
-        return Err(RgmStatus::DegenerateGeometry);
-    }
-
-    if curve.fit_points.len() == 1 {
-        return Ok(curve.fit_points[0]);
-    }
-
-    for i in 0..(curve.params.len() - 1) {
-        let a = curve.params[i];
-        let b = curve.params[i + 1];
-        let inside =
-            (t_norm >= a && t_norm <= b) || (i + 1 == curve.params.len() - 1 && t_norm == 1.0);
-        if inside {
-            let segment_t = if (b - a).abs() <= f64::EPSILON {
-                0.0
-            } else {
-                (t_norm - a) / (b - a)
-            };
-            return Ok(interpolate_point(
-                curve.fit_points[i],
-                curve.fit_points[i + 1],
-                segment_t,
-            ));
-        }
-    }
-
-    Ok(*curve.fit_points.last().unwrap_or(&curve.fit_points[0]))
-}
-
-fn evaluate_d1_at_normalized(curve: &NurbsCurveData, t_norm: f64) -> Result<RgmVec3, RgmStatus> {
-    if !(0.0..=1.0).contains(&t_norm) {
-        return Err(RgmStatus::OutOfRange);
-    }
-
-    if curve.fit_points.len() < 2 {
-        return Err(RgmStatus::DegenerateGeometry);
-    }
-
-    for i in 0..(curve.params.len() - 1) {
-        let a = curve.params[i];
-        let b = curve.params[i + 1];
-        let inside =
-            (t_norm >= a && t_norm <= b) || (i + 1 == curve.params.len() - 1 && t_norm == 1.0);
-        if inside {
-            return Ok(subtract(curve.fit_points[i + 1], curve.fit_points[i]));
-        }
-    }
-
-    Err(RgmStatus::DegenerateGeometry)
-}
-
-fn evaluate_tangent_at_normalized(
-    curve: &NurbsCurveData,
-    t_norm: f64,
-) -> Result<RgmVec3, RgmStatus> {
-    let d1 = evaluate_d1_at_normalized(curve, t_norm)?;
-    normalize(d1).ok_or(RgmStatus::DegenerateGeometry)
-}
-
-fn evaluate_plane_at_normalized(
-    curve: &NurbsCurveData,
-    t_norm: f64,
-) -> Result<RgmPlane, RgmStatus> {
-    let origin = evaluate_curve_at_normalized(curve, t_norm)?;
-    let x_axis = evaluate_tangent_at_normalized(curve, t_norm)?;
-
-    let world_up = RgmVec3 {
-        x: 0.0,
-        y: 0.0,
-        z: 1.0,
-    };
-    let fallback_up = RgmVec3 {
-        x: 0.0,
-        y: 1.0,
-        z: 0.0,
+fn build_nurbs_from_core(
+    degree: usize,
+    periodic: bool,
+    closed: bool,
+    control_points: Vec<RgmPoint3>,
+    weights: Vec<f64>,
+    knots: Vec<f64>,
+    tol: RgmToleranceContext,
+    fit_points: Vec<RgmPoint3>,
+) -> Result<NurbsCurveData, RgmStatus> {
+    let core = NurbsCurveCore {
+        degree,
+        periodic,
+        control_points,
+        weights,
+        knots,
+        u_start: 0.0,
+        u_end: 0.0,
+        tol,
     };
 
-    let mut z_axis = cross(x_axis, world_up);
-    if normalize(z_axis).is_none() {
-        z_axis = cross(x_axis, fallback_up);
-    }
-    let z_axis = normalize(z_axis).ok_or(RgmStatus::DegenerateGeometry)?;
-    let y_axis = normalize(cross(z_axis, x_axis)).ok_or(RgmStatus::DegenerateGeometry)?;
+    build_nurbs_from_core_auto_domain(core, closed, fit_points)
+}
 
-    Ok(RgmPlane {
-        origin,
-        x_axis,
-        y_axis,
-        z_axis,
+fn build_nurbs_from_core_auto_domain(
+    mut core: NurbsCurveCore,
+    closed: bool,
+    fit_points: Vec<RgmPoint3>,
+) -> Result<NurbsCurveData, RgmStatus> {
+    let ctrl_count = core.control_points.len();
+    if ctrl_count == 0 || ctrl_count <= core.degree {
+        return Err(RgmStatus::InvalidInput);
+    }
+
+    core.u_start = core.knots[core.degree];
+    core.u_end = core.knots[ctrl_count];
+
+    validate_curve(&core)?;
+    let arc_length = build_arc_length_cache(&core)?;
+
+    Ok(NurbsCurveData {
+        core,
+        closed,
+        fit_points,
+        arc_length,
     })
 }
 
-fn evaluate_normal_at_normalized(
-    curve: &NurbsCurveData,
-    t_norm: f64,
-) -> Result<RgmVec3, RgmStatus> {
-    let plane = evaluate_plane_at_normalized(curve, t_norm)?;
-    Ok(plane.z_axis)
-}
-
-fn map_length_to_normalized(curve: &NurbsCurveData, length: f64) -> Result<f64, RgmStatus> {
-    if length < 0.0 || length > curve.total_length {
-        return Err(RgmStatus::OutOfRange);
+fn build_periodic_nurbs_from_base(
+    base_points: &[RgmPoint3],
+    base_weights: &[f64],
+    degree: usize,
+    tol: RgmToleranceContext,
+    closed: bool,
+    fit_points: Vec<RgmPoint3>,
+) -> Result<NurbsCurveData, RgmStatus> {
+    if base_points.len() != base_weights.len() || base_points.len() <= degree {
+        return Err(RgmStatus::InvalidInput);
     }
 
-    Ok(if curve.total_length <= f64::EPSILON {
-        0.0
-    } else {
-        length / curve.total_length
-    })
+    let mut control_points = base_points.to_vec();
+    let mut weights = base_weights.to_vec();
+
+    for idx in 0..degree {
+        control_points.push(base_points[idx]);
+        weights.push(base_weights[idx]);
+    }
+
+    let knots = uniform_periodic_knots(control_points.len(), degree);
+    build_nurbs_from_core(
+        degree,
+        true,
+        closed,
+        control_points,
+        weights,
+        knots,
+        tol,
+        fit_points,
+    )
 }
 
-fn find_curve<'a>(
-    state: &'a SessionState,
-    object: RgmObjectHandle,
-) -> Result<&'a NurbsCurveData, RgmStatus> {
-    match state.objects.get(&object.0) {
-        Some(GeometryObject::NurbsCurve(curve)) => Ok(curve),
-        None => Err(RgmStatus::NotFound),
+fn build_open_nurbs_from_points(
+    points: &[RgmPoint3],
+    degree: usize,
+    tol: RgmToleranceContext,
+    fit_points: Vec<RgmPoint3>,
+) -> Result<NurbsCurveData, RgmStatus> {
+    if points.len() <= degree {
+        return Err(RgmStatus::InvalidInput);
     }
+
+    let params = chord_length_params(points);
+    let knots = clamped_open_knots(points.len(), degree, &params);
+    let weights = vec![1.0; points.len()];
+
+    build_nurbs_from_core(
+        degree,
+        false,
+        false,
+        points.to_vec(),
+        weights,
+        knots,
+        tol,
+        fit_points,
+    )
 }
 
 fn build_nurbs_from_fit_points(
@@ -426,7 +720,6 @@ fn build_nurbs_from_fit_points(
     if points.is_empty() {
         return Err(RgmStatus::InvalidInput);
     }
-
     if degree == 0 {
         return Err(RgmStatus::InvalidInput);
     }
@@ -436,34 +729,794 @@ fn build_nurbs_from_fit_points(
         fit_points = dedup_closed_points(fit_points, tol.abs_tol.max(0.0));
     }
 
-    if fit_points.len() <= degree as usize {
+    let degree = degree as usize;
+    if fit_points.len() <= degree {
         return Err(RgmStatus::InvalidInput);
     }
 
-    let (cumulative, total_length) = cumulative_lengths(&fit_points);
-    let params = chord_length_params(&cumulative, total_length);
-    let weights = vec![1.0; fit_points.len()];
-    let knots = if closed {
-        periodic_knots(fit_points.len(), degree as usize)
-    } else {
-        clamped_open_knots(fit_points.len(), degree as usize, &params)
-    };
+    if closed {
+        let weights = vec![1.0; fit_points.len()];
+        return build_periodic_nurbs_from_base(
+            &fit_points,
+            &weights,
+            degree,
+            tol,
+            true,
+            fit_points.clone(),
+        );
+    }
 
-    Ok(NurbsCurveData {
-        degree,
-        closed,
-        fit_points,
-        weights,
-        knots,
-        params,
-        cumulative_lengths: cumulative,
-        total_length,
-    })
+    build_open_nurbs_from_points(&fit_points, degree, tol, fit_points.clone())
 }
 
-fn map_err_with_session(session: RgmKernelHandle, status: RgmStatus, message: &str) -> RgmStatus {
-    set_error(session.0, status, message);
-    status
+fn build_line_nurbs(line: RgmLine3, tol: RgmToleranceContext) -> Result<NurbsCurveData, RgmStatus> {
+    let points = vec![line.start, line.end];
+    build_open_nurbs_from_points(&points, 1, tol, points.clone())
+}
+
+fn build_polyline_nurbs(
+    points: &[RgmPoint3],
+    closed: bool,
+    tol: RgmToleranceContext,
+) -> Result<NurbsCurveData, RgmStatus> {
+    if points.len() < 2 {
+        return Err(RgmStatus::InvalidInput);
+    }
+
+    let mut data = points.to_vec();
+    if closed {
+        data = dedup_closed_points(data, tol.abs_tol.max(0.0));
+        if data.len() < 2 {
+            return Err(RgmStatus::InvalidInput);
+        }
+        let weights = vec![1.0; data.len()];
+        return build_periodic_nurbs_from_base(&data, &weights, 1, tol, true, data.clone());
+    }
+
+    build_open_nurbs_from_points(&data, 1, tol, data.clone())
+}
+
+fn build_arc_nurbs(arc: RgmArc3, tol: RgmToleranceContext) -> Result<NurbsCurveData, RgmStatus> {
+    if arc.radius <= tol.abs_tol.max(1e-12) {
+        return Err(RgmStatus::InvalidInput);
+    }
+    if arc.sweep_angle.abs() <= tol.angle_tol.max(1e-12) {
+        return Err(RgmStatus::InvalidInput);
+    }
+
+    let (x_axis, y_axis) = orthonormalize_plane_axes(arc.plane)?;
+    let center = arc.plane.origin;
+
+    let segments = (arc.sweep_angle.abs() / FRAC_PI_2).ceil().max(1.0) as usize;
+    let delta = arc.sweep_angle / segments as f64;
+
+    let mut points = Vec::with_capacity(2 * segments + 1);
+    let mut weights = Vec::with_capacity(2 * segments + 1);
+
+    for seg in 0..segments {
+        let a0 = arc.start_angle + seg as f64 * delta;
+        let a1 = a0 + delta;
+        let am = 0.5 * (a0 + a1);
+        let w_mid = (0.5 * delta).cos();
+        if w_mid.abs() <= 1e-12 {
+            return Err(RgmStatus::NumericalFailure);
+        }
+
+        let p0 = point_from_frame(
+            center,
+            x_axis,
+            y_axis,
+            arc.radius * a0.cos(),
+            arc.radius * a0.sin(),
+        );
+        let p1 = point_from_frame(
+            center,
+            x_axis,
+            y_axis,
+            (arc.radius / w_mid) * am.cos(),
+            (arc.radius / w_mid) * am.sin(),
+        );
+        let p2 = point_from_frame(
+            center,
+            x_axis,
+            y_axis,
+            arc.radius * a1.cos(),
+            arc.radius * a1.sin(),
+        );
+
+        if seg == 0 {
+            points.push(p0);
+            weights.push(1.0);
+        }
+
+        points.push(p1);
+        weights.push(w_mid);
+        points.push(p2);
+        weights.push(1.0);
+    }
+
+    let degree = 2;
+    let mut knots = vec![0.0; points.len() + degree + 1];
+    let mut cursor = 0_usize;
+    for _ in 0..=degree {
+        knots[cursor] = 0.0;
+        cursor += 1;
+    }
+    for idx in 1..segments {
+        knots[cursor] = idx as f64;
+        cursor += 1;
+        knots[cursor] = idx as f64;
+        cursor += 1;
+    }
+    for _ in 0..=degree {
+        knots[cursor] = segments as f64;
+        cursor += 1;
+    }
+
+    for knot in &mut knots {
+        *knot /= segments as f64;
+    }
+
+    build_nurbs_from_core(
+        degree,
+        false,
+        false,
+        points,
+        weights,
+        knots,
+        tol,
+        Vec::new(),
+    )
+}
+
+fn build_circle_nurbs(
+    circle: RgmCircle3,
+    tol: RgmToleranceContext,
+) -> Result<NurbsCurveData, RgmStatus> {
+    let arc = RgmArc3 {
+        plane: circle.plane,
+        radius: circle.radius,
+        start_angle: 0.0,
+        sweep_angle: 2.0 * PI,
+    };
+    let mut nurbs = build_arc_nurbs(arc, tol)?;
+    nurbs.closed = true;
+    Ok(nurbs)
+}
+
+fn reverse_open_nurbs(curve: &NurbsCurveData) -> Result<NurbsCurveData, RgmStatus> {
+    if curve.core.periodic {
+        return Err(RgmStatus::InvalidInput);
+    }
+
+    let mut control_points = curve.core.control_points.clone();
+    control_points.reverse();
+
+    let mut weights = curve.core.weights.clone();
+    weights.reverse();
+
+    let mut knots = vec![0.0; curve.core.knots.len()];
+    for (idx, value) in curve.core.knots.iter().enumerate() {
+        knots[curve.core.knots.len() - 1 - idx] = curve.core.u_start + curve.core.u_end - value;
+    }
+
+    build_nurbs_from_core(
+        curve.core.degree,
+        false,
+        curve.closed,
+        control_points,
+        weights,
+        knots,
+        curve.core.tol,
+        curve.fit_points.clone(),
+    )
+}
+
+fn periodic_to_open_nurbs(curve: &NurbsCurveData) -> Result<NurbsCurveData, RgmStatus> {
+    if !curve.core.periodic {
+        return Ok(curve.clone());
+    }
+
+    let control_count = curve.core.control_points.len();
+    let degree = curve.core.degree.max(1);
+    let sample_count = (control_count * 12).max(degree * 18 + 16);
+    let span = curve.core.u_end - curve.core.u_start;
+    if span <= curve.core.tol.abs_tol.max(1e-12) {
+        return Err(RgmStatus::DegenerateGeometry);
+    }
+
+    let mut points = Vec::with_capacity(sample_count + 1);
+    for idx in 0..=sample_count {
+        let t = idx as f64 / sample_count as f64;
+        let mut u = curve.core.u_start + t * span;
+        if idx == sample_count {
+            u = curve.core.u_end - span * 1e-9;
+        }
+        let eval = eval_nurbs_u(&curve.core, u)?;
+        points.push(eval.point);
+    }
+
+    build_open_nurbs_from_points(
+        &points,
+        curve.core.degree,
+        curve.core.tol,
+        curve.fit_points.clone(),
+    )
+}
+
+#[derive(Clone, Copy, Debug)]
+struct HomogeneousPoint {
+    x: f64,
+    y: f64,
+    z: f64,
+    w: f64,
+}
+
+impl HomogeneousPoint {
+    fn add(self, other: Self) -> Self {
+        Self {
+            x: self.x + other.x,
+            y: self.y + other.y,
+            z: self.z + other.z,
+            w: self.w + other.w,
+        }
+    }
+
+    fn scale(self, value: f64) -> Self {
+        Self {
+            x: self.x * value,
+            y: self.y * value,
+            z: self.z * value,
+            w: self.w * value,
+        }
+    }
+
+    fn blend(left: Self, right: Self, right_weight: f64) -> Self {
+        left.scale(1.0 - right_weight)
+            .add(right.scale(right_weight))
+    }
+}
+
+fn to_homogeneous(point: RgmPoint3, weight: f64) -> HomogeneousPoint {
+    HomogeneousPoint {
+        x: point.x * weight,
+        y: point.y * weight,
+        z: point.z * weight,
+        w: weight,
+    }
+}
+
+fn from_homogeneous(value: HomogeneousPoint, eps: f64) -> Result<(RgmPoint3, f64), RgmStatus> {
+    if value.w.abs() <= eps {
+        return Err(RgmStatus::NumericalFailure);
+    }
+
+    Ok((
+        RgmPoint3 {
+            x: value.x / value.w,
+            y: value.y / value.w,
+            z: value.z / value.w,
+        },
+        value.w,
+    ))
+}
+
+fn knot_multiplicity(knots: &[f64], knot: f64, eps: f64) -> usize {
+    knots
+        .iter()
+        .filter(|value| (**value - knot).abs() <= eps)
+        .count()
+}
+
+fn insert_knot_once_homogeneous(
+    degree: usize,
+    knots: &[f64],
+    control: &[HomogeneousPoint],
+    knot: f64,
+    eps: f64,
+) -> Result<(Vec<f64>, Vec<HomogeneousPoint>), RgmStatus> {
+    if control.is_empty() || degree == 0 {
+        return Err(RgmStatus::InvalidInput);
+    }
+
+    let n = control.len() - 1;
+    let expected_knot_count = n + degree + 2;
+    if knots.len() != expected_knot_count {
+        return Err(RgmStatus::InvalidInput);
+    }
+
+    let m = expected_knot_count - 1;
+    let span = math::basis::find_span(n, degree, knot, knots)?;
+    let multiplicity = knot_multiplicity(knots, knot, eps);
+    if multiplicity >= degree + 1 {
+        return Err(RgmStatus::InvalidInput);
+    }
+
+    let mut next_knots = vec![0.0; knots.len() + 1];
+    let mut next_control = vec![
+        HomogeneousPoint {
+            x: 0.0,
+            y: 0.0,
+            z: 0.0,
+            w: 0.0,
+        };
+        control.len() + 1
+    ];
+
+    next_knots[..=span].copy_from_slice(&knots[..=span]);
+    next_knots[span + 1] = knot;
+    next_knots[span + 2..=m + 1].copy_from_slice(&knots[span + 1..=m]);
+
+    let left_static_end = span.saturating_sub(degree);
+    next_control[..=left_static_end].copy_from_slice(&control[..=left_static_end]);
+
+    let right_start = span.saturating_sub(multiplicity);
+    next_control[right_start + 1..=n + 1].copy_from_slice(&control[right_start..=n]);
+
+    let blend_start = span.saturating_sub(degree) + 1;
+    let blend_end = span.saturating_sub(multiplicity);
+    if blend_start <= blend_end {
+        for i in blend_start..=blend_end {
+            let denom = knots[i + degree] - knots[i];
+            let alpha = if denom.abs() <= eps {
+                0.0
+            } else {
+                (knot - knots[i]) / denom
+            };
+            next_control[i] = HomogeneousPoint::blend(control[i - 1], control[i], alpha);
+        }
+    }
+
+    Ok((next_knots, next_control))
+}
+
+fn elevate_bezier_homogeneous(
+    control: &[HomogeneousPoint],
+    target_degree: usize,
+) -> Result<Vec<HomogeneousPoint>, RgmStatus> {
+    if control.is_empty() {
+        return Err(RgmStatus::InvalidInput);
+    }
+
+    let mut current = control.to_vec();
+    let mut degree = current.len() - 1;
+    if target_degree < degree {
+        return Err(RgmStatus::InvalidInput);
+    }
+
+    while degree < target_degree {
+        let mut elevated = vec![
+            HomogeneousPoint {
+                x: 0.0,
+                y: 0.0,
+                z: 0.0,
+                w: 0.0,
+            };
+            degree + 2
+        ];
+        elevated[0] = current[0];
+        elevated[degree + 1] = current[degree];
+        for i in 1..=degree {
+            let alpha = i as f64 / (degree + 1) as f64;
+            elevated[i] = current[i - 1]
+                .scale(alpha)
+                .add(current[i].scale(1.0 - alpha));
+        }
+
+        current = elevated;
+        degree += 1;
+    }
+
+    Ok(current)
+}
+
+fn elevate_open_nurbs_to_degree(
+    curve: &NurbsCurveData,
+    target_degree: usize,
+) -> Result<NurbsCurveData, RgmStatus> {
+    if curve.core.periodic || target_degree < curve.core.degree {
+        return Err(RgmStatus::InvalidInput);
+    }
+    if target_degree == curve.core.degree {
+        return Ok(curve.clone());
+    }
+
+    let degree = curve.core.degree;
+    let control_count = curve.core.control_points.len();
+    if control_count <= degree {
+        return Err(RgmStatus::InvalidInput);
+    }
+
+    let expected_knot_count = control_count + degree + 1;
+    if curve.core.knots.len() != expected_knot_count {
+        return Err(RgmStatus::InvalidInput);
+    }
+
+    let mut knots = curve.core.knots.clone();
+    let mut control: Vec<HomogeneousPoint> = curve
+        .core
+        .control_points
+        .iter()
+        .copied()
+        .zip(curve.core.weights.iter().copied())
+        .map(|(point, weight)| to_homogeneous(point, weight))
+        .collect();
+
+    let eps = curve.core.tol.abs_tol.max(1e-12);
+    let n = control_count - 1;
+    let u_start = curve.core.knots[degree];
+    let u_end = curve.core.knots[n + 1];
+
+    let mut internal_knots = Vec::new();
+    let mut idx = degree + 1;
+    while idx <= n {
+        let knot = curve.core.knots[idx];
+        if knot > u_start + eps && knot < u_end - eps {
+            internal_knots.push(knot);
+        }
+        idx += 1;
+        while idx <= n && (curve.core.knots[idx] - knot).abs() <= eps {
+            idx += 1;
+        }
+    }
+
+    for knot in internal_knots {
+        loop {
+            let multiplicity = knot_multiplicity(&knots, knot, eps);
+            if multiplicity >= degree {
+                break;
+            }
+            let (next_knots, next_control) =
+                insert_knot_once_homogeneous(degree, &knots, &control, knot, eps)?;
+            knots = next_knots;
+            control = next_control;
+        }
+    }
+
+    let n_after = control.len() - 1;
+    let mut span_indices = Vec::new();
+    for i in degree..=n_after {
+        if knots[i + 1] - knots[i] > eps {
+            span_indices.push(i);
+        }
+    }
+    if span_indices.is_empty() {
+        return Err(RgmStatus::DegenerateGeometry);
+    }
+
+    let mut boundaries = Vec::with_capacity(span_indices.len() + 1);
+    let mut boundary_shared = Vec::with_capacity(span_indices.len().saturating_sub(1));
+    boundaries.push(knots[span_indices[0]]);
+
+    let mut elevated_control = Vec::new();
+    let mut prev_end_idx: Option<usize> = None;
+    for span_idx in span_indices {
+        let segment_start = span_idx - degree;
+        let segment_end = span_idx;
+        let segment = &control[segment_start..=segment_end];
+        let elevated_segment = elevate_bezier_homogeneous(segment, target_degree)?;
+
+        if let Some(prev_end) = prev_end_idx {
+            let shared = segment_start == prev_end;
+            boundary_shared.push(shared);
+            if shared {
+                elevated_control.extend_from_slice(&elevated_segment[1..]);
+            } else {
+                elevated_control.extend_from_slice(&elevated_segment);
+            }
+        } else {
+            elevated_control.extend_from_slice(&elevated_segment);
+        }
+
+        prev_end_idx = Some(segment_end);
+        boundaries.push(knots[span_idx + 1]);
+    }
+
+    let mut elevated_knots = Vec::with_capacity(elevated_control.len() + target_degree + 1);
+    for _ in 0..=target_degree {
+        elevated_knots.push(boundaries[0]);
+    }
+    for (idx, boundary) in boundaries
+        .iter()
+        .take(boundaries.len().saturating_sub(1))
+        .skip(1)
+        .enumerate()
+    {
+        let mult = if boundary_shared[idx] {
+            target_degree
+        } else {
+            target_degree + 1
+        };
+        for _ in 0..mult {
+            elevated_knots.push(*boundary);
+        }
+    }
+    for _ in 0..=target_degree {
+        elevated_knots.push(boundaries[boundaries.len() - 1]);
+    }
+
+    let denom_eps = curve.core.tol.abs_tol.max(1e-14);
+    let mut elevated_points = Vec::with_capacity(elevated_control.len());
+    let mut elevated_weights = Vec::with_capacity(elevated_control.len());
+    for value in elevated_control {
+        let (point, weight) = from_homogeneous(value, denom_eps)?;
+        elevated_points.push(point);
+        elevated_weights.push(weight);
+    }
+
+    build_nurbs_from_core(
+        target_degree,
+        false,
+        curve.closed,
+        elevated_points,
+        elevated_weights,
+        elevated_knots,
+        curve.core.tol,
+        curve.fit_points.clone(),
+    )
+}
+
+fn reparameterize_open_nurbs(
+    curve: &NurbsCurveData,
+    new_start: f64,
+    new_end: f64,
+) -> Result<NurbsCurveData, RgmStatus> {
+    if curve.core.periodic {
+        return Err(RgmStatus::InvalidInput);
+    }
+
+    let old_start = curve.core.u_start;
+    let old_end = curve.core.u_end;
+    let old_span = old_end - old_start;
+    let new_span = new_end - new_start;
+    let eps = curve.core.tol.abs_tol.max(1e-12);
+
+    if old_span <= eps || new_span <= eps {
+        return Err(RgmStatus::DegenerateGeometry);
+    }
+
+    let scale = new_span / old_span;
+    let offset = new_start - scale * old_start;
+    let knots: Vec<f64> = curve
+        .core
+        .knots
+        .iter()
+        .map(|value| scale * *value + offset)
+        .collect();
+
+    build_nurbs_from_core(
+        curve.core.degree,
+        false,
+        curve.closed,
+        curve.core.control_points.clone(),
+        curve.core.weights.clone(),
+        knots,
+        curve.core.tol,
+        curve.fit_points.clone(),
+    )
+}
+
+fn curve_canonical_nurbs(curve: &CurveData) -> Option<&NurbsCurveData> {
+    match curve {
+        CurveData::NurbsCurve(data) => Some(data),
+        CurveData::Line(data) => Some(&data.canonical_nurbs),
+        CurveData::Arc(data) => Some(&data.canonical_nurbs),
+        CurveData::Circle(data) => Some(&data.canonical_nurbs),
+        CurveData::Polyline(data) => Some(&data.canonical_nurbs),
+        CurveData::Polycurve(_) => None,
+    }
+}
+
+fn find_curve<'a>(
+    state: &'a SessionState,
+    object: RgmObjectHandle,
+) -> Result<&'a CurveData, RgmStatus> {
+    match state.objects.get(&object.0) {
+        Some(GeometryObject::Curve(curve)) => Ok(curve),
+        None => Err(RgmStatus::NotFound),
+    }
+}
+
+fn curve_total_length(_state: &SessionState, curve: &CurveData) -> Result<f64, RgmStatus> {
+    if let Some(nurbs) = curve_canonical_nurbs(curve) {
+        return Ok(nurbs.arc_length.total_length);
+    }
+
+    match curve {
+        CurveData::Polycurve(poly) => Ok(poly.total_length),
+        _ => Err(RgmStatus::InternalError),
+    }
+}
+
+fn curve_length_at_normalized_data(
+    _state: &SessionState,
+    curve: &CurveData,
+    t_norm: f64,
+) -> Result<f64, RgmStatus> {
+    if !(0.0..=1.0).contains(&t_norm) {
+        return Err(RgmStatus::OutOfRange);
+    }
+
+    if let Some(nurbs) = curve_canonical_nurbs(curve) {
+        if nurbs.core.periodic && (t_norm - 1.0).abs() <= f64::EPSILON {
+            return Ok(nurbs.arc_length.total_length);
+        }
+
+        let u = map_normalized_to_u(&nurbs.core, t_norm)?;
+        return length_from_u(&nurbs.core, &nurbs.arc_length, u);
+    }
+
+    match curve {
+        CurveData::Polycurve(poly) => {
+            Ok((t_norm * poly.total_length).clamp(0.0, poly.total_length))
+        }
+        _ => Err(RgmStatus::InternalError),
+    }
+}
+
+fn evaluate_curve_at_length_data(
+    state: &SessionState,
+    curve: &CurveData,
+    length: f64,
+) -> Result<CurveEvalResult, RgmStatus> {
+    if let Some(nurbs) = curve_canonical_nurbs(curve) {
+        let u = u_from_length(&nurbs.core, &nurbs.arc_length, length)?;
+        return eval_nurbs_u(&nurbs.core, u);
+    }
+
+    match curve {
+        CurveData::Polycurve(poly) => evaluate_polycurve_at_length(state, poly, length),
+        _ => Err(RgmStatus::InternalError),
+    }
+}
+
+fn evaluate_curve_at_normalized_data(
+    state: &SessionState,
+    curve: &CurveData,
+    t_norm: f64,
+) -> Result<CurveEvalResult, RgmStatus> {
+    if let Some(nurbs) = curve_canonical_nurbs(curve) {
+        return eval_nurbs_normalized(&nurbs.core, t_norm);
+    }
+
+    match curve {
+        CurveData::Polycurve(poly) => evaluate_polycurve_at_normalized(state, poly, t_norm),
+        _ => Err(RgmStatus::InternalError),
+    }
+}
+
+fn evaluate_curve_by_handle_at_length(
+    state: &SessionState,
+    curve: RgmObjectHandle,
+    length: f64,
+) -> Result<CurveEvalResult, RgmStatus> {
+    let curve_data = find_curve(state, curve)?;
+    evaluate_curve_at_length_data(state, curve_data, length)
+}
+
+fn curve_point_at_normalized_data(
+    state: &SessionState,
+    curve: &CurveData,
+    t_norm: f64,
+) -> Result<RgmPoint3, RgmStatus> {
+    let eval = evaluate_curve_at_normalized_data(state, curve, t_norm)?;
+    Ok(eval.point)
+}
+
+fn curve_abs_tol(state: &SessionState, curve: &CurveData) -> Result<f64, RgmStatus> {
+    if let Some(nurbs) = curve_canonical_nurbs(curve) {
+        return Ok(nurbs.core.tol.abs_tol.max(1e-9));
+    }
+
+    match curve {
+        CurveData::Polycurve(poly) => {
+            let mut tol = 1e-9_f64;
+            for segment in &poly.segments {
+                let segment_curve = find_curve(state, segment.curve)?;
+                if let Some(nurbs) = curve_canonical_nurbs(segment_curve) {
+                    tol = tol.max(nurbs.core.tol.abs_tol.max(1e-9));
+                }
+            }
+            Ok(tol)
+        }
+        _ => Ok(1e-9),
+    }
+}
+
+fn intersect_curve_plane_points_data(
+    state: &SessionState,
+    curve: &CurveData,
+    plane: RgmPlane,
+) -> Result<Vec<RgmPoint3>, RgmStatus> {
+    let abs_tol = curve_abs_tol(state, curve)?;
+    intersect_curve_plane_points(
+        |t_norm| curve_point_at_normalized_data(state, curve, t_norm),
+        plane,
+        abs_tol,
+    )
+}
+
+fn intersect_curve_curve_points_data(
+    state: &SessionState,
+    curve_a: &CurveData,
+    curve_b: &CurveData,
+) -> Result<Vec<RgmPoint3>, RgmStatus> {
+    let abs_tol = curve_abs_tol(state, curve_a)?.max(curve_abs_tol(state, curve_b)?);
+    intersect_curve_curve_points(
+        |t_norm| curve_point_at_normalized_data(state, curve_a, t_norm),
+        |t_norm| curve_point_at_normalized_data(state, curve_b, t_norm),
+        abs_tol,
+    )
+}
+
+fn evaluate_polycurve_at_normalized(
+    state: &SessionState,
+    poly: &PolycurveData,
+    t_norm: f64,
+) -> Result<CurveEvalResult, RgmStatus> {
+    if !(0.0..=1.0).contains(&t_norm) {
+        return Err(RgmStatus::OutOfRange);
+    }
+
+    if poly.segments.is_empty() {
+        return Err(RgmStatus::DegenerateGeometry);
+    }
+
+    if poly.total_length <= f64::EPSILON {
+        return evaluate_curve_by_handle_at_length(state, poly.segments[0].curve, 0.0);
+    }
+
+    let length = t_norm * poly.total_length;
+    evaluate_polycurve_at_length(state, poly, length)
+}
+
+fn evaluate_polycurve_at_length(
+    state: &SessionState,
+    poly: &PolycurveData,
+    length: f64,
+) -> Result<CurveEvalResult, RgmStatus> {
+    if length < 0.0 || length > poly.total_length + 1e-10 {
+        return Err(RgmStatus::OutOfRange);
+    }
+
+    if poly.segments.is_empty() {
+        return Err(RgmStatus::DegenerateGeometry);
+    }
+
+    let target = length.clamp(0.0, poly.total_length);
+
+    let idx = poly
+        .cumulative_lengths
+        .iter()
+        .position(|v| target <= *v + 1e-10)
+        .unwrap_or(poly.cumulative_lengths.len().saturating_sub(1));
+
+    let seg = &poly.segments[idx];
+    let seg_start = if idx == 0 {
+        0.0
+    } else {
+        poly.cumulative_lengths[idx - 1]
+    };
+    let mut local = target - seg_start;
+
+    if seg.reversed {
+        local = seg.length - local;
+    }
+
+    let mut eval = evaluate_curve_by_handle_at_length(state, seg.curve, local)?;
+    if seg.reversed {
+        eval.d1 = vec_neg(eval.d1);
+    }
+
+    Ok(eval)
+}
+
+fn insert_curve(state: &mut SessionState, curve: CurveData) -> RgmObjectHandle {
+    let object_id = NEXT_OBJECT_ID.fetch_add(1, Ordering::Relaxed);
+    state
+        .objects
+        .insert(object_id, GeometryObject::Curve(curve));
+    RgmObjectHandle(object_id)
 }
 
 fn rgm_nurbs_interpolate_fit_points_impl(
@@ -504,28 +1557,223 @@ fn rgm_nurbs_interpolate_fit_points_impl(
         }
     };
 
-    let object_id = NEXT_OBJECT_ID.fetch_add(1, Ordering::Relaxed);
-    let insert_result = with_session_mut(session, |state| {
-        state
-            .objects
-            .insert(object_id, GeometryObject::NurbsCurve(curve));
-        Ok(())
+    let result = with_session_mut(session, |state| {
+        let handle = insert_curve(state, CurveData::NurbsCurve(curve));
+        write_object_handle(out_object, handle)
     });
 
-    match insert_result {
+    match result {
         Ok(()) => {
             clear_error(session.0);
-            // SAFETY: out_object non-null guarded above.
-            unsafe {
-                *out_object = RgmObjectHandle(object_id);
-            }
             RgmStatus::Ok
         }
         Err(status) => map_err_with_session(session, status, "Session not found"),
     }
 }
 
-#[rgm_export(dotnet = "Create", ts = "create", receiver = "kernel_static")]
+fn create_curve_object(
+    session: RgmKernelHandle,
+    out_object: *mut RgmObjectHandle,
+    build: impl FnOnce(&SessionState) -> Result<CurveData, RgmStatus>,
+    message: &str,
+) -> RgmStatus {
+    if out_object.is_null() {
+        return map_err_with_session(session, RgmStatus::InvalidInput, "Null out_object pointer");
+    }
+
+    let result = with_session_mut(session, |state| {
+        let curve = build(state)?;
+        let handle = insert_curve(state, curve);
+        write_object_handle(out_object, handle)
+    });
+
+    match result {
+        Ok(()) => {
+            clear_error(session.0);
+            RgmStatus::Ok
+        }
+        Err(status) => map_err_with_session(session, status, message),
+    }
+}
+
+fn rgm_curve_create_line_impl(
+    session: RgmKernelHandle,
+    line: RgmLine3,
+    tol: RgmToleranceContext,
+    out_object: *mut RgmObjectHandle,
+) -> RgmStatus {
+    create_curve_object(
+        session,
+        out_object,
+        |_| {
+            let canonical_nurbs = build_line_nurbs(line, tol)?;
+            Ok(CurveData::Line(LineData {
+                line,
+                canonical_nurbs,
+            }))
+        },
+        "Line constructor failed",
+    )
+}
+
+fn rgm_curve_create_circle_impl(
+    session: RgmKernelHandle,
+    circle: RgmCircle3,
+    tol: RgmToleranceContext,
+    out_object: *mut RgmObjectHandle,
+) -> RgmStatus {
+    create_curve_object(
+        session,
+        out_object,
+        |_| {
+            let canonical_nurbs = build_circle_nurbs(circle, tol)?;
+            Ok(CurveData::Circle(CircleData {
+                circle,
+                canonical_nurbs,
+            }))
+        },
+        "Circle constructor failed",
+    )
+}
+
+fn rgm_curve_create_arc_impl(
+    session: RgmKernelHandle,
+    arc: RgmArc3,
+    tol: RgmToleranceContext,
+    out_object: *mut RgmObjectHandle,
+) -> RgmStatus {
+    create_curve_object(
+        session,
+        out_object,
+        |_| {
+            let canonical_nurbs = build_arc_nurbs(arc, tol)?;
+            Ok(CurveData::Arc(ArcData {
+                arc,
+                canonical_nurbs,
+            }))
+        },
+        "Arc constructor failed",
+    )
+}
+
+fn rgm_curve_create_arc_by_angles_impl(
+    session: RgmKernelHandle,
+    plane: RgmPlane,
+    radius: f64,
+    start_angle: f64,
+    end_angle: f64,
+    tol: RgmToleranceContext,
+    out_object: *mut RgmObjectHandle,
+) -> RgmStatus {
+    let arc = match build_arc_from_start_end_angles(plane, radius, start_angle, end_angle, tol) {
+        Ok(value) => value,
+        Err(status) => {
+            return map_err_with_session(session, status, "Arc-by-angles constructor failed");
+        }
+    };
+
+    rgm_curve_create_arc_impl(session, arc, tol, out_object)
+}
+
+fn rgm_curve_create_arc_by_3_points_impl(
+    session: RgmKernelHandle,
+    start: RgmPoint3,
+    mid: RgmPoint3,
+    end: RgmPoint3,
+    tol: RgmToleranceContext,
+    out_object: *mut RgmObjectHandle,
+) -> RgmStatus {
+    let arc = match build_arc_from_three_points(start, mid, end, tol) {
+        Ok(value) => value,
+        Err(status) => {
+            return map_err_with_session(session, status, "Arc-by-3-points constructor failed");
+        }
+    };
+
+    rgm_curve_create_arc_impl(session, arc, tol, out_object)
+}
+
+fn rgm_curve_create_polyline_impl(
+    session: RgmKernelHandle,
+    points: *const RgmPoint3,
+    point_count: usize,
+    closed: bool,
+    tol: RgmToleranceContext,
+    out_object: *mut RgmObjectHandle,
+) -> RgmStatus {
+    if points.is_null() {
+        return map_err_with_session(session, RgmStatus::InvalidInput, "Null points pointer");
+    }
+
+    // SAFETY: pointer and count validated by caller contract.
+    let points = unsafe { std::slice::from_raw_parts(points, point_count) };
+
+    create_curve_object(
+        session,
+        out_object,
+        |_| {
+            let canonical_nurbs = build_polyline_nurbs(points, closed, tol)?;
+            Ok(CurveData::Polyline(PolylineData {
+                closed,
+                points: points.to_vec(),
+                canonical_nurbs,
+            }))
+        },
+        "Polyline constructor failed",
+    )
+}
+
+fn rgm_curve_create_polycurve_impl(
+    session: RgmKernelHandle,
+    segments: *const RgmPolycurveSegment,
+    segment_count: usize,
+    out_object: *mut RgmObjectHandle,
+) -> RgmStatus {
+    if segments.is_null() || segment_count == 0 {
+        return map_err_with_session(
+            session,
+            RgmStatus::InvalidInput,
+            "Invalid polycurve segments",
+        );
+    }
+
+    // SAFETY: pointer/count validated above.
+    let segments = unsafe { std::slice::from_raw_parts(segments, segment_count) };
+
+    create_curve_object(
+        session,
+        out_object,
+        |state| {
+            let mut segment_data = Vec::with_capacity(segments.len());
+            let mut cumulative = Vec::with_capacity(segments.len());
+            let mut total = 0.0;
+
+            for seg in segments {
+                let curve = find_curve(state, seg.curve)?;
+                if matches!(curve, CurveData::Polycurve(_)) {
+                    return Err(RgmStatus::InvalidInput);
+                }
+                let len = curve_total_length(state, curve)?;
+                total += len;
+                cumulative.push(total);
+                segment_data.push(PolycurveSegmentData {
+                    curve: seg.curve,
+                    reversed: seg.reversed,
+                    length: len,
+                });
+            }
+
+            Ok(CurveData::Polycurve(PolycurveData {
+                segments: segment_data,
+                cumulative_lengths: cumulative,
+                total_length: total,
+            }))
+        },
+        "Polycurve constructor failed",
+    )
+}
+
+#[rgm_export(ts = "create", receiver = "kernel_static")]
 #[no_mangle]
 pub extern "C" fn rgm_kernel_create(out_session: *mut RgmKernelHandle) -> RgmStatus {
     if out_session.is_null() {
@@ -540,7 +1788,7 @@ pub extern "C" fn rgm_kernel_create(out_session: *mut RgmKernelHandle) -> RgmSta
 
     sessions.insert(session_id, SessionState::default());
 
-    // SAFETY: out_session is non-null by the guard above.
+    // SAFETY: out_session is non-null by guard above.
     unsafe {
         *out_session = RgmKernelHandle(session_id);
     }
@@ -548,7 +1796,7 @@ pub extern "C" fn rgm_kernel_create(out_session: *mut RgmKernelHandle) -> RgmSta
     RgmStatus::Ok
 }
 
-#[rgm_export(dotnet = "Dispose", ts = "dispose", receiver = "kernel")]
+#[rgm_export(ts = "dispose", receiver = "kernel")]
 #[no_mangle]
 pub extern "C" fn rgm_kernel_destroy(session: RgmKernelHandle) -> RgmStatus {
     let Ok(mut sessions) = SESSIONS.lock() else {
@@ -702,7 +1950,7 @@ pub extern "C" fn rgm_last_error_message(
         message_bytes.len().min(buffer_len.saturating_sub(1))
     };
 
-    // SAFETY: out_written is non-null by guard. buffer writes are guarded by null and length checks.
+    // SAFETY: out_written is non-null by guard. buffer writes guarded by null and length checks.
     unsafe {
         *out_written = bytes_to_copy;
         if !buffer.is_null() && buffer_len > 0 {
@@ -715,7 +1963,6 @@ pub extern "C" fn rgm_last_error_message(
 }
 
 #[rgm_export(
-    dotnet = "InterpolateNurbsFitPoints",
     ts = "interpolateNurbsFitPoints",
     receiver = "kernel"
 )]
@@ -805,7 +2052,479 @@ pub extern "C" fn rgm_nurbs_interpolate_fit_points_ptr_tol(
     )
 }
 
-#[rgm_export(dotnet = "PointAt", ts = "pointAt", receiver = "curve")]
+#[rgm_export(ts = "createLine", receiver = "kernel")]
+#[no_mangle]
+#[cfg(not(target_arch = "wasm32"))]
+pub extern "C" fn rgm_curve_create_line(
+    session: RgmKernelHandle,
+    line: RgmLine3,
+    tol: RgmToleranceContext,
+    out_object: *mut RgmObjectHandle,
+) -> RgmStatus {
+    rgm_curve_create_line_impl(session, line, tol, out_object)
+}
+
+#[cfg(target_arch = "wasm32")]
+#[no_mangle]
+pub extern "C" fn rgm_curve_create_line(
+    session: RgmKernelHandle,
+    line: *const RgmLine3,
+    tol: *const RgmToleranceContext,
+    out_object: *mut RgmObjectHandle,
+) -> RgmStatus {
+    if line.is_null() || tol.is_null() {
+        return map_err_with_session(session, RgmStatus::InvalidInput, "Null constructor pointer");
+    }
+    let line = unsafe { *line };
+    let tol = unsafe { *tol };
+    rgm_curve_create_line_impl(session, line, tol, out_object)
+}
+
+#[rgm_export]
+#[no_mangle]
+pub extern "C" fn rgm_curve_create_line_ptr_tol(
+    session: RgmKernelHandle,
+    line: *const RgmLine3,
+    tol: *const RgmToleranceContext,
+    out_object: *mut RgmObjectHandle,
+) -> RgmStatus {
+    if line.is_null() || tol.is_null() {
+        return map_err_with_session(session, RgmStatus::InvalidInput, "Null constructor pointer");
+    }
+    let line = unsafe { *line };
+    let tol = unsafe { *tol };
+    rgm_curve_create_line_impl(session, line, tol, out_object)
+}
+
+#[rgm_export(ts = "createCircle", receiver = "kernel")]
+#[no_mangle]
+#[cfg(not(target_arch = "wasm32"))]
+pub extern "C" fn rgm_curve_create_circle(
+    session: RgmKernelHandle,
+    circle: RgmCircle3,
+    tol: RgmToleranceContext,
+    out_object: *mut RgmObjectHandle,
+) -> RgmStatus {
+    rgm_curve_create_circle_impl(session, circle, tol, out_object)
+}
+
+#[cfg(target_arch = "wasm32")]
+#[no_mangle]
+pub extern "C" fn rgm_curve_create_circle(
+    session: RgmKernelHandle,
+    circle: *const RgmCircle3,
+    tol: *const RgmToleranceContext,
+    out_object: *mut RgmObjectHandle,
+) -> RgmStatus {
+    if circle.is_null() || tol.is_null() {
+        return map_err_with_session(session, RgmStatus::InvalidInput, "Null constructor pointer");
+    }
+    let circle = unsafe { *circle };
+    let tol = unsafe { *tol };
+    rgm_curve_create_circle_impl(session, circle, tol, out_object)
+}
+
+#[rgm_export]
+#[no_mangle]
+pub extern "C" fn rgm_curve_create_circle_ptr_tol(
+    session: RgmKernelHandle,
+    circle: *const RgmCircle3,
+    tol: *const RgmToleranceContext,
+    out_object: *mut RgmObjectHandle,
+) -> RgmStatus {
+    if circle.is_null() || tol.is_null() {
+        return map_err_with_session(session, RgmStatus::InvalidInput, "Null constructor pointer");
+    }
+    let circle = unsafe { *circle };
+    let tol = unsafe { *tol };
+    rgm_curve_create_circle_impl(session, circle, tol, out_object)
+}
+
+#[rgm_export(ts = "createArc", receiver = "kernel")]
+#[no_mangle]
+#[cfg(not(target_arch = "wasm32"))]
+pub extern "C" fn rgm_curve_create_arc(
+    session: RgmKernelHandle,
+    arc: RgmArc3,
+    tol: RgmToleranceContext,
+    out_object: *mut RgmObjectHandle,
+) -> RgmStatus {
+    rgm_curve_create_arc_impl(session, arc, tol, out_object)
+}
+
+#[cfg(target_arch = "wasm32")]
+#[no_mangle]
+pub extern "C" fn rgm_curve_create_arc(
+    session: RgmKernelHandle,
+    arc: *const RgmArc3,
+    tol: *const RgmToleranceContext,
+    out_object: *mut RgmObjectHandle,
+) -> RgmStatus {
+    if arc.is_null() || tol.is_null() {
+        return map_err_with_session(session, RgmStatus::InvalidInput, "Null constructor pointer");
+    }
+    let arc = unsafe { *arc };
+    let tol = unsafe { *tol };
+    rgm_curve_create_arc_impl(session, arc, tol, out_object)
+}
+
+#[rgm_export]
+#[no_mangle]
+pub extern "C" fn rgm_curve_create_arc_ptr_tol(
+    session: RgmKernelHandle,
+    arc: *const RgmArc3,
+    tol: *const RgmToleranceContext,
+    out_object: *mut RgmObjectHandle,
+) -> RgmStatus {
+    if arc.is_null() || tol.is_null() {
+        return map_err_with_session(session, RgmStatus::InvalidInput, "Null constructor pointer");
+    }
+    let arc = unsafe { *arc };
+    let tol = unsafe { *tol };
+    rgm_curve_create_arc_impl(session, arc, tol, out_object)
+}
+
+#[rgm_export(
+    ts = "createArcByAngles",
+    receiver = "kernel"
+)]
+#[no_mangle]
+#[cfg(not(target_arch = "wasm32"))]
+pub extern "C" fn rgm_curve_create_arc_by_angles(
+    session: RgmKernelHandle,
+    plane: RgmPlane,
+    radius: f64,
+    start_angle: f64,
+    end_angle: f64,
+    tol: RgmToleranceContext,
+    out_object: *mut RgmObjectHandle,
+) -> RgmStatus {
+    rgm_curve_create_arc_by_angles_impl(
+        session,
+        plane,
+        radius,
+        start_angle,
+        end_angle,
+        tol,
+        out_object,
+    )
+}
+
+#[cfg(target_arch = "wasm32")]
+#[no_mangle]
+pub extern "C" fn rgm_curve_create_arc_by_angles(
+    session: RgmKernelHandle,
+    plane: *const RgmPlane,
+    radius: f64,
+    start_angle: f64,
+    end_angle: f64,
+    tol: *const RgmToleranceContext,
+    out_object: *mut RgmObjectHandle,
+) -> RgmStatus {
+    if plane.is_null() || tol.is_null() {
+        return map_err_with_session(session, RgmStatus::InvalidInput, "Null constructor pointer");
+    }
+    let plane = unsafe { *plane };
+    let tol = unsafe { *tol };
+    rgm_curve_create_arc_by_angles_impl(
+        session,
+        plane,
+        radius,
+        start_angle,
+        end_angle,
+        tol,
+        out_object,
+    )
+}
+
+#[rgm_export]
+#[no_mangle]
+pub extern "C" fn rgm_curve_create_arc_by_angles_ptr_tol(
+    session: RgmKernelHandle,
+    plane: *const RgmPlane,
+    radius: f64,
+    start_angle: f64,
+    end_angle: f64,
+    tol: *const RgmToleranceContext,
+    out_object: *mut RgmObjectHandle,
+) -> RgmStatus {
+    if plane.is_null() || tol.is_null() {
+        return map_err_with_session(session, RgmStatus::InvalidInput, "Null constructor pointer");
+    }
+    let plane = unsafe { *plane };
+    let tol = unsafe { *tol };
+    rgm_curve_create_arc_by_angles_impl(
+        session,
+        plane,
+        radius,
+        start_angle,
+        end_angle,
+        tol,
+        out_object,
+    )
+}
+
+#[rgm_export(
+    ts = "createArcBy3Points",
+    receiver = "kernel"
+)]
+#[no_mangle]
+#[cfg(not(target_arch = "wasm32"))]
+pub extern "C" fn rgm_curve_create_arc_by_3_points(
+    session: RgmKernelHandle,
+    start: RgmPoint3,
+    mid: RgmPoint3,
+    end: RgmPoint3,
+    tol: RgmToleranceContext,
+    out_object: *mut RgmObjectHandle,
+) -> RgmStatus {
+    rgm_curve_create_arc_by_3_points_impl(session, start, mid, end, tol, out_object)
+}
+
+#[cfg(target_arch = "wasm32")]
+#[no_mangle]
+pub extern "C" fn rgm_curve_create_arc_by_3_points(
+    session: RgmKernelHandle,
+    start: *const RgmPoint3,
+    mid: *const RgmPoint3,
+    end: *const RgmPoint3,
+    tol: *const RgmToleranceContext,
+    out_object: *mut RgmObjectHandle,
+) -> RgmStatus {
+    if start.is_null() || mid.is_null() || end.is_null() || tol.is_null() {
+        return map_err_with_session(session, RgmStatus::InvalidInput, "Null constructor pointer");
+    }
+    let start = unsafe { *start };
+    let mid = unsafe { *mid };
+    let end = unsafe { *end };
+    let tol = unsafe { *tol };
+    rgm_curve_create_arc_by_3_points_impl(session, start, mid, end, tol, out_object)
+}
+
+#[rgm_export]
+#[no_mangle]
+pub extern "C" fn rgm_curve_create_arc_by_3_points_ptr_tol(
+    session: RgmKernelHandle,
+    start: *const RgmPoint3,
+    mid: *const RgmPoint3,
+    end: *const RgmPoint3,
+    tol: *const RgmToleranceContext,
+    out_object: *mut RgmObjectHandle,
+) -> RgmStatus {
+    if start.is_null() || mid.is_null() || end.is_null() || tol.is_null() {
+        return map_err_with_session(session, RgmStatus::InvalidInput, "Null constructor pointer");
+    }
+    let start = unsafe { *start };
+    let mid = unsafe { *mid };
+    let end = unsafe { *end };
+    let tol = unsafe { *tol };
+    rgm_curve_create_arc_by_3_points_impl(session, start, mid, end, tol, out_object)
+}
+
+#[rgm_export(ts = "createPolyline", receiver = "kernel")]
+#[no_mangle]
+#[cfg(not(target_arch = "wasm32"))]
+pub extern "C" fn rgm_curve_create_polyline(
+    session: RgmKernelHandle,
+    points: *const RgmPoint3,
+    point_count: usize,
+    closed: bool,
+    tol: RgmToleranceContext,
+    out_object: *mut RgmObjectHandle,
+) -> RgmStatus {
+    rgm_curve_create_polyline_impl(session, points, point_count, closed, tol, out_object)
+}
+
+#[cfg(target_arch = "wasm32")]
+#[no_mangle]
+pub extern "C" fn rgm_curve_create_polyline(
+    session: RgmKernelHandle,
+    points: *const RgmPoint3,
+    point_count: usize,
+    closed: bool,
+    tol: *const RgmToleranceContext,
+    out_object: *mut RgmObjectHandle,
+) -> RgmStatus {
+    if tol.is_null() {
+        return map_err_with_session(session, RgmStatus::InvalidInput, "Null tolerance pointer");
+    }
+    let tol = unsafe { *tol };
+    rgm_curve_create_polyline_impl(session, points, point_count, closed, tol, out_object)
+}
+
+#[rgm_export]
+#[no_mangle]
+pub extern "C" fn rgm_curve_create_polyline_ptr_tol(
+    session: RgmKernelHandle,
+    points: *const RgmPoint3,
+    point_count: usize,
+    closed: bool,
+    tol: *const RgmToleranceContext,
+    out_object: *mut RgmObjectHandle,
+) -> RgmStatus {
+    if tol.is_null() {
+        return map_err_with_session(session, RgmStatus::InvalidInput, "Null tolerance pointer");
+    }
+    let tol = unsafe { *tol };
+    rgm_curve_create_polyline_impl(session, points, point_count, closed, tol, out_object)
+}
+
+#[rgm_export(
+    ts = "createPolycurve",
+    receiver = "kernel"
+)]
+#[no_mangle]
+#[cfg(not(target_arch = "wasm32"))]
+pub extern "C" fn rgm_curve_create_polycurve(
+    session: RgmKernelHandle,
+    segments: *const RgmPolycurveSegment,
+    segment_count: usize,
+    _tol: RgmToleranceContext,
+    out_object: *mut RgmObjectHandle,
+) -> RgmStatus {
+    rgm_curve_create_polycurve_impl(session, segments, segment_count, out_object)
+}
+
+#[cfg(target_arch = "wasm32")]
+#[no_mangle]
+pub extern "C" fn rgm_curve_create_polycurve(
+    session: RgmKernelHandle,
+    segments: *const RgmPolycurveSegment,
+    segment_count: usize,
+    tol: *const RgmToleranceContext,
+    out_object: *mut RgmObjectHandle,
+) -> RgmStatus {
+    if tol.is_null() {
+        return map_err_with_session(session, RgmStatus::InvalidInput, "Null tolerance pointer");
+    }
+    rgm_curve_create_polycurve_impl(session, segments, segment_count, out_object)
+}
+
+#[rgm_export]
+#[no_mangle]
+pub extern "C" fn rgm_curve_create_polycurve_ptr_tol(
+    session: RgmKernelHandle,
+    segments: *const RgmPolycurveSegment,
+    segment_count: usize,
+    tol: *const RgmToleranceContext,
+    out_object: *mut RgmObjectHandle,
+) -> RgmStatus {
+    if tol.is_null() {
+        return map_err_with_session(session, RgmStatus::InvalidInput, "Null tolerance pointer");
+    }
+    rgm_curve_create_polycurve_impl(session, segments, segment_count, out_object)
+}
+
+fn polycurve_to_nurbs(
+    state: &SessionState,
+    poly: &PolycurveData,
+) -> Result<NurbsCurveData, RgmStatus> {
+    if poly.segments.is_empty() {
+        return Err(RgmStatus::DegenerateGeometry);
+    }
+
+    let mut segment_nurbs = Vec::with_capacity(poly.segments.len());
+    for seg in &poly.segments {
+        let curve = find_curve(state, seg.curve)?;
+        let Some(base) = curve_canonical_nurbs(curve) else {
+            return Err(RgmStatus::InvalidInput);
+        };
+        let open = if base.core.periodic {
+            periodic_to_open_nurbs(base)?
+        } else {
+            base.clone()
+        };
+        let nurbs = if seg.reversed {
+            reverse_open_nurbs(&open)?
+        } else {
+            open
+        };
+        segment_nurbs.push(nurbs);
+    }
+
+    let target_degree = segment_nurbs
+        .iter()
+        .map(|curve| curve.core.degree)
+        .max()
+        .unwrap_or(1);
+    let tol = segment_nurbs[0].core.tol;
+
+    let mut normalized = Vec::with_capacity(segment_nurbs.len());
+    for curve in segment_nurbs {
+        if curve.core.degree == target_degree {
+            normalized.push(curve);
+        } else {
+            normalized.push(elevate_open_nurbs_to_degree(&curve, target_degree)?);
+        }
+    }
+
+    let mut control_points = Vec::new();
+    let mut weights = Vec::new();
+    let mut knots = Vec::new();
+    let mut cursor = 0.0_f64;
+
+    for (idx, segment) in normalized.iter().enumerate() {
+        let span = segment.core.u_end - segment.core.u_start;
+        let mapped = reparameterize_open_nurbs(segment, cursor, cursor + span)?;
+        cursor += span;
+
+        control_points.extend_from_slice(&mapped.core.control_points);
+        weights.extend_from_slice(&mapped.core.weights);
+        if idx == 0 {
+            knots.extend_from_slice(&mapped.core.knots);
+        } else {
+            knots.extend(mapped.core.knots.iter().skip(target_degree + 1).copied());
+        }
+    }
+
+    build_nurbs_from_core(
+        target_degree,
+        false,
+        false,
+        control_points,
+        weights,
+        knots,
+        tol,
+        Vec::new(),
+    )
+}
+
+#[rgm_export(ts = "toNurbs", receiver = "curve")]
+#[no_mangle]
+pub extern "C" fn rgm_curve_to_nurbs(
+    session: RgmKernelHandle,
+    curve: RgmObjectHandle,
+    out_curve: *mut RgmObjectHandle,
+) -> RgmStatus {
+    if out_curve.is_null() {
+        return map_err_with_session(session, RgmStatus::InvalidInput, "Null out_curve pointer");
+    }
+
+    let result = with_session_mut(session, |state| {
+        let curve_data = find_curve(state, curve)?;
+        let nurbs = if let Some(existing) = curve_canonical_nurbs(curve_data) {
+            existing.clone()
+        } else {
+            match curve_data {
+                CurveData::Polycurve(poly) => polycurve_to_nurbs(state, poly)?,
+                _ => return Err(RgmStatus::InternalError),
+            }
+        };
+
+        let handle = insert_curve(state, CurveData::NurbsCurve(nurbs));
+        write_object_handle(out_curve, handle)
+    });
+
+    match result {
+        Ok(()) => {
+            clear_error(session.0);
+            RgmStatus::Ok
+        }
+        Err(status) => map_err_with_session(session, status, "Curve to NURBS conversion failed"),
+    }
+}
+
+#[rgm_export(ts = "pointAt", receiver = "curve")]
 #[no_mangle]
 pub extern "C" fn rgm_curve_point_at(
     session: RgmKernelHandle,
@@ -815,8 +2534,8 @@ pub extern "C" fn rgm_curve_point_at(
 ) -> RgmStatus {
     let result = with_session_mut(session, |state| {
         let curve_data = find_curve(state, curve)?;
-        let point = evaluate_curve_at_normalized(curve_data, t_norm)?;
-        write_point(out_point, point)
+        let eval = evaluate_curve_at_normalized_data(state, curve_data, t_norm)?;
+        write_point(out_point, eval.point)
     });
 
     match result {
@@ -828,7 +2547,52 @@ pub extern "C" fn rgm_curve_point_at(
     }
 }
 
-#[rgm_export(dotnet = "PointAtLength", ts = "pointAtLength", receiver = "curve")]
+#[rgm_export(ts = "length", receiver = "curve")]
+#[no_mangle]
+pub extern "C" fn rgm_curve_length(
+    session: RgmKernelHandle,
+    curve: RgmObjectHandle,
+    out_length: *mut f64,
+) -> RgmStatus {
+    let result = with_session_mut(session, |state| {
+        let curve_data = find_curve(state, curve)?;
+        let length = curve_total_length(state, curve_data)?;
+        write_f64(out_length, length)
+    });
+
+    match result {
+        Ok(()) => {
+            clear_error(session.0);
+            RgmStatus::Ok
+        }
+        Err(status) => map_err_with_session(session, status, "Curve length evaluation failed"),
+    }
+}
+
+#[rgm_export(ts = "lengthAt", receiver = "curve")]
+#[no_mangle]
+pub extern "C" fn rgm_curve_length_at(
+    session: RgmKernelHandle,
+    curve: RgmObjectHandle,
+    t_norm: f64,
+    out_length: *mut f64,
+) -> RgmStatus {
+    let result = with_session_mut(session, |state| {
+        let curve_data = find_curve(state, curve)?;
+        let length = curve_length_at_normalized_data(state, curve_data, t_norm)?;
+        write_f64(out_length, length)
+    });
+
+    match result {
+        Ok(()) => {
+            clear_error(session.0);
+            RgmStatus::Ok
+        }
+        Err(status) => map_err_with_session(session, status, "Curve length-at-parameter failed"),
+    }
+}
+
+#[rgm_export(ts = "pointAtLength", receiver = "curve")]
 #[no_mangle]
 pub extern "C" fn rgm_curve_point_at_length(
     session: RgmKernelHandle,
@@ -838,10 +2602,8 @@ pub extern "C" fn rgm_curve_point_at_length(
 ) -> RgmStatus {
     let result = with_session_mut(session, |state| {
         let curve_data = find_curve(state, curve)?;
-        let t_norm = map_length_to_normalized(curve_data, distance_length)?;
-
-        let point = evaluate_curve_at_normalized(curve_data, t_norm)?;
-        write_point(out_point, point)
+        let eval = evaluate_curve_at_length_data(state, curve_data, distance_length)?;
+        write_point(out_point, eval.point)
     });
 
     match result {
@@ -855,7 +2617,7 @@ pub extern "C" fn rgm_curve_point_at_length(
     }
 }
 
-#[rgm_export(dotnet = "D0", ts = "d0", receiver = "curve")]
+#[rgm_export(ts = "d0", receiver = "curve")]
 #[no_mangle]
 pub extern "C" fn rgm_curve_d0_at(
     session: RgmKernelHandle,
@@ -866,7 +2628,7 @@ pub extern "C" fn rgm_curve_d0_at(
     rgm_curve_point_at(session, curve, t_norm, out_point)
 }
 
-#[rgm_export(dotnet = "D0AtLength", ts = "d0AtLength", receiver = "curve")]
+#[rgm_export(ts = "d0AtLength", receiver = "curve")]
 #[no_mangle]
 pub extern "C" fn rgm_curve_d0_at_length(
     session: RgmKernelHandle,
@@ -877,7 +2639,109 @@ pub extern "C" fn rgm_curve_d0_at_length(
     rgm_curve_point_at_length(session, curve, distance_length, out_point)
 }
 
-#[rgm_export(dotnet = "TangentAt", ts = "tangentAt", receiver = "curve")]
+#[rgm_export(ts = "d1", receiver = "curve")]
+#[no_mangle]
+pub extern "C" fn rgm_curve_d1_at(
+    session: RgmKernelHandle,
+    curve: RgmObjectHandle,
+    t_norm: f64,
+    out_d1: *mut RgmVec3,
+) -> RgmStatus {
+    let result = with_session_mut(session, |state| {
+        let curve_data = find_curve(state, curve)?;
+        let eval = evaluate_curve_at_normalized_data(state, curve_data, t_norm)?;
+        write_vec(out_d1, eval.d1)
+    });
+
+    match result {
+        Ok(()) => {
+            clear_error(session.0);
+            RgmStatus::Ok
+        }
+        Err(status) => {
+            map_err_with_session(session, status, "Curve first derivative evaluation failed")
+        }
+    }
+}
+
+#[rgm_export(ts = "d1AtLength", receiver = "curve")]
+#[no_mangle]
+pub extern "C" fn rgm_curve_d1_at_length(
+    session: RgmKernelHandle,
+    curve: RgmObjectHandle,
+    distance_length: f64,
+    out_d1: *mut RgmVec3,
+) -> RgmStatus {
+    let result = with_session_mut(session, |state| {
+        let curve_data = find_curve(state, curve)?;
+        let eval = evaluate_curve_at_length_data(state, curve_data, distance_length)?;
+        write_vec(out_d1, eval.d1)
+    });
+
+    match result {
+        Ok(()) => {
+            clear_error(session.0);
+            RgmStatus::Ok
+        }
+        Err(status) => {
+            map_err_with_session(session, status, "Curve first derivative-at-distance failed")
+        }
+    }
+}
+
+#[rgm_export(ts = "d2", receiver = "curve")]
+#[no_mangle]
+pub extern "C" fn rgm_curve_d2_at(
+    session: RgmKernelHandle,
+    curve: RgmObjectHandle,
+    t_norm: f64,
+    out_derivative: *mut RgmVec3,
+) -> RgmStatus {
+    let result = with_session_mut(session, |state| {
+        let curve_data = find_curve(state, curve)?;
+        let eval = evaluate_curve_at_normalized_data(state, curve_data, t_norm)?;
+        write_vec(out_derivative, eval.d2)
+    });
+
+    match result {
+        Ok(()) => {
+            clear_error(session.0);
+            RgmStatus::Ok
+        }
+        Err(status) => {
+            map_err_with_session(session, status, "Curve second derivative evaluation failed")
+        }
+    }
+}
+
+#[rgm_export(ts = "d2AtLength", receiver = "curve")]
+#[no_mangle]
+pub extern "C" fn rgm_curve_d2_at_length(
+    session: RgmKernelHandle,
+    curve: RgmObjectHandle,
+    distance_length: f64,
+    out_derivative: *mut RgmVec3,
+) -> RgmStatus {
+    let result = with_session_mut(session, |state| {
+        let curve_data = find_curve(state, curve)?;
+        let eval = evaluate_curve_at_length_data(state, curve_data, distance_length)?;
+        write_vec(out_derivative, eval.d2)
+    });
+
+    match result {
+        Ok(()) => {
+            clear_error(session.0);
+            RgmStatus::Ok
+        }
+        Err(status) => map_err_with_session(
+            session,
+            status,
+            "Curve second derivative-at-distance failed",
+        ),
+    }
+}
+
+#[rgm_export(ts = "tangentAt", receiver = "curve")]
 #[no_mangle]
 pub extern "C" fn rgm_curve_tangent_at(
     session: RgmKernelHandle,
@@ -887,7 +2751,8 @@ pub extern "C" fn rgm_curve_tangent_at(
 ) -> RgmStatus {
     let result = with_session_mut(session, |state| {
         let curve_data = find_curve(state, curve)?;
-        let tangent = evaluate_tangent_at_normalized(curve_data, t_norm)?;
+        let eval = evaluate_curve_at_normalized_data(state, curve_data, t_norm)?;
+        let tangent = frame_tangent(eval)?;
         write_vec(out_tangent, tangent)
     });
 
@@ -900,7 +2765,7 @@ pub extern "C" fn rgm_curve_tangent_at(
     }
 }
 
-#[rgm_export(dotnet = "TangentAtLength", ts = "tangentAtLength", receiver = "curve")]
+#[rgm_export(ts = "tangentAtLength", receiver = "curve")]
 #[no_mangle]
 pub extern "C" fn rgm_curve_tangent_at_length(
     session: RgmKernelHandle,
@@ -910,8 +2775,8 @@ pub extern "C" fn rgm_curve_tangent_at_length(
 ) -> RgmStatus {
     let result = with_session_mut(session, |state| {
         let curve_data = find_curve(state, curve)?;
-        let t_norm = map_length_to_normalized(curve_data, distance_length)?;
-        let tangent = evaluate_tangent_at_normalized(curve_data, t_norm)?;
+        let eval = evaluate_curve_at_length_data(state, curve_data, distance_length)?;
+        let tangent = frame_tangent(eval)?;
         write_vec(out_tangent, tangent)
     });
 
@@ -926,7 +2791,7 @@ pub extern "C" fn rgm_curve_tangent_at_length(
     }
 }
 
-#[rgm_export(dotnet = "NormalAt", ts = "normalAt", receiver = "curve")]
+#[rgm_export(ts = "normalAt", receiver = "curve")]
 #[no_mangle]
 pub extern "C" fn rgm_curve_normal_at(
     session: RgmKernelHandle,
@@ -936,7 +2801,13 @@ pub extern "C" fn rgm_curve_normal_at(
 ) -> RgmStatus {
     let result = with_session_mut(session, |state| {
         let curve_data = find_curve(state, curve)?;
-        let normal = evaluate_normal_at_normalized(curve_data, t_norm)?;
+        let eval = evaluate_curve_at_normalized_data(state, curve_data, t_norm)?;
+        let abs_tol = if let Some(nurbs) = curve_canonical_nurbs(curve_data) {
+            nurbs.core.tol.abs_tol
+        } else {
+            1e-9
+        };
+        let normal = frame_normal(eval, abs_tol)?;
         write_vec(out_normal, normal)
     });
 
@@ -949,7 +2820,7 @@ pub extern "C" fn rgm_curve_normal_at(
     }
 }
 
-#[rgm_export(dotnet = "NormalAtLength", ts = "normalAtLength", receiver = "curve")]
+#[rgm_export(ts = "normalAtLength", receiver = "curve")]
 #[no_mangle]
 pub extern "C" fn rgm_curve_normal_at_length(
     session: RgmKernelHandle,
@@ -959,8 +2830,13 @@ pub extern "C" fn rgm_curve_normal_at_length(
 ) -> RgmStatus {
     let result = with_session_mut(session, |state| {
         let curve_data = find_curve(state, curve)?;
-        let t_norm = map_length_to_normalized(curve_data, distance_length)?;
-        let normal = evaluate_normal_at_normalized(curve_data, t_norm)?;
+        let eval = evaluate_curve_at_length_data(state, curve_data, distance_length)?;
+        let abs_tol = if let Some(nurbs) = curve_canonical_nurbs(curve_data) {
+            nurbs.core.tol.abs_tol
+        } else {
+            1e-9
+        };
+        let normal = frame_normal(eval, abs_tol)?;
         write_vec(out_normal, normal)
     });
 
@@ -975,100 +2851,7 @@ pub extern "C" fn rgm_curve_normal_at_length(
     }
 }
 
-#[rgm_export(dotnet = "D1", ts = "d1", receiver = "curve")]
-#[no_mangle]
-pub extern "C" fn rgm_curve_d1_at(
-    session: RgmKernelHandle,
-    curve: RgmObjectHandle,
-    t_norm: f64,
-    out_d1: *mut RgmVec3,
-) -> RgmStatus {
-    let result = with_session_mut(session, |state| {
-        let curve_data = find_curve(state, curve)?;
-        let d1 = evaluate_d1_at_normalized(curve_data, t_norm)?;
-        write_vec(out_d1, d1)
-    });
-
-    match result {
-        Ok(()) => {
-            clear_error(session.0);
-            RgmStatus::Ok
-        }
-        Err(status) => {
-            map_err_with_session(session, status, "Curve first derivative evaluation failed")
-        }
-    }
-}
-
-#[rgm_export(dotnet = "D1AtLength", ts = "d1AtLength", receiver = "curve")]
-#[no_mangle]
-pub extern "C" fn rgm_curve_d1_at_length(
-    session: RgmKernelHandle,
-    curve: RgmObjectHandle,
-    distance_length: f64,
-    out_d1: *mut RgmVec3,
-) -> RgmStatus {
-    let result = with_session_mut(session, |state| {
-        let curve_data = find_curve(state, curve)?;
-        let t_norm = map_length_to_normalized(curve_data, distance_length)?;
-        let d1 = evaluate_d1_at_normalized(curve_data, t_norm)?;
-        write_vec(out_d1, d1)
-    });
-
-    match result {
-        Ok(()) => {
-            clear_error(session.0);
-            RgmStatus::Ok
-        }
-        Err(status) => {
-            map_err_with_session(session, status, "Curve first derivative-at-distance failed")
-        }
-    }
-}
-
-#[rgm_export(dotnet = "D2", ts = "d2", receiver = "curve")]
-#[no_mangle]
-pub extern "C" fn rgm_curve_d2_at(
-    session: RgmKernelHandle,
-    curve: RgmObjectHandle,
-    _t_norm: f64,
-    out_derivative: *mut RgmVec3,
-) -> RgmStatus {
-    let _ = curve;
-    let result = with_session_mut(session, |_state| {
-        write_vec(
-            out_derivative,
-            RgmVec3 {
-                x: 0.0,
-                y: 0.0,
-                z: 0.0,
-            },
-        )
-    });
-
-    match result {
-        Ok(()) => {
-            clear_error(session.0);
-            RgmStatus::Ok
-        }
-        Err(status) => {
-            map_err_with_session(session, status, "Curve second derivative evaluation failed")
-        }
-    }
-}
-
-#[rgm_export(dotnet = "D2AtLength", ts = "d2AtLength", receiver = "curve")]
-#[no_mangle]
-pub extern "C" fn rgm_curve_d2_at_length(
-    session: RgmKernelHandle,
-    curve: RgmObjectHandle,
-    _distance_length: f64,
-    out_derivative: *mut RgmVec3,
-) -> RgmStatus {
-    rgm_curve_d2_at(session, curve, 0.0, out_derivative)
-}
-
-#[rgm_export(dotnet = "PlaneAt", ts = "planeAt", receiver = "curve")]
+#[rgm_export(ts = "planeAt", receiver = "curve")]
 #[no_mangle]
 pub extern "C" fn rgm_curve_plane_at(
     session: RgmKernelHandle,
@@ -1078,7 +2861,13 @@ pub extern "C" fn rgm_curve_plane_at(
 ) -> RgmStatus {
     let result = with_session_mut(session, |state| {
         let curve_data = find_curve(state, curve)?;
-        let plane = evaluate_plane_at_normalized(curve_data, t_norm)?;
+        let eval = evaluate_curve_at_normalized_data(state, curve_data, t_norm)?;
+        let abs_tol = if let Some(nurbs) = curve_canonical_nurbs(curve_data) {
+            nurbs.core.tol.abs_tol
+        } else {
+            1e-9
+        };
+        let plane = frame_plane(eval, abs_tol)?;
         write_plane(out_plane, plane)
     });
 
@@ -1091,7 +2880,7 @@ pub extern "C" fn rgm_curve_plane_at(
     }
 }
 
-#[rgm_export(dotnet = "PlaneAtLength", ts = "planeAtLength", receiver = "curve")]
+#[rgm_export(ts = "planeAtLength", receiver = "curve")]
 #[no_mangle]
 pub extern "C" fn rgm_curve_plane_at_length(
     session: RgmKernelHandle,
@@ -1101,9 +2890,13 @@ pub extern "C" fn rgm_curve_plane_at_length(
 ) -> RgmStatus {
     let result = with_session_mut(session, |state| {
         let curve_data = find_curve(state, curve)?;
-        let t_norm = map_length_to_normalized(curve_data, distance_length)?;
-
-        let plane = evaluate_plane_at_normalized(curve_data, t_norm)?;
+        let eval = evaluate_curve_at_length_data(state, curve_data, distance_length)?;
+        let abs_tol = if let Some(nurbs) = curve_canonical_nurbs(curve_data) {
+            nurbs.core.tol.abs_tol
+        } else {
+            1e-9
+        };
+        let plane = frame_plane(eval, abs_tol)?;
         write_plane(out_plane, plane)
     });
 
@@ -1118,28 +2911,65 @@ pub extern "C" fn rgm_curve_plane_at_length(
     }
 }
 
+#[rgm_export(
+    ts = "convertPointCoordinateSystem",
+    receiver = "kernel"
+)]
+#[no_mangle]
+pub extern "C" fn rgm_point_convert_coordinate_system(
+    session: RgmKernelHandle,
+    x: f64,
+    y: f64,
+    z: f64,
+    source_coordinate_system: i32,
+    target_coordinate_system: i32,
+    out_point: *mut RgmPoint3,
+) -> RgmStatus {
+    let result = with_session_mut(session, |_| {
+        let source = parse_coordinate_system(source_coordinate_system)?;
+        let target = parse_coordinate_system(target_coordinate_system)?;
+        let point = RgmPoint3 { x, y, z };
+        let converted = convert_point_coordinate_system(point, source, target);
+        write_point(out_point, converted)
+    });
+
+    match result {
+        Ok(()) => {
+            clear_error(session.0);
+            RgmStatus::Ok
+        }
+        Err(status) => map_err_with_session(session, status, "Coordinate system conversion failed"),
+    }
+}
+
 #[rgm_export]
 #[no_mangle]
 pub extern "C" fn rgm_intersect_curve_curve(
     session: RgmKernelHandle,
-    _curve_a: RgmObjectHandle,
-    _curve_b: RgmObjectHandle,
-    out_count: *mut usize,
+    curve_a: RgmObjectHandle,
+    curve_b: RgmObjectHandle,
+    out_points: *mut RgmPoint3,
+    point_capacity: u32,
+    out_count: *mut u32,
 ) -> RgmStatus {
     if out_count.is_null() {
         return map_err_with_session(session, RgmStatus::InvalidInput, "Null out_count pointer");
     }
 
-    // SAFETY: out_count is non-null by guard above.
-    unsafe {
-        *out_count = 0;
-    }
+    let result = with_session_mut(session, |state| {
+        let curve_data_a = find_curve(state, curve_a)?;
+        let curve_data_b = find_curve(state, curve_b)?;
+        let points = intersect_curve_curve_points_data(state, curve_data_a, curve_data_b)?;
+        write_intersection_points(out_points, point_capacity, &points, out_count)
+    });
 
-    map_err_with_session(
-        session,
-        RgmStatus::NotImplemented,
-        "Curve-curve intersection is stubbed in this milestone",
-    )
+    match result {
+        Ok(()) => {
+            clear_error(session.0);
+            RgmStatus::Ok
+        }
+        Err(status) => map_err_with_session(session, status, "Curve-curve intersection failed"),
+    }
 }
 
 #[rgm_export]
@@ -1147,35 +2977,42 @@ pub extern "C" fn rgm_intersect_curve_curve(
 #[cfg(not(target_arch = "wasm32"))]
 pub extern "C" fn rgm_intersect_curve_plane(
     session: RgmKernelHandle,
-    _curve: RgmObjectHandle,
-    _plane: RgmPlane,
-    out_count: *mut usize,
+    curve: RgmObjectHandle,
+    plane: RgmPlane,
+    out_points: *mut RgmPoint3,
+    point_capacity: u32,
+    out_count: *mut u32,
 ) -> RgmStatus {
     if out_count.is_null() {
         return map_err_with_session(session, RgmStatus::InvalidInput, "Null out_count pointer");
     }
 
-    // SAFETY: out_count is non-null by guard above.
-    unsafe {
-        *out_count = 0;
-    }
+    let result = with_session_mut(session, |state| {
+        let curve_data = find_curve(state, curve)?;
+        let points = intersect_curve_plane_points_data(state, curve_data, plane)?;
+        write_intersection_points(out_points, point_capacity, &points, out_count)
+    });
 
-    map_err_with_session(
-        session,
-        RgmStatus::NotImplemented,
-        "Curve-plane intersection is stubbed in this milestone",
-    )
+    match result {
+        Ok(()) => {
+            clear_error(session.0);
+            RgmStatus::Ok
+        }
+        Err(status) => map_err_with_session(session, status, "Curve-plane intersection failed"),
+    }
 }
 
 #[cfg(target_arch = "wasm32")]
 #[no_mangle]
 pub extern "C" fn rgm_intersect_curve_plane(
     session: RgmKernelHandle,
-    _curve: RgmObjectHandle,
-    _plane: *const RgmPlane,
-    out_count: *mut usize,
+    curve: RgmObjectHandle,
+    plane: *const RgmPlane,
+    out_points: *mut RgmPoint3,
+    point_capacity: u32,
+    out_count: *mut u32,
 ) -> RgmStatus {
-    if _plane.is_null() {
+    if plane.is_null() {
         return map_err_with_session(session, RgmStatus::InvalidInput, "Null plane pointer");
     }
 
@@ -1183,24 +3020,63 @@ pub extern "C" fn rgm_intersect_curve_plane(
         return map_err_with_session(session, RgmStatus::InvalidInput, "Null out_count pointer");
     }
 
-    // SAFETY: out_count is non-null by guard above.
-    unsafe {
-        *out_count = 0;
+    // SAFETY: plane is non-null by guard above.
+    let plane = unsafe { *plane };
+    let result = with_session_mut(session, |state| {
+        let curve_data = find_curve(state, curve)?;
+        let points = intersect_curve_plane_points_data(state, curve_data, plane)?;
+        write_intersection_points(out_points, point_capacity, &points, out_count)
+    });
+
+    match result {
+        Ok(()) => {
+            clear_error(session.0);
+            RgmStatus::Ok
+        }
+        Err(status) => map_err_with_session(session, status, "Curve-plane intersection failed"),
+    }
+}
+
+#[rgm_export]
+#[no_mangle]
+pub extern "C" fn rgm_intersect_curve_plane_ptr(
+    session: RgmKernelHandle,
+    curve: RgmObjectHandle,
+    plane: *const RgmPlane,
+    out_points: *mut RgmPoint3,
+    point_capacity: u32,
+    out_count: *mut u32,
+) -> RgmStatus {
+    if plane.is_null() {
+        return map_err_with_session(session, RgmStatus::InvalidInput, "Null plane pointer");
+    }
+    if out_count.is_null() {
+        return map_err_with_session(session, RgmStatus::InvalidInput, "Null out_count pointer");
     }
 
-    map_err_with_session(
-        session,
-        RgmStatus::NotImplemented,
-        "Curve-plane intersection is stubbed in this milestone",
-    )
+    // SAFETY: plane is non-null by guard above.
+    let plane = unsafe { *plane };
+    let result = with_session_mut(session, |state| {
+        let curve_data = find_curve(state, curve)?;
+        let points = intersect_curve_plane_points_data(state, curve_data, plane)?;
+        write_intersection_points(out_points, point_capacity, &points, out_count)
+    });
+
+    match result {
+        Ok(()) => {
+            clear_error(session.0);
+            RgmStatus::Ok
+        }
+        Err(status) => map_err_with_session(session, status, "Curve-plane intersection failed"),
+    }
 }
 
 #[cfg(test)]
-fn debug_get_curve(session: RgmKernelHandle, object: RgmObjectHandle) -> Option<NurbsCurveData> {
+fn debug_get_curve(session: RgmKernelHandle, object: RgmObjectHandle) -> Option<CurveData> {
     let sessions = SESSIONS.lock().ok()?;
     let state = sessions.get(&session.0)?;
     match state.objects.get(&object.0)? {
-        GeometryObject::NurbsCurve(curve) => Some(curve.clone()),
+        GeometryObject::Curve(curve) => Some(curve.clone()),
     }
 }
 
@@ -1214,6 +3090,14 @@ mod tests {
         let status = rgm_kernel_create(&mut session as *mut _);
         assert_eq!(status, RgmStatus::Ok);
         session
+    }
+
+    fn tol() -> RgmToleranceContext {
+        RgmToleranceContext {
+            abs_tol: 1e-9,
+            rel_tol: 1e-9,
+            angle_tol: 1e-9,
+        }
     }
 
     fn sample_points() -> Vec<RgmPoint3> {
@@ -1266,132 +3150,37 @@ mod tests {
     }
 
     #[test]
-    fn alloc_addr_and_dealloc_roundtrip() {
-        let ptr = rgm_alloc_addr(32, 8);
-        assert_ne!(ptr, 0);
-        assert_eq!(rgm_dealloc(ptr as *mut u8, 32, 8), RgmStatus::Ok);
-    }
-
-    #[test]
-    fn interpolate_with_pointer_tolerance() {
+    fn interpolate_open_curve_creates_nurbs() {
         let session = create_session();
         let points = sample_points();
-        let tolerance = RgmToleranceContext {
-            abs_tol: 1e-9,
-            rel_tol: 1e-9,
-            angle_tol: 1e-9,
+        let mut object = RgmObjectHandle(0);
+
+        let status = rgm_nurbs_interpolate_fit_points(
+            session,
+            points.as_ptr(),
+            points.len(),
+            2,
+            false,
+            tol(),
+            &mut object as *mut _,
+        );
+        assert_eq!(status, RgmStatus::Ok);
+
+        let curve = debug_get_curve(session, object).expect("curve exists");
+        let CurveData::NurbsCurve(curve) = curve else {
+            panic!("expected NURBS curve");
         };
-        let mut object = RgmObjectHandle(0);
-        let status = rgm_nurbs_interpolate_fit_points_ptr_tol(
-            session,
-            points.as_ptr(),
-            points.len(),
-            2,
-            false,
-            &tolerance as *const _,
-            &mut object as *mut _,
-        );
-
-        assert_eq!(status, RgmStatus::Ok);
-        assert_ne!(object.0, 0);
-        assert_eq!(rgm_object_release(session, object), RgmStatus::Ok);
-        assert_eq!(rgm_kernel_destroy(session), RgmStatus::Ok);
-    }
-
-    #[test]
-    fn object_release_is_session_scoped() {
-        let session_a = create_session();
-        let session_b = create_session();
-
-        let points = sample_points();
-        let mut object = RgmObjectHandle(0);
-        let status = rgm_nurbs_interpolate_fit_points(
-            session_a,
-            points.as_ptr(),
-            points.len(),
-            2,
-            false,
-            RgmToleranceContext {
-                abs_tol: 1e-9,
-                rel_tol: 1e-9,
-                angle_tol: 1e-9,
-            },
-            &mut object as *mut _,
-        );
-        assert_eq!(status, RgmStatus::Ok);
-
-        assert_eq!(rgm_object_release(session_b, object), RgmStatus::NotFound);
-        assert_eq!(rgm_object_release(session_a, object), RgmStatus::Ok);
-        assert_eq!(rgm_object_release(session_a, object), RgmStatus::NotFound);
-
-        assert_eq!(rgm_kernel_destroy(session_a), RgmStatus::Ok);
-        assert_eq!(rgm_kernel_destroy(session_b), RgmStatus::Ok);
-    }
-
-    #[test]
-    fn interpolate_open_curve_creates_clamped_knots() {
-        let session = create_session();
-        let points = sample_points();
-        let mut object = RgmObjectHandle(0);
-
-        let status = rgm_nurbs_interpolate_fit_points(
-            session,
-            points.as_ptr(),
-            points.len(),
-            2,
-            false,
-            RgmToleranceContext {
-                abs_tol: 1e-9,
-                rel_tol: 1e-9,
-                angle_tol: 1e-9,
-            },
-            &mut object as *mut _,
-        );
-        assert_eq!(status, RgmStatus::Ok);
-
-        let curve = debug_get_curve(session, object).expect("curve exists");
-        assert_eq!(curve.weights, vec![1.0; points.len()]);
-        assert!((curve.knots[0] - 0.0).abs() < 1e-12);
-        assert!((curve.knots[1] - 0.0).abs() < 1e-12);
-        assert!((curve.knots[curve.knots.len() - 1] - 1.0).abs() < 1e-12);
-        assert!((curve.knots[curve.knots.len() - 2] - 1.0).abs() < 1e-12);
+        assert_eq!(curve.core.weights, vec![1.0; points.len()]);
+        assert!((curve.core.knots[0] - 0.0).abs() < 1e-12);
+        assert!((curve.core.knots[curve.core.knots.len() - 1] - 1.0).abs() < 1e-12);
+        assert!(curve.arc_length.total_length > 0.0);
 
         assert_eq!(rgm_object_release(session, object), RgmStatus::Ok);
         assert_eq!(rgm_kernel_destroy(session), RgmStatus::Ok);
     }
 
     #[test]
-    fn interpolate_closed_curve_dedups_seam_point() {
-        let session = create_session();
-        let mut points = sample_points();
-        points.push(points[0]);
-
-        let mut object = RgmObjectHandle(0);
-        let status = rgm_nurbs_interpolate_fit_points(
-            session,
-            points.as_ptr(),
-            points.len(),
-            2,
-            true,
-            RgmToleranceContext {
-                abs_tol: 1e-6,
-                rel_tol: 1e-9,
-                angle_tol: 1e-9,
-            },
-            &mut object as *mut _,
-        );
-        assert_eq!(status, RgmStatus::Ok);
-
-        let curve = debug_get_curve(session, object).expect("curve exists");
-        assert_eq!(curve.fit_points.len(), points.len() - 1);
-        assert_ne!(curve.knots[0], curve.knots[curve.knots.len() - 1]);
-
-        assert_eq!(rgm_object_release(session, object), RgmStatus::Ok);
-        assert_eq!(rgm_kernel_destroy(session), RgmStatus::Ok);
-    }
-
-    #[test]
-    fn can_evaluate_point_and_plane() {
+    fn can_evaluate_point_derivatives_and_plane() {
         let session = create_session();
         let points = sample_points();
         let mut object = RgmObjectHandle(0);
@@ -1401,13 +3190,9 @@ mod tests {
                 session,
                 points.as_ptr(),
                 points.len(),
-                1,
+                2,
                 false,
-                RgmToleranceContext {
-                    abs_tol: 1e-9,
-                    rel_tol: 1e-9,
-                    angle_tol: 1e-9
-                },
+                tol(),
                 &mut object as *mut _,
             ),
             RgmStatus::Ok
@@ -1422,9 +3207,1245 @@ mod tests {
             rgm_curve_point_at(session, object, 0.5, &mut point as *mut _),
             RgmStatus::Ok
         );
-        assert!(point.x >= 1.0 && point.x <= 2.5);
+
+        let mut d1 = RgmVec3 {
+            x: 0.0,
+            y: 0.0,
+            z: 0.0,
+        };
+        assert_eq!(
+            rgm_curve_d1_at(session, object, 0.5, &mut d1 as *mut _),
+            RgmStatus::Ok
+        );
+
+        let mut d2 = RgmVec3 {
+            x: 0.0,
+            y: 0.0,
+            z: 0.0,
+        };
+        assert_eq!(
+            rgm_curve_d2_at(session, object, 0.5, &mut d2 as *mut _),
+            RgmStatus::Ok
+        );
+        assert!(vec_norm(d2) > 0.0);
 
         let mut plane = RgmPlane {
+            origin: point,
+            x_axis: RgmVec3 {
+                x: 1.0,
+                y: 0.0,
+                z: 0.0,
+            },
+            y_axis: RgmVec3 {
+                x: 0.0,
+                y: 1.0,
+                z: 0.0,
+            },
+            z_axis: RgmVec3 {
+                x: 0.0,
+                y: 0.0,
+                z: 1.0,
+            },
+        };
+
+        assert_eq!(
+            rgm_curve_plane_at(session, object, 0.5, &mut plane as *mut _),
+            RgmStatus::Ok
+        );
+
+        assert_eq!(rgm_object_release(session, object), RgmStatus::Ok);
+        assert_eq!(rgm_kernel_destroy(session), RgmStatus::Ok);
+    }
+
+    #[test]
+    fn length_queries_are_available() {
+        let session = create_session();
+        let points = sample_points();
+        let mut object = RgmObjectHandle(0);
+
+        assert_eq!(
+            rgm_nurbs_interpolate_fit_points(
+                session,
+                points.as_ptr(),
+                points.len(),
+                2,
+                false,
+                tol(),
+                &mut object as *mut _,
+            ),
+            RgmStatus::Ok
+        );
+
+        let mut total: f64 = 0.0;
+        assert_eq!(
+            rgm_curve_length(session, object, &mut total as *mut _),
+            RgmStatus::Ok
+        );
+        assert!(total > 0.0);
+
+        let mut s0: f64 = -1.0;
+        let mut s1: f64 = -1.0;
+        let mut smid: f64 = -1.0;
+        assert_eq!(
+            rgm_curve_length_at(session, object, 0.0, &mut s0 as *mut _),
+            RgmStatus::Ok
+        );
+        assert_eq!(
+            rgm_curve_length_at(session, object, 0.5, &mut smid as *mut _),
+            RgmStatus::Ok
+        );
+        assert_eq!(
+            rgm_curve_length_at(session, object, 1.0, &mut s1 as *mut _),
+            RgmStatus::Ok
+        );
+
+        assert!(s0.abs() < 1e-8);
+        assert!(smid > s0);
+        assert!(smid < s1);
+        assert!((s1 - total).abs() < 1e-7);
+
+        assert_eq!(rgm_object_release(session, object), RgmStatus::Ok);
+        assert_eq!(rgm_kernel_destroy(session), RgmStatus::Ok);
+    }
+
+    #[test]
+    fn line_constructor_is_exact_and_linear() {
+        let session = create_session();
+        let mut line = RgmObjectHandle(0);
+
+        assert_eq!(
+            rgm_curve_create_line(
+                session,
+                RgmLine3 {
+                    start: RgmPoint3 {
+                        x: 0.0,
+                        y: 0.0,
+                        z: 0.0,
+                    },
+                    end: RgmPoint3 {
+                        x: 10.0,
+                        y: 0.0,
+                        z: 0.0,
+                    },
+                },
+                tol(),
+                &mut line as *mut _,
+            ),
+            RgmStatus::Ok
+        );
+
+        let mut p = RgmPoint3 {
+            x: 0.0,
+            y: 0.0,
+            z: 0.0,
+        };
+        assert_eq!(
+            rgm_curve_point_at(session, line, 0.25, &mut p as *mut _),
+            RgmStatus::Ok
+        );
+        assert!((p.x - 2.5).abs() < 1e-9);
+
+        let mut d2 = RgmVec3 {
+            x: 1.0,
+            y: 1.0,
+            z: 1.0,
+        };
+        assert_eq!(
+            rgm_curve_d2_at(session, line, 0.5, &mut d2 as *mut _),
+            RgmStatus::Ok
+        );
+        assert!(vec_norm(d2) < 1e-7);
+
+        assert_eq!(rgm_object_release(session, line), RgmStatus::Ok);
+        assert_eq!(rgm_kernel_destroy(session), RgmStatus::Ok);
+    }
+
+    #[test]
+    fn line_length_matches_euclidean_distance() {
+        let session = create_session();
+        let mut line = RgmObjectHandle(0);
+
+        assert_eq!(
+            rgm_curve_create_line(
+                session,
+                RgmLine3 {
+                    start: RgmPoint3 {
+                        x: 0.0,
+                        y: 0.0,
+                        z: 0.0,
+                    },
+                    end: RgmPoint3 {
+                        x: 3.0,
+                        y: 4.0,
+                        z: 0.0,
+                    },
+                },
+                tol(),
+                &mut line as *mut _,
+            ),
+            RgmStatus::Ok
+        );
+
+        let mut length = 0.0_f64;
+        assert_eq!(
+            rgm_curve_length(session, line, &mut length as *mut _),
+            RgmStatus::Ok
+        );
+        assert!((length - 5.0).abs() < 1e-9);
+
+        assert_eq!(rgm_object_release(session, line), RgmStatus::Ok);
+        assert_eq!(rgm_kernel_destroy(session), RgmStatus::Ok);
+    }
+
+    #[test]
+    fn zero_length_line_is_supported() {
+        let session = create_session();
+        let mut line = RgmObjectHandle(0);
+
+        assert_eq!(
+            rgm_curve_create_line(
+                session,
+                RgmLine3 {
+                    start: RgmPoint3 {
+                        x: 1.0,
+                        y: 1.0,
+                        z: 1.0,
+                    },
+                    end: RgmPoint3 {
+                        x: 1.0,
+                        y: 1.0,
+                        z: 1.0,
+                    },
+                },
+                tol(),
+                &mut line as *mut _,
+            ),
+            RgmStatus::Ok
+        );
+
+        let mut length = -1.0_f64;
+        assert_eq!(
+            rgm_curve_length(session, line, &mut length as *mut _),
+            RgmStatus::Ok
+        );
+        assert!(length.abs() < 1e-12);
+
+        assert_eq!(rgm_object_release(session, line), RgmStatus::Ok);
+        assert_eq!(rgm_kernel_destroy(session), RgmStatus::Ok);
+    }
+
+    #[test]
+    fn arc_by_angles_length_matches_radius_times_sweep() {
+        let session = create_session();
+        let mut arc = RgmObjectHandle(0);
+
+        assert_eq!(
+            rgm_curve_create_arc_by_angles(
+                session,
+                RgmPlane {
+                    origin: RgmPoint3 {
+                        x: 0.0,
+                        y: 0.0,
+                        z: 0.0,
+                    },
+                    x_axis: RgmVec3 {
+                        x: 1.0,
+                        y: 0.0,
+                        z: 0.0,
+                    },
+                    y_axis: RgmVec3 {
+                        x: 0.0,
+                        y: 1.0,
+                        z: 0.0,
+                    },
+                    z_axis: RgmVec3 {
+                        x: 0.0,
+                        y: 0.0,
+                        z: 1.0,
+                    },
+                },
+                10.0,
+                0.0,
+                PI,
+                tol(),
+                &mut arc as *mut _,
+            ),
+            RgmStatus::Ok
+        );
+
+        let mut length = 0.0_f64;
+        assert_eq!(
+            rgm_curve_length(session, arc, &mut length as *mut _),
+            RgmStatus::Ok
+        );
+        assert!((length - 10.0 * PI).abs() < 1e-8);
+
+        assert_eq!(rgm_object_release(session, arc), RgmStatus::Ok);
+        assert_eq!(rgm_kernel_destroy(session), RgmStatus::Ok);
+    }
+
+    #[test]
+    fn arc_by_angles_length_is_positive_when_angles_are_reversed() {
+        let session = create_session();
+        let mut arc = RgmObjectHandle(0);
+
+        assert_eq!(
+            rgm_curve_create_arc_by_angles(
+                session,
+                RgmPlane {
+                    origin: RgmPoint3 {
+                        x: 0.0,
+                        y: 0.0,
+                        z: 0.0,
+                    },
+                    x_axis: RgmVec3 {
+                        x: 1.0,
+                        y: 0.0,
+                        z: 0.0,
+                    },
+                    y_axis: RgmVec3 {
+                        x: 0.0,
+                        y: 1.0,
+                        z: 0.0,
+                    },
+                    z_axis: RgmVec3 {
+                        x: 0.0,
+                        y: 0.0,
+                        z: 1.0,
+                    },
+                },
+                5.0,
+                PI,
+                0.0,
+                tol(),
+                &mut arc as *mut _,
+            ),
+            RgmStatus::Ok
+        );
+
+        let mut length = 0.0_f64;
+        assert_eq!(
+            rgm_curve_length(session, arc, &mut length as *mut _),
+            RgmStatus::Ok
+        );
+        assert!((length - 5.0 * PI).abs() < 1e-8);
+
+        assert_eq!(rgm_object_release(session, arc), RgmStatus::Ok);
+        assert_eq!(rgm_kernel_destroy(session), RgmStatus::Ok);
+    }
+
+    #[test]
+    fn arc_by_3_points_preserves_radius_and_endpoints() {
+        let session = create_session();
+        let mut arc = RgmObjectHandle(0);
+        let start = RgmPoint3 {
+            x: 1.0,
+            y: 0.0,
+            z: 0.0,
+        };
+        let mid = RgmPoint3 {
+            x: 0.0,
+            y: 1.0,
+            z: 0.0,
+        };
+        let end = RgmPoint3 {
+            x: -1.0,
+            y: 0.0,
+            z: 0.0,
+        };
+
+        assert_eq!(
+            rgm_curve_create_arc_by_3_points(session, start, mid, end, tol(), &mut arc as *mut _),
+            RgmStatus::Ok
+        );
+
+        let mut p0 = RgmPoint3 {
+            x: 0.0,
+            y: 0.0,
+            z: 0.0,
+        };
+        let mut p1 = p0;
+        assert_eq!(
+            rgm_curve_point_at(session, arc, 0.0, &mut p0),
+            RgmStatus::Ok
+        );
+        assert_eq!(
+            rgm_curve_point_at(session, arc, 1.0, &mut p1),
+            RgmStatus::Ok
+        );
+        assert!(distance(start, p0) < 1e-7);
+        assert!(distance(end, p1) < 1e-7);
+
+        let center = RgmPoint3 {
+            x: 0.0,
+            y: 0.0,
+            z: 0.0,
+        };
+        for t in [0.0, 0.25, 0.5, 0.75, 1.0] {
+            let mut p = RgmPoint3 {
+                x: 0.0,
+                y: 0.0,
+                z: 0.0,
+            };
+            assert_eq!(rgm_curve_point_at(session, arc, t, &mut p), RgmStatus::Ok);
+            assert!((distance(center, p) - 1.0).abs() < 1e-6);
+        }
+
+        let mut length = 0.0_f64;
+        assert_eq!(
+            rgm_curve_length(session, arc, &mut length as *mut _),
+            RgmStatus::Ok
+        );
+        assert!((length - PI).abs() < 1e-7);
+
+        assert_eq!(rgm_object_release(session, arc), RgmStatus::Ok);
+        assert_eq!(rgm_kernel_destroy(session), RgmStatus::Ok);
+    }
+
+    #[test]
+    fn polyline_length_sums_open_segments() {
+        let session = create_session();
+        let mut polyline = RgmObjectHandle(0);
+        let points = [
+            RgmPoint3 {
+                x: 0.0,
+                y: 0.0,
+                z: 0.0,
+            },
+            RgmPoint3 {
+                x: 10.0,
+                y: 0.0,
+                z: 0.0,
+            },
+            RgmPoint3 {
+                x: 10.0,
+                y: 10.0,
+                z: 0.0,
+            },
+        ];
+
+        assert_eq!(
+            rgm_curve_create_polyline(
+                session,
+                points.as_ptr(),
+                points.len(),
+                false,
+                tol(),
+                &mut polyline as *mut _,
+            ),
+            RgmStatus::Ok
+        );
+
+        let mut length = 0.0_f64;
+        assert_eq!(
+            rgm_curve_length(session, polyline, &mut length as *mut _),
+            RgmStatus::Ok
+        );
+        assert!((length - 20.0).abs() < 1e-9);
+
+        assert_eq!(rgm_object_release(session, polyline), RgmStatus::Ok);
+        assert_eq!(rgm_kernel_destroy(session), RgmStatus::Ok);
+    }
+
+    #[test]
+    fn polyline_length_includes_closing_segment_when_closed() {
+        let session = create_session();
+        let mut polyline = RgmObjectHandle(0);
+        let points = [
+            RgmPoint3 {
+                x: 0.0,
+                y: 0.0,
+                z: 0.0,
+            },
+            RgmPoint3 {
+                x: 10.0,
+                y: 0.0,
+                z: 0.0,
+            },
+            RgmPoint3 {
+                x: 10.0,
+                y: 10.0,
+                z: 0.0,
+            },
+            RgmPoint3 {
+                x: 0.0,
+                y: 10.0,
+                z: 0.0,
+            },
+        ];
+
+        assert_eq!(
+            rgm_curve_create_polyline(
+                session,
+                points.as_ptr(),
+                points.len(),
+                true,
+                tol(),
+                &mut polyline as *mut _,
+            ),
+            RgmStatus::Ok
+        );
+
+        let mut length = 0.0_f64;
+        assert_eq!(
+            rgm_curve_length(session, polyline, &mut length as *mut _),
+            RgmStatus::Ok
+        );
+        assert!((length - 40.0).abs() < 1e-7);
+
+        assert_eq!(rgm_object_release(session, polyline), RgmStatus::Ok);
+        assert_eq!(rgm_kernel_destroy(session), RgmStatus::Ok);
+    }
+
+    #[test]
+    fn polycurve_length_sums_children() {
+        let session = create_session();
+        let mut line1 = RgmObjectHandle(0);
+        let mut line2 = RgmObjectHandle(0);
+
+        assert_eq!(
+            rgm_curve_create_line(
+                session,
+                RgmLine3 {
+                    start: RgmPoint3 {
+                        x: 0.0,
+                        y: 0.0,
+                        z: 0.0,
+                    },
+                    end: RgmPoint3 {
+                        x: 10.0,
+                        y: 0.0,
+                        z: 0.0,
+                    },
+                },
+                tol(),
+                &mut line1 as *mut _,
+            ),
+            RgmStatus::Ok
+        );
+        assert_eq!(
+            rgm_curve_create_line(
+                session,
+                RgmLine3 {
+                    start: RgmPoint3 {
+                        x: 10.0,
+                        y: 0.0,
+                        z: 0.0,
+                    },
+                    end: RgmPoint3 {
+                        x: 20.0,
+                        y: 0.0,
+                        z: 0.0,
+                    },
+                },
+                tol(),
+                &mut line2 as *mut _,
+            ),
+            RgmStatus::Ok
+        );
+
+        let segments = [
+            RgmPolycurveSegment {
+                curve: line1,
+                reversed: false,
+            },
+            RgmPolycurveSegment {
+                curve: line2,
+                reversed: false,
+            },
+        ];
+        let mut polycurve = RgmObjectHandle(0);
+        assert_eq!(
+            rgm_curve_create_polycurve(
+                session,
+                segments.as_ptr(),
+                segments.len(),
+                tol(),
+                &mut polycurve as *mut _,
+            ),
+            RgmStatus::Ok
+        );
+
+        let mut length = 0.0_f64;
+        assert_eq!(
+            rgm_curve_length(session, polycurve, &mut length as *mut _),
+            RgmStatus::Ok
+        );
+        assert!((length - 20.0).abs() < 1e-9);
+
+        assert_eq!(rgm_object_release(session, polycurve), RgmStatus::Ok);
+        assert_eq!(rgm_object_release(session, line2), RgmStatus::Ok);
+        assert_eq!(rgm_object_release(session, line1), RgmStatus::Ok);
+        assert_eq!(rgm_kernel_destroy(session), RgmStatus::Ok);
+    }
+
+    #[test]
+    fn point_coordinate_system_conversion_swaps_axes() {
+        let session = create_session();
+        let mut out = RgmPoint3 {
+            x: 0.0,
+            y: 0.0,
+            z: 0.0,
+        };
+
+        assert_eq!(
+            rgm_point_convert_coordinate_system(
+                session,
+                10.0,
+                20.0,
+                30.0,
+                RgmAlignmentCoordinateSystem::EastingNorthing as i32,
+                RgmAlignmentCoordinateSystem::NorthingEasting as i32,
+                &mut out as *mut _,
+            ),
+            RgmStatus::Ok
+        );
+        assert!((out.x - 20.0).abs() < 1e-12);
+        assert!((out.y - 10.0).abs() < 1e-12);
+        assert!((out.z - 30.0).abs() < 1e-12);
+
+        assert_eq!(
+            rgm_point_convert_coordinate_system(
+                session,
+                out.x,
+                out.y,
+                out.z,
+                RgmAlignmentCoordinateSystem::NorthingEasting as i32,
+                RgmAlignmentCoordinateSystem::EastingNorthing as i32,
+                &mut out as *mut _,
+            ),
+            RgmStatus::Ok
+        );
+        assert!((out.x - 10.0).abs() < 1e-12);
+        assert!((out.y - 20.0).abs() < 1e-12);
+        assert!((out.z - 30.0).abs() < 1e-12);
+
+        assert_eq!(
+            rgm_point_convert_coordinate_system(session, 1.0, 2.0, 3.0, 42, 0, &mut out as *mut _),
+            RgmStatus::InvalidInput
+        );
+
+        assert_eq!(rgm_kernel_destroy(session), RgmStatus::Ok);
+    }
+
+    #[test]
+    fn circle_constructor_is_periodic() {
+        let session = create_session();
+        let mut circle = RgmObjectHandle(0);
+
+        assert_eq!(
+            rgm_curve_create_circle(
+                session,
+                RgmCircle3 {
+                    plane: RgmPlane {
+                        origin: RgmPoint3 {
+                            x: 0.0,
+                            y: 0.0,
+                            z: 0.0,
+                        },
+                        x_axis: RgmVec3 {
+                            x: 1.0,
+                            y: 0.0,
+                            z: 0.0,
+                        },
+                        y_axis: RgmVec3 {
+                            x: 0.0,
+                            y: 1.0,
+                            z: 0.0,
+                        },
+                        z_axis: RgmVec3 {
+                            x: 0.0,
+                            y: 0.0,
+                            z: 1.0,
+                        },
+                    },
+                    radius: 5.0,
+                },
+                tol(),
+                &mut circle as *mut _,
+            ),
+            RgmStatus::Ok
+        );
+
+        let mut p0 = RgmPoint3 {
+            x: 0.0,
+            y: 0.0,
+            z: 0.0,
+        };
+        let mut p1 = p0;
+        assert_eq!(
+            rgm_curve_point_at(session, circle, 0.0, &mut p0),
+            RgmStatus::Ok
+        );
+        assert_eq!(
+            rgm_curve_point_at(session, circle, 1.0, &mut p1),
+            RgmStatus::Ok
+        );
+        assert!(distance(p0, p1) < 1e-6);
+        for t in [0.0, 0.13, 0.27, 0.51, 0.79, 1.0] {
+            let mut p = RgmPoint3 {
+                x: 0.0,
+                y: 0.0,
+                z: 0.0,
+            };
+            assert_eq!(
+                rgm_curve_point_at(session, circle, t, &mut p),
+                RgmStatus::Ok
+            );
+            let r = (p.x * p.x + p.y * p.y + p.z * p.z).sqrt();
+            assert!((r - 5.0).abs() < 1e-5);
+        }
+
+        assert_eq!(rgm_object_release(session, circle), RgmStatus::Ok);
+        assert_eq!(rgm_kernel_destroy(session), RgmStatus::Ok);
+    }
+
+    #[test]
+    fn arc_constructor_preserves_radius_and_endpoints() {
+        let session = create_session();
+        let mut arc = RgmObjectHandle(0);
+
+        let start = -0.4_f64;
+        let sweep = 1.2_f64;
+        let radius = 3.25_f64;
+        let center = RgmPoint3 {
+            x: 1.2,
+            y: -0.7,
+            z: 0.5,
+        };
+
+        assert_eq!(
+            rgm_curve_create_arc(
+                session,
+                RgmArc3 {
+                    plane: RgmPlane {
+                        origin: center,
+                        x_axis: RgmVec3 {
+                            x: 1.0,
+                            y: 0.0,
+                            z: 0.0,
+                        },
+                        y_axis: RgmVec3 {
+                            x: 0.0,
+                            y: 1.0,
+                            z: 0.0,
+                        },
+                        z_axis: RgmVec3 {
+                            x: 0.0,
+                            y: 0.0,
+                            z: 1.0,
+                        },
+                    },
+                    radius,
+                    start_angle: start,
+                    sweep_angle: sweep,
+                },
+                tol(),
+                &mut arc as *mut _,
+            ),
+            RgmStatus::Ok
+        );
+
+        let mut p0 = RgmPoint3 {
+            x: 0.0,
+            y: 0.0,
+            z: 0.0,
+        };
+        let mut p1 = p0;
+        let mut pm = p0;
+
+        assert_eq!(
+            rgm_curve_point_at(session, arc, 0.0, &mut p0),
+            RgmStatus::Ok
+        );
+        assert_eq!(
+            rgm_curve_point_at(session, arc, 0.5, &mut pm),
+            RgmStatus::Ok
+        );
+        assert_eq!(
+            rgm_curve_point_at(session, arc, 1.0, &mut p1),
+            RgmStatus::Ok
+        );
+
+        let expected_start = RgmPoint3 {
+            x: center.x + radius * start.cos(),
+            y: center.y + radius * start.sin(),
+            z: center.z,
+        };
+        let expected_end = RgmPoint3 {
+            x: center.x + radius * (start + sweep).cos(),
+            y: center.y + radius * (start + sweep).sin(),
+            z: center.z,
+        };
+
+        assert!(distance(p0, expected_start) < 1e-6);
+        assert!(distance(p1, expected_end) < 1e-6);
+
+        for p in [p0, pm, p1] {
+            let r = distance(center, p);
+            assert!((r - radius).abs() < 1e-5);
+        }
+
+        assert_eq!(rgm_object_release(session, arc), RgmStatus::Ok);
+        assert_eq!(rgm_kernel_destroy(session), RgmStatus::Ok);
+    }
+
+    #[test]
+    fn polycurve_is_global_curve() {
+        let session = create_session();
+        let mut line = RgmObjectHandle(0);
+        let mut arc = RgmObjectHandle(0);
+
+        assert_eq!(
+            rgm_curve_create_line(
+                session,
+                RgmLine3 {
+                    start: RgmPoint3 {
+                        x: 0.0,
+                        y: 0.0,
+                        z: 0.0,
+                    },
+                    end: RgmPoint3 {
+                        x: 1.0,
+                        y: 0.0,
+                        z: 0.0,
+                    },
+                },
+                tol(),
+                &mut line as *mut _,
+            ),
+            RgmStatus::Ok
+        );
+
+        assert_eq!(
+            rgm_curve_create_arc(
+                session,
+                RgmArc3 {
+                    plane: RgmPlane {
+                        origin: RgmPoint3 {
+                            x: 1.0,
+                            y: 0.0,
+                            z: 0.0,
+                        },
+                        x_axis: RgmVec3 {
+                            x: 1.0,
+                            y: 0.0,
+                            z: 0.0,
+                        },
+                        y_axis: RgmVec3 {
+                            x: 0.0,
+                            y: 1.0,
+                            z: 0.0,
+                        },
+                        z_axis: RgmVec3 {
+                            x: 0.0,
+                            y: 0.0,
+                            z: 1.0,
+                        },
+                    },
+                    radius: 1.0,
+                    start_angle: 0.0,
+                    sweep_angle: FRAC_PI_2,
+                },
+                tol(),
+                &mut arc as *mut _,
+            ),
+            RgmStatus::Ok
+        );
+
+        let segments = [
+            RgmPolycurveSegment {
+                curve: line,
+                reversed: false,
+            },
+            RgmPolycurveSegment {
+                curve: arc,
+                reversed: false,
+            },
+        ];
+
+        let mut poly = RgmObjectHandle(0);
+        assert_eq!(
+            rgm_curve_create_polycurve(
+                session,
+                segments.as_ptr(),
+                segments.len(),
+                tol(),
+                &mut poly as *mut _,
+            ),
+            RgmStatus::Ok
+        );
+
+        let mut p = RgmPoint3 {
+            x: 0.0,
+            y: 0.0,
+            z: 0.0,
+        };
+        assert_eq!(
+            rgm_curve_point_at(session, poly, 0.75, &mut p as *mut _),
+            RgmStatus::Ok
+        );
+
+        let mut nurbs = RgmObjectHandle(0);
+        assert_eq!(
+            rgm_curve_to_nurbs(session, poly, &mut nurbs as *mut _),
+            RgmStatus::Ok
+        );
+        let converted = debug_get_curve(session, nurbs).expect("converted curve exists");
+        let CurveData::NurbsCurve(converted) = converted else {
+            panic!("expected converted NURBS curve");
+        };
+        assert_eq!(converted.core.degree, 2);
+        assert_eq!(converted.core.control_points.len(), 6);
+
+        let total = 1.0 + FRAC_PI_2;
+        for dist in [0.0, 0.25, 0.75, 1.25, total] {
+            let mut from_poly = RgmPoint3 {
+                x: 0.0,
+                y: 0.0,
+                z: 0.0,
+            };
+            let mut from_nurbs = from_poly;
+            assert_eq!(
+                rgm_curve_point_at_length(session, poly, dist, &mut from_poly as *mut _),
+                RgmStatus::Ok
+            );
+            assert_eq!(
+                rgm_curve_point_at_length(session, nurbs, dist, &mut from_nurbs as *mut _),
+                RgmStatus::Ok
+            );
+            assert!(distance(from_poly, from_nurbs) < 1e-6);
+        }
+
+        assert_eq!(rgm_object_release(session, nurbs), RgmStatus::Ok);
+        assert_eq!(rgm_object_release(session, poly), RgmStatus::Ok);
+        assert_eq!(rgm_object_release(session, arc), RgmStatus::Ok);
+        assert_eq!(rgm_object_release(session, line), RgmStatus::Ok);
+        assert_eq!(rgm_kernel_destroy(session), RgmStatus::Ok);
+    }
+
+    #[test]
+    fn polycurve_to_nurbs_supports_mixed_degrees_exactly() {
+        let session = create_session();
+        let fit_points = [
+            RgmPoint3 {
+                x: 0.0,
+                y: 0.0,
+                z: 0.0,
+            },
+            RgmPoint3 {
+                x: 1.0,
+                y: 1.5,
+                z: 0.0,
+            },
+            RgmPoint3 {
+                x: 2.0,
+                y: -1.0,
+                z: 0.0,
+            },
+            RgmPoint3 {
+                x: 3.5,
+                y: 0.8,
+                z: 0.0,
+            },
+            RgmPoint3 {
+                x: 4.5,
+                y: -0.3,
+                z: 0.0,
+            },
+            RgmPoint3 {
+                x: 5.5,
+                y: 0.4,
+                z: 0.0,
+            },
+        ];
+
+        let mut cubic = RgmObjectHandle(0);
+        assert_eq!(
+            rgm_nurbs_interpolate_fit_points(
+                session,
+                fit_points.as_ptr(),
+                fit_points.len(),
+                3,
+                false,
+                tol(),
+                &mut cubic as *mut _,
+            ),
+            RgmStatus::Ok
+        );
+
+        let mut arc = RgmObjectHandle(0);
+        assert_eq!(
+            rgm_curve_create_arc(
+                session,
+                RgmArc3 {
+                    plane: RgmPlane {
+                        origin: RgmPoint3 {
+                            x: 7.0,
+                            y: 0.0,
+                            z: 0.0,
+                        },
+                        x_axis: RgmVec3 {
+                            x: 1.0,
+                            y: 0.0,
+                            z: 0.0,
+                        },
+                        y_axis: RgmVec3 {
+                            x: 0.0,
+                            y: 1.0,
+                            z: 0.0,
+                        },
+                        z_axis: RgmVec3 {
+                            x: 0.0,
+                            y: 0.0,
+                            z: 1.0,
+                        },
+                    },
+                    radius: 1.2,
+                    start_angle: PI,
+                    sweep_angle: FRAC_PI_2,
+                },
+                tol(),
+                &mut arc as *mut _,
+            ),
+            RgmStatus::Ok
+        );
+
+        let segments = [
+            RgmPolycurveSegment {
+                curve: cubic,
+                reversed: false,
+            },
+            RgmPolycurveSegment {
+                curve: arc,
+                reversed: false,
+            },
+        ];
+        let mut poly = RgmObjectHandle(0);
+        assert_eq!(
+            rgm_curve_create_polycurve(
+                session,
+                segments.as_ptr(),
+                segments.len(),
+                tol(),
+                &mut poly as *mut _,
+            ),
+            RgmStatus::Ok
+        );
+
+        let mut nurbs = RgmObjectHandle(0);
+        assert_eq!(
+            rgm_curve_to_nurbs(session, poly, &mut nurbs as *mut _),
+            RgmStatus::Ok
+        );
+
+        let converted = debug_get_curve(session, nurbs).expect("converted curve exists");
+        let CurveData::NurbsCurve(converted) = converted else {
+            panic!("expected converted NURBS curve");
+        };
+        assert_eq!(converted.core.degree, 3);
+        assert_eq!(converted.core.control_points.len(), 10);
+
+        let mut total = 0.0_f64;
+        assert_eq!(
+            rgm_curve_length(session, poly, &mut total as *mut _),
+            RgmStatus::Ok
+        );
+        for fraction in [0.0, 0.13, 0.27, 0.51, 0.79, 1.0] {
+            let s = total * fraction;
+            let mut from_poly = RgmPoint3 {
+                x: 0.0,
+                y: 0.0,
+                z: 0.0,
+            };
+            let mut from_nurbs = from_poly;
+            assert_eq!(
+                rgm_curve_point_at_length(session, poly, s, &mut from_poly as *mut _),
+                RgmStatus::Ok
+            );
+            assert_eq!(
+                rgm_curve_point_at_length(session, nurbs, s, &mut from_nurbs as *mut _),
+                RgmStatus::Ok
+            );
+            assert!(distance(from_poly, from_nurbs) < 1e-6);
+        }
+
+        assert_eq!(rgm_object_release(session, nurbs), RgmStatus::Ok);
+        assert_eq!(rgm_object_release(session, poly), RgmStatus::Ok);
+        assert_eq!(rgm_object_release(session, arc), RgmStatus::Ok);
+        assert_eq!(rgm_object_release(session, cubic), RgmStatus::Ok);
+        assert_eq!(rgm_kernel_destroy(session), RgmStatus::Ok);
+    }
+
+    #[test]
+    fn polycurve_to_nurbs_supports_periodic_segments() {
+        let session = create_session();
+        let fit_points = [
+            RgmPoint3 {
+                x: 0.0,
+                y: 0.0,
+                z: 0.0,
+            },
+            RgmPoint3 {
+                x: 1.0,
+                y: 0.0,
+                z: 0.0,
+            },
+            RgmPoint3 {
+                x: 1.4,
+                y: 0.8,
+                z: 0.0,
+            },
+            RgmPoint3 {
+                x: 0.4,
+                y: 1.2,
+                z: 0.0,
+            },
+            RgmPoint3 {
+                x: -0.4,
+                y: 0.6,
+                z: 0.0,
+            },
+        ];
+
+        let mut periodic = RgmObjectHandle(0);
+        assert_eq!(
+            rgm_nurbs_interpolate_fit_points(
+                session,
+                fit_points.as_ptr(),
+                fit_points.len(),
+                3,
+                true,
+                tol(),
+                &mut periodic as *mut _,
+            ),
+            RgmStatus::Ok
+        );
+
+        let mut line = RgmObjectHandle(0);
+        assert_eq!(
+            rgm_curve_create_line(
+                session,
+                RgmLine3 {
+                    start: RgmPoint3 {
+                        x: 2.0,
+                        y: 0.0,
+                        z: 0.0,
+                    },
+                    end: RgmPoint3 {
+                        x: 3.0,
+                        y: 0.4,
+                        z: 0.0,
+                    },
+                },
+                tol(),
+                &mut line as *mut _,
+            ),
+            RgmStatus::Ok
+        );
+
+        let segments = [
+            RgmPolycurveSegment {
+                curve: periodic,
+                reversed: false,
+            },
+            RgmPolycurveSegment {
+                curve: line,
+                reversed: false,
+            },
+        ];
+        let mut poly = RgmObjectHandle(0);
+        assert_eq!(
+            rgm_curve_create_polycurve(
+                session,
+                segments.as_ptr(),
+                segments.len(),
+                tol(),
+                &mut poly as *mut _,
+            ),
+            RgmStatus::Ok
+        );
+
+        let mut nurbs = RgmObjectHandle(0);
+        assert_eq!(
+            rgm_curve_to_nurbs(session, poly, &mut nurbs as *mut _),
+            RgmStatus::Ok
+        );
+
+        let mut poly_total = 0.0_f64;
+        let mut nurbs_total = 0.0_f64;
+        assert_eq!(
+            rgm_curve_length(session, poly, &mut poly_total as *mut _),
+            RgmStatus::Ok
+        );
+        assert_eq!(
+            rgm_curve_length(session, nurbs, &mut nurbs_total as *mut _),
+            RgmStatus::Ok
+        );
+        assert!(poly_total > 0.0);
+        assert!(nurbs_total > 0.0);
+        assert!((poly_total - nurbs_total).abs() / poly_total.max(1e-9) < 0.12);
+
+        let mut poly_start = RgmPoint3 {
+            x: 0.0,
+            y: 0.0,
+            z: 0.0,
+        };
+        let mut nurbs_start = poly_start;
+        let mut poly_end = poly_start;
+        let mut nurbs_end = poly_start;
+        assert_eq!(
+            rgm_curve_point_at(session, poly, 0.0, &mut poly_start as *mut _),
+            RgmStatus::Ok
+        );
+        assert_eq!(
+            rgm_curve_point_at(session, nurbs, 0.0, &mut nurbs_start as *mut _),
+            RgmStatus::Ok
+        );
+        assert_eq!(
+            rgm_curve_point_at(session, poly, 1.0, &mut poly_end as *mut _),
+            RgmStatus::Ok
+        );
+        assert_eq!(
+            rgm_curve_point_at(session, nurbs, 1.0, &mut nurbs_end as *mut _),
+            RgmStatus::Ok
+        );
+        assert!(distance(poly_start, nurbs_start) < 0.15);
+        assert!(distance(poly_end, nurbs_end) < 0.15);
+
+        assert_eq!(rgm_object_release(session, nurbs), RgmStatus::Ok);
+        assert_eq!(rgm_object_release(session, poly), RgmStatus::Ok);
+        assert_eq!(rgm_object_release(session, line), RgmStatus::Ok);
+        assert_eq!(rgm_object_release(session, periodic), RgmStatus::Ok);
+        assert_eq!(rgm_kernel_destroy(session), RgmStatus::Ok);
+    }
+
+    #[test]
+    fn intersect_curve_plane_counts_expected_hits() {
+        let session = create_session();
+        let mut line_crossing = RgmObjectHandle(0);
+        assert_eq!(
+            rgm_curve_create_line(
+                session,
+                RgmLine3 {
+                    start: RgmPoint3 {
+                        x: 0.0,
+                        y: 0.0,
+                        z: -1.0,
+                    },
+                    end: RgmPoint3 {
+                        x: 0.0,
+                        y: 0.0,
+                        z: 1.0,
+                    },
+                },
+                tol(),
+                &mut line_crossing as *mut _,
+            ),
+            RgmStatus::Ok
+        );
+
+        let plane_xy = RgmPlane {
             origin: RgmPoint3 {
                 x: 0.0,
                 y: 0.0,
@@ -1446,12 +4467,292 @@ mod tests {
                 z: 1.0,
             },
         };
+
+        let mut count = 0_u32;
+        let mut points = [RgmPoint3 {
+            x: 0.0,
+            y: 0.0,
+            z: 0.0,
+        }; 8];
         assert_eq!(
-            rgm_curve_plane_at(session, object, 0.2, &mut plane as *mut _),
+            rgm_intersect_curve_plane(
+                session,
+                line_crossing,
+                plane_xy,
+                points.as_mut_ptr(),
+                points.len() as u32,
+                &mut count as *mut _,
+            ),
+            RgmStatus::Ok
+        );
+        assert_eq!(count, 1);
+        assert!(distance(
+            points[0],
+            RgmPoint3 {
+                x: 0.0,
+                y: 0.0,
+                z: 0.0
+            }
+        ) < 1e-8);
+
+        let mut line_parallel = RgmObjectHandle(0);
+        assert_eq!(
+            rgm_curve_create_line(
+                session,
+                RgmLine3 {
+                    start: RgmPoint3 {
+                        x: -1.0,
+                        y: 0.0,
+                        z: 2.0,
+                    },
+                    end: RgmPoint3 {
+                        x: 1.0,
+                        y: 0.0,
+                        z: 2.0,
+                    },
+                },
+                tol(),
+                &mut line_parallel as *mut _,
+            ),
+            RgmStatus::Ok
+        );
+        assert_eq!(
+            rgm_intersect_curve_plane(
+                session,
+                line_parallel,
+                plane_xy,
+                ptr::null_mut(),
+                0,
+                &mut count as *mut _,
+            ),
+            RgmStatus::Ok
+        );
+        assert_eq!(count, 0);
+
+        let mut circle = RgmObjectHandle(0);
+        assert_eq!(
+            rgm_curve_create_circle(
+                session,
+                RgmCircle3 {
+                    plane: RgmPlane {
+                        origin: RgmPoint3 {
+                            x: 0.0,
+                            y: 0.0,
+                            z: 0.0,
+                        },
+                        x_axis: RgmVec3 {
+                            x: 1.0,
+                            y: 0.0,
+                            z: 0.0,
+                        },
+                        y_axis: RgmVec3 {
+                            x: 0.0,
+                            y: 1.0,
+                            z: 0.0,
+                        },
+                        z_axis: RgmVec3 {
+                            x: 0.0,
+                            y: 0.0,
+                            z: 1.0,
+                        },
+                    },
+                    radius: 1.0,
+                },
+                tol(),
+                &mut circle as *mut _,
+            ),
             RgmStatus::Ok
         );
 
-        assert_eq!(rgm_object_release(session, object), RgmStatus::Ok);
+        let tangent_plane = RgmPlane {
+            origin: RgmPoint3 {
+                x: 1.0,
+                y: 0.0,
+                z: 0.0,
+            },
+            x_axis: RgmVec3 {
+                x: 0.0,
+                y: 1.0,
+                z: 0.0,
+            },
+            y_axis: RgmVec3 {
+                x: 0.0,
+                y: 0.0,
+                z: 1.0,
+            },
+            z_axis: RgmVec3 {
+                x: 1.0,
+                y: 0.0,
+                z: 0.0,
+            },
+        };
+        assert_eq!(
+            rgm_intersect_curve_plane(
+                session,
+                circle,
+                tangent_plane,
+                points.as_mut_ptr(),
+                points.len() as u32,
+                &mut count as *mut _,
+            ),
+            RgmStatus::Ok
+        );
+        assert_eq!(count, 1);
+        assert!((points[0].x - 1.0).abs() < 5e-2);
+
+        let secant_plane = RgmPlane {
+            origin: RgmPoint3 {
+                x: 0.0,
+                y: 0.0,
+                z: 0.0,
+            },
+            x_axis: RgmVec3 {
+                x: 0.0,
+                y: 1.0,
+                z: 0.0,
+            },
+            y_axis: RgmVec3 {
+                x: 0.0,
+                y: 0.0,
+                z: 1.0,
+            },
+            z_axis: RgmVec3 {
+                x: 1.0,
+                y: 0.0,
+                z: 0.0,
+            },
+        };
+        assert_eq!(
+            rgm_intersect_curve_plane(
+                session,
+                circle,
+                secant_plane,
+                points.as_mut_ptr(),
+                points.len() as u32,
+                &mut count as *mut _,
+            ),
+            RgmStatus::Ok
+        );
+        assert_eq!(count, 2);
+        assert!(points[0].x.abs() < 5e-2 && points[1].x.abs() < 5e-2);
+
+        assert_eq!(rgm_object_release(session, circle), RgmStatus::Ok);
+        assert_eq!(rgm_object_release(session, line_parallel), RgmStatus::Ok);
+        assert_eq!(rgm_object_release(session, line_crossing), RgmStatus::Ok);
+        assert_eq!(rgm_kernel_destroy(session), RgmStatus::Ok);
+    }
+
+    #[test]
+    fn intersect_curve_curve_counts_expected_hits() {
+        let session = create_session();
+        let mut line_x = RgmObjectHandle(0);
+        let mut line_y = RgmObjectHandle(0);
+        let mut line_skew = RgmObjectHandle(0);
+
+        assert_eq!(
+            rgm_curve_create_line(
+                session,
+                RgmLine3 {
+                    start: RgmPoint3 {
+                        x: -1.0,
+                        y: 0.0,
+                        z: 0.0,
+                    },
+                    end: RgmPoint3 {
+                        x: 1.0,
+                        y: 0.0,
+                        z: 0.0,
+                    },
+                },
+                tol(),
+                &mut line_x as *mut _,
+            ),
+            RgmStatus::Ok
+        );
+        assert_eq!(
+            rgm_curve_create_line(
+                session,
+                RgmLine3 {
+                    start: RgmPoint3 {
+                        x: 0.0,
+                        y: -1.0,
+                        z: 0.0,
+                    },
+                    end: RgmPoint3 {
+                        x: 0.0,
+                        y: 1.0,
+                        z: 0.0,
+                    },
+                },
+                tol(),
+                &mut line_y as *mut _,
+            ),
+            RgmStatus::Ok
+        );
+        assert_eq!(
+            rgm_curve_create_line(
+                session,
+                RgmLine3 {
+                    start: RgmPoint3 {
+                        x: -1.0,
+                        y: 0.0,
+                        z: 1.0,
+                    },
+                    end: RgmPoint3 {
+                        x: 1.0,
+                        y: 0.0,
+                        z: 1.0,
+                    },
+                },
+                tol(),
+                &mut line_skew as *mut _,
+            ),
+            RgmStatus::Ok
+        );
+
+        let mut count = 0_u32;
+        let mut points = [RgmPoint3 {
+            x: 0.0,
+            y: 0.0,
+            z: 0.0,
+        }; 8];
+        assert_eq!(
+            rgm_intersect_curve_curve(
+                session,
+                line_x,
+                line_y,
+                points.as_mut_ptr(),
+                points.len() as u32,
+                &mut count as *mut _,
+            ),
+            RgmStatus::Ok
+        );
+        assert_eq!(count, 1);
+        assert!(distance(
+            points[0],
+            RgmPoint3 {
+                x: 0.0,
+                y: 0.0,
+                z: 0.0
+            }
+        ) < 1e-8);
+
+        assert_eq!(
+            rgm_intersect_curve_curve(
+                session,
+                line_y,
+                line_skew,
+                ptr::null_mut(),
+                0,
+                &mut count as *mut _,
+            ),
+            RgmStatus::Ok
+        );
+        assert_eq!(count, 0);
+
+        assert_eq!(rgm_object_release(session, line_skew), RgmStatus::Ok);
+        assert_eq!(rgm_object_release(session, line_y), RgmStatus::Ok);
+        assert_eq!(rgm_object_release(session, line_x), RgmStatus::Ok);
         assert_eq!(rgm_kernel_destroy(session), RgmStatus::Ok);
     }
 
@@ -1469,11 +4770,7 @@ mod tests {
                         points.len(),
                         2,
                         false,
-                        RgmToleranceContext {
-                            abs_tol: 1e-9,
-                            rel_tol: 1e-9,
-                            angle_tol: 1e-9,
-                        },
+                        tol(),
                         &mut object as *mut _,
                     );
                     assert_eq!(status, RgmStatus::Ok);

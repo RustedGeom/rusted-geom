@@ -1,6 +1,6 @@
 {
   "name": "@rusted-geom/bindings-web",
-  "version": "1.0.0",
+  "version": "4.0.0",
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -42,7 +42,7 @@
       "import": "./dist/runtime/wasm-loader.js"
     },
     "./generated/function_catalog.json": "./dist/generated/function_catalog.json",
-    "./wasm/kernel_ffi.wasm": "./dist/wasm/kernel_ffi.wasm",
+    "./wasm/rusted_geom.wasm": "./dist/wasm/rusted_geom.wasm",
     "./package.json": "./package.json"
   },
   "scripts": {

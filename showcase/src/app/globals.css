@@ -156,48 +156,99 @@ button {
   height: 100%;
 }
 
-.pane-dock {
+.pane-host {
   position: absolute;
   z-index: 20;
   right: max(0.75rem, env(safe-area-inset-right));
   top: calc(max(0.75rem, env(safe-area-inset-top)) + 4.9rem);
-  bottom: max(0.75rem, env(safe-area-inset-bottom));
   width: min(360px, calc(100vw - 1.5rem));
+  max-height: calc(100vh - 5.8rem);
+  overflow-y: auto;
+}
+
+.kernel-console {
+  position: absolute;
+  z-index: 24;
+  left: max(0.75rem, env(safe-area-inset-left));
+  bottom: max(0.75rem, env(safe-area-inset-bottom));
+  width: min(620px, calc(100vw - 1.5rem));
+  max-height: min(32vh, 290px);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: rgba(10, 18, 34, 0.76);
+  backdrop-filter: blur(20px) saturate(130%);
+  box-shadow: var(--shadow);
   display: flex;
   flex-direction: column;
-  min-height: 0;
-  border-radius: 20px;
-  border: 1px solid var(--line);
-  background: rgba(18, 25, 40, 0.58);
-  backdrop-filter: blur(24px) saturate(130%);
-  box-shadow: var(--shadow);
   overflow: hidden;
 }
 
-.pane-header {
-  padding: 0.82rem 0.9rem 0.68rem;
-  border-bottom: 1px solid var(--line);
+.kernel-console-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.48rem 0.6rem;
+  border-bottom: 1px solid rgba(177, 197, 238, 0.16);
+  background: rgba(20, 33, 57, 0.56);
+  font-size: 0.74rem;
+  letter-spacing: 0.01em;
 }
 
-.pane-header h2 {
-  margin: 0;
-  font-family: var(--font-display), sans-serif;
-  font-size: 0.95rem;
-  letter-spacing: 0.015em;
+.kernel-console-header .tool-btn {
+  padding: 0.28rem 0.72rem;
+  font-size: 0.7rem;
 }
 
-.pane-header p {
-  margin: 0.32rem 0 0;
-  color: var(--ink-soft);
-  font-size: 0.76rem;
-  line-height: 1.4;
-}
-
-.pane-host {
+.kernel-console-body {
   flex: 1;
   min-height: 0;
-  overflow-y: auto;
-  padding: 0.75rem;
+  overflow: auto;
+  padding: 0.34rem 0.42rem 0.5rem;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+  font-size: 0.7rem;
+  line-height: 1.45;
+}
+
+.kernel-log {
+  display: grid;
+  grid-template-columns: auto auto minmax(0, 1fr);
+  align-items: baseline;
+  gap: 0.42rem;
+  padding: 0.14rem 0.16rem;
+  border-radius: 6px;
+}
+
+.kernel-log:nth-child(2n) {
+  background: rgba(119, 153, 233, 0.05);
+}
+
+.kernel-log-time {
+  color: #9ab0df;
+  white-space: nowrap;
+}
+
+.kernel-log-level {
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  min-width: 3.7em;
+}
+
+.kernel-log-message {
+  color: #d9e4ff;
+  overflow-wrap: anywhere;
+}
+
+.kernel-log-info .kernel-log-level {
+  color: #a4d8ff;
+}
+
+.kernel-log-debug .kernel-log-level {
+  color: #95b5ff;
+}
+
+.kernel-log-error .kernel-log-level {
+  color: var(--danger);
 }
 
 .hidden-input {
@@ -209,7 +260,7 @@ button {
 }
 
 @media (max-width: 1120px) {
-  .pane-dock {
+  .pane-host {
     right: max(0.5rem, env(safe-area-inset-right));
     top: calc(max(0.75rem, env(safe-area-inset-top)) + 4.5rem);
     width: min(90vw, 360px);
@@ -218,12 +269,19 @@ button {
     transition: transform 0.22s ease;
   }
 
-  .pane-dock.mobile-open {
+  .pane-host.mobile-open {
     transform: translateX(0);
   }
 
   .mobile-pane-toggle {
     display: inline-flex;
+  }
+
+  .kernel-console {
+    width: min(94vw, 620px);
+    max-height: min(38vh, 280px);
+    bottom: max(0.5rem, env(safe-area-inset-bottom));
+    left: max(0.5rem, env(safe-area-inset-left));
   }
 }
 
@@ -250,5 +308,10 @@ button {
 
   .status-pill {
     max-width: 100%;
+  }
+
+  .kernel-console {
+    width: calc(100vw - 1rem);
+    max-height: min(34vh, 250px);
   }
 }

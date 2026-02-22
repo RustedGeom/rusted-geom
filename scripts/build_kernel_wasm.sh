@@ -12,5 +12,5 @@ cd "$repo_root"
 cargo build -p kernel-ffi --target wasm32-unknown-unknown --release
 
 mkdir -p "$repo_root/showcase/public/wasm"
-cp "$repo_root/target/wasm32-unknown-unknown/release/kernel_ffi.wasm" \
-  "$repo_root/showcase/public/wasm/kernel_ffi.wasm"
+cp "$repo_root/target/wasm32-unknown-unknown/release/rusted_geom.wasm" \
+  "$repo_root/showcase/public/wasm/rusted_geom.wasm"

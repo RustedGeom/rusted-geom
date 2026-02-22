@@ -22,5 +22,5 @@ Define deterministic behavior for constructing a NURBS curve from fit points plu
 
 ## Notes
 - Constructor is exact fit-point interpolation policy for API semantics.
-- M1 runtime currently evaluates via a lightweight placeholder path while preserving constructor guarantees and ABI shape.
-- Future milestone will replace evaluator internals with full de Boor-based NURBS evaluation.
+- M1 runtime evaluates through the shared NURBS core (`de Boor` + derivative stack) while preserving constructor guarantees and ABI shape.
+- Follow-on milestones should focus on robustness/performance hardening and richer intersection payloads, not placeholder replacement.

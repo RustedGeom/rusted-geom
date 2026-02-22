@@ -18,18 +18,18 @@ Or from repo root:
 This produces:
 - `dist/**/*.js`
 - `dist/**/*.d.ts`
-- `dist/wasm/kernel_ffi.wasm`
+- `dist/wasm/rusted_geom.wasm`
 
 ## Runtime loading
 
 You can load the packaged wasm from:
-- `@rusted-geom/bindings-web/wasm/kernel_ffi.wasm`
+- `@rusted-geom/bindings-web/wasm/rusted_geom.wasm`
 
 Example:
 
 ```ts
 import { createKernelRuntime } from "@rusted-geom/bindings-web";
-import wasmUrl from "@rusted-geom/bindings-web/wasm/kernel_ffi.wasm";
+import wasmUrl from "@rusted-geom/bindings-web/wasm/rusted_geom.wasm";
 
 const runtime = await createKernelRuntime(wasmUrl);
 ```

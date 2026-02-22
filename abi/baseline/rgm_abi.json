@@ -1,15 +1,12 @@
 {
   "crate_name": "kernel-ffi",
-  "version": "1.0.0",
-  "abi_hash": "5e6878cb4cb395d1a3154ead424735a170510dadf75d5a8d7c8175e7b867461b",
+  "version": "4.0.0",
+  "abi_hash": "68e5031392d68a71ac39eead9dc87f5c9d7c76a55aff9c815b86a7b26479b851",
   "functions": [
     {
       "rust_name": "rgm_alloc",
       "c_name": "rgm_alloc",
-      "interop_dotnet_name": "InteropAlloc",
       "interop_ts_name": "interopAlloc",
-      "compat_ts_name": "alloc",
-      "public_dotnet_name": null,
       "public_ts_name": null,
       "receiver": null,
       "return_type": "RgmStatus",
@@ -31,10 +28,7 @@
     {
       "rust_name": "rgm_alloc_addr",
       "c_name": "rgm_alloc_addr",
-      "interop_dotnet_name": "InteropAllocAddr",
       "interop_ts_name": "interopAllocAddr",
-      "compat_ts_name": "allocAddr",
-      "public_dotnet_name": null,
       "public_ts_name": null,
       "receiver": null,
       "return_type": "usize",
@@ -50,12 +44,437 @@
       ]
     },
     {
+      "rust_name": "rgm_curve_create_arc",
+      "c_name": "rgm_curve_create_arc",
+      "interop_ts_name": "interopCurveCreateArc",
+      "public_ts_name": "createArc",
+      "receiver": "kernel",
+      "return_type": "RgmStatus",
+      "params": [
+        {
+          "name": "session",
+          "ty": "RgmKernelHandle"
+        },
+        {
+          "name": "arc",
+          "ty": "RgmArc3"
+        },
+        {
+          "name": "tol",
+          "ty": "RgmToleranceContext"
+        },
+        {
+          "name": "out_object",
+          "ty": "*mutRgmObjectHandle"
+        }
+      ]
+    },
+    {
+      "rust_name": "rgm_curve_create_arc_by_3_points",
+      "c_name": "rgm_curve_create_arc_by_3_points",
+      "interop_ts_name": "interopCurveCreateArcBy3Points",
+      "public_ts_name": "createArcBy3Points",
+      "receiver": "kernel",
+      "return_type": "RgmStatus",
+      "params": [
+        {
+          "name": "session",
+          "ty": "RgmKernelHandle"
+        },
+        {
+          "name": "start",
+          "ty": "RgmPoint3"
+        },
+        {
+          "name": "mid",
+          "ty": "RgmPoint3"
+        },
+        {
+          "name": "end",
+          "ty": "RgmPoint3"
+        },
+        {
+          "name": "tol",
+          "ty": "RgmToleranceContext"
+        },
+        {
+          "name": "out_object",
+          "ty": "*mutRgmObjectHandle"
+        }
+      ]
+    },
+    {
+      "rust_name": "rgm_curve_create_arc_by_3_points_ptr_tol",
+      "c_name": "rgm_curve_create_arc_by_3_points_ptr_tol",
+      "interop_ts_name": "interopCurveCreateArcBy3PointsPtrTol",
+      "public_ts_name": null,
+      "receiver": null,
+      "return_type": "RgmStatus",
+      "params": [
+        {
+          "name": "session",
+          "ty": "RgmKernelHandle"
+        },
+        {
+          "name": "start",
+          "ty": "*constRgmPoint3"
+        },
+        {
+          "name": "mid",
+          "ty": "*constRgmPoint3"
+        },
+        {
+          "name": "end",
+          "ty": "*constRgmPoint3"
+        },
+        {
+          "name": "tol",
+          "ty": "*constRgmToleranceContext"
+        },
+        {
+          "name": "out_object",
+          "ty": "*mutRgmObjectHandle"
+        }
+      ]
+    },
+    {
+      "rust_name": "rgm_curve_create_arc_by_angles",
+      "c_name": "rgm_curve_create_arc_by_angles",
+      "interop_ts_name": "interopCurveCreateArcByAngles",
+      "public_ts_name": "createArcByAngles",
+      "receiver": "kernel",
+      "return_type": "RgmStatus",
+      "params": [
+        {
+          "name": "session",
+          "ty": "RgmKernelHandle"
+        },
+        {
+          "name": "plane",
+          "ty": "RgmPlane"
+        },
+        {
+          "name": "radius",
+          "ty": "f64"
+        },
+        {
+          "name": "start_angle",
+          "ty": "f64"
+        },
+        {
+          "name": "end_angle",
+          "ty": "f64"
+        },
+        {
+          "name": "tol",
+          "ty": "RgmToleranceContext"
+        },
+        {
+          "name": "out_object",
+          "ty": "*mutRgmObjectHandle"
+        }
+      ]
+    },
+    {
+      "rust_name": "rgm_curve_create_arc_by_angles_ptr_tol",
+      "c_name": "rgm_curve_create_arc_by_angles_ptr_tol",
+      "interop_ts_name": "interopCurveCreateArcByAnglesPtrTol",
+      "public_ts_name": null,
+      "receiver": null,
+      "return_type": "RgmStatus",
+      "params": [
+        {
+          "name": "session",
+          "ty": "RgmKernelHandle"
+        },
+        {
+          "name": "plane",
+          "ty": "*constRgmPlane"
+        },
+        {
+          "name": "radius",
+          "ty": "f64"
+        },
+        {
+          "name": "start_angle",
+          "ty": "f64"
+        },
+        {
+          "name": "end_angle",
+          "ty": "f64"
+        },
+        {
+          "name": "tol",
+          "ty": "*constRgmToleranceContext"
+        },
+        {
+          "name": "out_object",
+          "ty": "*mutRgmObjectHandle"
+        }
+      ]
+    },
+    {
+      "rust_name": "rgm_curve_create_arc_ptr_tol",
+      "c_name": "rgm_curve_create_arc_ptr_tol",
+      "interop_ts_name": "interopCurveCreateArcPtrTol",
+      "public_ts_name": null,
+      "receiver": null,
+      "return_type": "RgmStatus",
+      "params": [
+        {
+          "name": "session",
+          "ty": "RgmKernelHandle"
+        },
+        {
+          "name": "arc",
+          "ty": "*constRgmArc3"
+        },
+        {
+          "name": "tol",
+          "ty": "*constRgmToleranceContext"
+        },
+        {
+          "name": "out_object",
+          "ty": "*mutRgmObjectHandle"
+        }
+      ]
+    },
+    {
+      "rust_name": "rgm_curve_create_circle",
+      "c_name": "rgm_curve_create_circle",
+      "interop_ts_name": "interopCurveCreateCircle",
+      "public_ts_name": "createCircle",
+      "receiver": "kernel",
+      "return_type": "RgmStatus",
+      "params": [
+        {
+          "name": "session",
+          "ty": "RgmKernelHandle"
+        },
+        {
+          "name": "circle",
+          "ty": "RgmCircle3"
+        },
+        {
+          "name": "tol",
+          "ty": "RgmToleranceContext"
+        },
+        {
+          "name": "out_object",
+          "ty": "*mutRgmObjectHandle"
+        }
+      ]
+    },
+    {
+      "rust_name": "rgm_curve_create_circle_ptr_tol",
+      "c_name": "rgm_curve_create_circle_ptr_tol",
+      "interop_ts_name": "interopCurveCreateCirclePtrTol",
+      "public_ts_name": null,
+      "receiver": null,
+      "return_type": "RgmStatus",
+      "params": [
+        {
+          "name": "session",
+          "ty": "RgmKernelHandle"
+        },
+        {
+          "name": "circle",
+          "ty": "*constRgmCircle3"
+        },
+        {
+          "name": "tol",
+          "ty": "*constRgmToleranceContext"
+        },
+        {
+          "name": "out_object",
+          "ty": "*mutRgmObjectHandle"
+        }
+      ]
+    },
+    {
+      "rust_name": "rgm_curve_create_line",
+      "c_name": "rgm_curve_create_line",
+      "interop_ts_name": "interopCurveCreateLine",
+      "public_ts_name": "createLine",
+      "receiver": "kernel",
+      "return_type": "RgmStatus",
+      "params": [
+        {
+          "name": "session",
+          "ty": "RgmKernelHandle"
+        },
+        {
+          "name": "line",
+          "ty": "RgmLine3"
+        },
+        {
+          "name": "tol",
+          "ty": "RgmToleranceContext"
+        },
+        {
+          "name": "out_object",
+          "ty": "*mutRgmObjectHandle"
+        }
+      ]
+    },
+    {
+      "rust_name": "rgm_curve_create_line_ptr_tol",
+      "c_name": "rgm_curve_create_line_ptr_tol",
+      "interop_ts_name": "interopCurveCreateLinePtrTol",
+      "public_ts_name": null,
+      "receiver": null,
+      "return_type": "RgmStatus",
+      "params": [
+        {
+          "name": "session",
+          "ty": "RgmKernelHandle"
+        },
+        {
+          "name": "line",
+          "ty": "*constRgmLine3"
+        },
+        {
+          "name": "tol",
+          "ty": "*constRgmToleranceContext"
+        },
+        {
+          "name": "out_object",
+          "ty": "*mutRgmObjectHandle"
+        }
+      ]
+    },
+    {
+      "rust_name": "rgm_curve_create_polycurve",
+      "c_name": "rgm_curve_create_polycurve",
+      "interop_ts_name": "interopCurveCreatePolycurve",
+      "public_ts_name": "createPolycurve",
+      "receiver": "kernel",
+      "return_type": "RgmStatus",
+      "params": [
+        {
+          "name": "session",
+          "ty": "RgmKernelHandle"
+        },
+        {
+          "name": "segments",
+          "ty": "*constRgmPolycurveSegment"
+        },
+        {
+          "name": "segment_count",
+          "ty": "usize"
+        },
+        {
+          "name": "_tol",
+          "ty": "RgmToleranceContext"
+        },
+        {
+          "name": "out_object",
+          "ty": "*mutRgmObjectHandle"
+        }
+      ]
+    },
+    {
+      "rust_name": "rgm_curve_create_polycurve_ptr_tol",
+      "c_name": "rgm_curve_create_polycurve_ptr_tol",
+      "interop_ts_name": "interopCurveCreatePolycurvePtrTol",
+      "public_ts_name": null,
+      "receiver": null,
+      "return_type": "RgmStatus",
+      "params": [
+        {
+          "name": "session",
+          "ty": "RgmKernelHandle"
+        },
+        {
+          "name": "segments",
+          "ty": "*constRgmPolycurveSegment"
+        },
+        {
+          "name": "segment_count",
+          "ty": "usize"
+        },
+        {
+          "name": "tol",
+          "ty": "*constRgmToleranceContext"
+        },
+        {
+          "name": "out_object",
+          "ty": "*mutRgmObjectHandle"
+        }
+      ]
+    },
+    {
+      "rust_name": "rgm_curve_create_polyline",
+      "c_name": "rgm_curve_create_polyline",
+      "interop_ts_name": "interopCurveCreatePolyline",
+      "public_ts_name": "createPolyline",
+      "receiver": "kernel",
+      "return_type": "RgmStatus",
+      "params": [
+        {
+          "name": "session",
+          "ty": "RgmKernelHandle"
+        },
+        {
+          "name": "points",
+          "ty": "*constRgmPoint3"
+        },
+        {
+          "name": "point_count",
+          "ty": "usize"
+        },
+        {
+          "name": "closed",
+          "ty": "bool"
+        },
+        {
+          "name": "tol",
+          "ty": "RgmToleranceContext"
+        },
+        {
+          "name": "out_object",
+          "ty": "*mutRgmObjectHandle"
+        }
+      ]
+    },
+    {
+      "rust_name": "rgm_curve_create_polyline_ptr_tol",
+      "c_name": "rgm_curve_create_polyline_ptr_tol",
+      "interop_ts_name": "interopCurveCreatePolylinePtrTol",
+      "public_ts_name": null,
+      "receiver": null,
+      "return_type": "RgmStatus",
+      "params": [
+        {
+          "name": "session",
+          "ty": "RgmKernelHandle"
+        },
+        {
+          "name": "points",
+          "ty": "*constRgmPoint3"
+        },
+        {
+          "name": "point_count",
+          "ty": "usize"
+        },
+        {
+          "name": "closed",
+          "ty": "bool"
+        },
+        {
+          "name": "tol",
+          "ty": "*constRgmToleranceContext"
+        },
+        {
+          "name": "out_object",
+          "ty": "*mutRgmObjectHandle"
+        }
+      ]
+    },
+    {
       "rust_name": "rgm_curve_d0_at",
       "c_name": "rgm_curve_d0_at",
-      "interop_dotnet_name": "InteropCurveD0At",
       "interop_ts_name": "interopCurveD0At",
-      "compat_ts_name": "curveD0At",
-      "public_dotnet_name": "D0",
       "public_ts_name": "d0",
       "receiver": "curve",
       "return_type": "RgmStatus",
@@ -81,10 +500,7 @@
     {
       "rust_name": "rgm_curve_d0_at_length",
       "c_name": "rgm_curve_d0_at_length",
-      "interop_dotnet_name": "InteropCurveD0AtLength",
       "interop_ts_name": "interopCurveD0AtLength",
-      "compat_ts_name": "curveD0AtLength",
-      "public_dotnet_name": "D0AtLength",
       "public_ts_name": "d0AtLength",
       "receiver": "curve",
       "return_type": "RgmStatus",
@@ -110,10 +526,7 @@
     {
       "rust_name": "rgm_curve_d1_at",
       "c_name": "rgm_curve_d1_at",
-      "interop_dotnet_name": "InteropCurveD1At",
       "interop_ts_name": "interopCurveD1At",
-      "compat_ts_name": "curveD1At",
-      "public_dotnet_name": "D1",
       "public_ts_name": "d1",
       "receiver": "curve",
       "return_type": "RgmStatus",
@@ -139,10 +552,7 @@
     {
       "rust_name": "rgm_curve_d1_at_length",
       "c_name": "rgm_curve_d1_at_length",
-      "interop_dotnet_name": "InteropCurveD1AtLength",
       "interop_ts_name": "interopCurveD1AtLength",
-      "compat_ts_name": "curveD1AtLength",
-      "public_dotnet_name": "D1AtLength",
       "public_ts_name": "d1AtLength",
       "receiver": "curve",
       "return_type": "RgmStatus",
@@ -168,10 +578,7 @@
     {
       "rust_name": "rgm_curve_d2_at",
       "c_name": "rgm_curve_d2_at",
-      "interop_dotnet_name": "InteropCurveD2At",
       "interop_ts_name": "interopCurveD2At",
-      "compat_ts_name": "curveD2At",
-      "public_dotnet_name": "D2",
       "public_ts_name": "d2",
       "receiver": "curve",
       "return_type": "RgmStatus",
@@ -185,7 +592,7 @@
           "ty": "RgmObjectHandle"
         },
         {
-          "name": "_t_norm",
+          "name": "t_norm",
           "ty": "f64"
         },
         {
@@ -197,10 +604,7 @@
     {
       "rust_name": "rgm_curve_d2_at_length",
       "c_name": "rgm_curve_d2_at_length",
-      "interop_dotnet_name": "InteropCurveD2AtLength",
       "interop_ts_name": "interopCurveD2AtLength",
-      "compat_ts_name": "curveD2AtLength",
-      "public_dotnet_name": "D2AtLength",
       "public_ts_name": "d2AtLength",
       "receiver": "curve",
       "return_type": "RgmStatus",
@@ -214,7 +618,7 @@
           "ty": "RgmObjectHandle"
         },
         {
-          "name": "_distance_length",
+          "name": "distance_length",
           "ty": "f64"
         },
         {
@@ -224,12 +628,57 @@
       ]
     },
     {
+      "rust_name": "rgm_curve_length",
+      "c_name": "rgm_curve_length",
+      "interop_ts_name": "interopCurveLength",
+      "public_ts_name": "length",
+      "receiver": "curve",
+      "return_type": "RgmStatus",
+      "params": [
+        {
+          "name": "session",
+          "ty": "RgmKernelHandle"
+        },
+        {
+          "name": "curve",
+          "ty": "RgmObjectHandle"
+        },
+        {
+          "name": "out_length",
+          "ty": "*mutf64"
+        }
+      ]
+    },
+    {
+      "rust_name": "rgm_curve_length_at",
+      "c_name": "rgm_curve_length_at",
+      "interop_ts_name": "interopCurveLengthAt",
+      "public_ts_name": "lengthAt",
+      "receiver": "curve",
+      "return_type": "RgmStatus",
+      "params": [
+        {
+          "name": "session",
+          "ty": "RgmKernelHandle"
+        },
+        {
+          "name": "curve",
+          "ty": "RgmObjectHandle"
+        },
+        {
+          "name": "t_norm",
+          "ty": "f64"
+        },
+        {
+          "name": "out_length",
+          "ty": "*mutf64"
+        }
+      ]
+    },
+    {
       "rust_name": "rgm_curve_normal_at",
       "c_name": "rgm_curve_normal_at",
-      "interop_dotnet_name": "InteropCurveNormalAt",
       "interop_ts_name": "interopCurveNormalAt",
-      "compat_ts_name": "curveNormalAt",
-      "public_dotnet_name": "NormalAt",
       "public_ts_name": "normalAt",
       "receiver": "curve",
       "return_type": "RgmStatus",
@@ -255,10 +704,7 @@
     {
       "rust_name": "rgm_curve_normal_at_length",
       "c_name": "rgm_curve_normal_at_length",
-      "interop_dotnet_name": "InteropCurveNormalAtLength",
       "interop_ts_name": "interopCurveNormalAtLength",
-      "compat_ts_name": "curveNormalAtLength",
-      "public_dotnet_name": "NormalAtLength",
       "public_ts_name": "normalAtLength",
       "receiver": "curve",
       "return_type": "RgmStatus",
@@ -284,10 +730,7 @@
     {
       "rust_name": "rgm_curve_plane_at",
       "c_name": "rgm_curve_plane_at",
-      "interop_dotnet_name": "InteropCurvePlaneAt",
       "interop_ts_name": "interopCurvePlaneAt",
-      "compat_ts_name": "curvePlaneAt",
-      "public_dotnet_name": "PlaneAt",
       "public_ts_name": "planeAt",
       "receiver": "curve",
       "return_type": "RgmStatus",
@@ -313,10 +756,7 @@
     {
       "rust_name": "rgm_curve_plane_at_length",
       "c_name": "rgm_curve_plane_at_length",
-      "interop_dotnet_name": "InteropCurvePlaneAtLength",
       "interop_ts_name": "interopCurvePlaneAtLength",
-      "compat_ts_name": "curvePlaneAtLength",
-      "public_dotnet_name": "PlaneAtLength",
       "public_ts_name": "planeAtLength",
       "receiver": "curve",
       "return_type": "RgmStatus",
@@ -342,10 +782,7 @@
     {
       "rust_name": "rgm_curve_point_at",
       "c_name": "rgm_curve_point_at",
-      "interop_dotnet_name": "InteropCurvePointAt",
       "interop_ts_name": "interopCurvePointAt",
-      "compat_ts_name": "curvePointAt",
-      "public_dotnet_name": "PointAt",
       "public_ts_name": "pointAt",
       "receiver": "curve",
       "return_type": "RgmStatus",
@@ -371,10 +808,7 @@
     {
       "rust_name": "rgm_curve_point_at_length",
       "c_name": "rgm_curve_point_at_length",
-      "interop_dotnet_name": "InteropCurvePointAtLength",
       "interop_ts_name": "interopCurvePointAtLength",
-      "compat_ts_name": "curvePointAtLength",
-      "public_dotnet_name": "PointAtLength",
       "public_ts_name": "pointAtLength",
       "receiver": "curve",
       "return_type": "RgmStatus",
@@ -400,10 +834,7 @@
     {
       "rust_name": "rgm_curve_tangent_at",
       "c_name": "rgm_curve_tangent_at",
-      "interop_dotnet_name": "InteropCurveTangentAt",
       "interop_ts_name": "interopCurveTangentAt",
-      "compat_ts_name": "curveTangentAt",
-      "public_dotnet_name": "TangentAt",
       "public_ts_name": "tangentAt",
       "receiver": "curve",
       "return_type": "RgmStatus",
@@ -429,10 +860,7 @@
     {
       "rust_name": "rgm_curve_tangent_at_length",
       "c_name": "rgm_curve_tangent_at_length",
-      "interop_dotnet_name": "InteropCurveTangentAtLength",
       "interop_ts_name": "interopCurveTangentAtLength",
-      "compat_ts_name": "curveTangentAtLength",
-      "public_dotnet_name": "TangentAtLength",
       "public_ts_name": "tangentAtLength",
       "receiver": "curve",
       "return_type": "RgmStatus",
@@ -456,12 +884,31 @@
       ]
     },
     {
+      "rust_name": "rgm_curve_to_nurbs",
+      "c_name": "rgm_curve_to_nurbs",
+      "interop_ts_name": "interopCurveToNurbs",
+      "public_ts_name": "toNurbs",
+      "receiver": "curve",
+      "return_type": "RgmStatus",
+      "params": [
+        {
+          "name": "session",
+          "ty": "RgmKernelHandle"
+        },
+        {
+          "name": "curve",
+          "ty": "RgmObjectHandle"
+        },
+        {
+          "name": "out_curve",
+          "ty": "*mutRgmObjectHandle"
+        }
+      ]
+    },
+    {
       "rust_name": "rgm_dealloc",
       "c_name": "rgm_dealloc",
-      "interop_dotnet_name": "InteropDealloc",
       "interop_ts_name": "interopDealloc",
-      "compat_ts_name": "dealloc",
-      "public_dotnet_name": null,
       "public_ts_name": null,
       "receiver": null,
       "return_type": "RgmStatus",
@@ -483,10 +930,7 @@
     {
       "rust_name": "rgm_intersect_curve_curve",
       "c_name": "rgm_intersect_curve_curve",
-      "interop_dotnet_name": "InteropIntersectCurveCurve",
       "interop_ts_name": "interopIntersectCurveCurve",
-      "compat_ts_name": "intersectCurveCurve",
-      "public_dotnet_name": null,
       "public_ts_name": null,
       "receiver": null,
       "return_type": "RgmStatus",
@@ -496,26 +940,31 @@
           "ty": "RgmKernelHandle"
         },
         {
-          "name": "_curve_a",
+          "name": "curve_a",
           "ty": "RgmObjectHandle"
         },
         {
-          "name": "_curve_b",
+          "name": "curve_b",
           "ty": "RgmObjectHandle"
+        },
+        {
+          "name": "out_points",
+          "ty": "*mutRgmPoint3"
+        },
+        {
+          "name": "point_capacity",
+          "ty": "u32"
         },
         {
           "name": "out_count",
-          "ty": "*mutusize"
+          "ty": "*mutu32"
         }
       ]
     },
     {
       "rust_name": "rgm_intersect_curve_plane",
       "c_name": "rgm_intersect_curve_plane",
-      "interop_dotnet_name": "InteropIntersectCurvePlane",
       "interop_ts_name": "interopIntersectCurvePlane",
-      "compat_ts_name": "intersectCurvePlane",
-      "public_dotnet_name": null,
       "public_ts_name": null,
       "receiver": null,
       "return_type": "RgmStatus",
@@ -525,26 +974,65 @@
           "ty": "RgmKernelHandle"
         },
         {
-          "name": "_curve",
+          "name": "curve",
           "ty": "RgmObjectHandle"
         },
         {
-          "name": "_plane",
+          "name": "plane",
           "ty": "RgmPlane"
         },
         {
+          "name": "out_points",
+          "ty": "*mutRgmPoint3"
+        },
+        {
+          "name": "point_capacity",
+          "ty": "u32"
+        },
+        {
           "name": "out_count",
-          "ty": "*mutusize"
+          "ty": "*mutu32"
+        }
+      ]
+    },
+    {
+      "rust_name": "rgm_intersect_curve_plane_ptr",
+      "c_name": "rgm_intersect_curve_plane_ptr",
+      "interop_ts_name": "interopIntersectCurvePlanePtr",
+      "public_ts_name": null,
+      "receiver": null,
+      "return_type": "RgmStatus",
+      "params": [
+        {
+          "name": "session",
+          "ty": "RgmKernelHandle"
+        },
+        {
+          "name": "curve",
+          "ty": "RgmObjectHandle"
+        },
+        {
+          "name": "plane",
+          "ty": "*constRgmPlane"
+        },
+        {
+          "name": "out_points",
+          "ty": "*mutRgmPoint3"
+        },
+        {
+          "name": "point_capacity",
+          "ty": "u32"
+        },
+        {
+          "name": "out_count",
+          "ty": "*mutu32"
         }
       ]
     },
     {
       "rust_name": "rgm_kernel_create",
       "c_name": "rgm_kernel_create",
-      "interop_dotnet_name": "InteropKernelCreate",
       "interop_ts_name": "interopKernelCreate",
-      "compat_ts_name": "kernelCreate",
-      "public_dotnet_name": "Create",
       "public_ts_name": "create",
       "receiver": "kernel_static",
       "return_type": "RgmStatus",
@@ -558,10 +1046,7 @@
     {
       "rust_name": "rgm_kernel_destroy",
       "c_name": "rgm_kernel_destroy",
-      "interop_dotnet_name": "InteropKernelDestroy",
       "interop_ts_name": "interopKernelDestroy",
-      "compat_ts_name": "kernelDestroy",
-      "public_dotnet_name": "Dispose",
       "public_ts_name": "dispose",
       "receiver": "kernel",
       "return_type": "RgmStatus",
@@ -575,10 +1060,7 @@
     {
       "rust_name": "rgm_last_error_code",
       "c_name": "rgm_last_error_code",
-      "interop_dotnet_name": "InteropLastErrorCode",
       "interop_ts_name": "interopLastErrorCode",
-      "compat_ts_name": "lastErrorCode",
-      "public_dotnet_name": null,
       "public_ts_name": null,
       "receiver": null,
       "return_type": "RgmStatus",
@@ -596,10 +1078,7 @@
     {
       "rust_name": "rgm_last_error_message",
       "c_name": "rgm_last_error_message",
-      "interop_dotnet_name": "InteropLastErrorMessage",
       "interop_ts_name": "interopLastErrorMessage",
-      "compat_ts_name": "lastErrorMessage",
-      "public_dotnet_name": null,
       "public_ts_name": null,
       "receiver": null,
       "return_type": "RgmStatus",
@@ -625,10 +1104,7 @@
     {
       "rust_name": "rgm_nurbs_interpolate_fit_points",
       "c_name": "rgm_nurbs_interpolate_fit_points",
-      "interop_dotnet_name": "InteropNurbsInterpolateFitPoints",
       "interop_ts_name": "interopNurbsInterpolateFitPoints",
-      "compat_ts_name": "nurbsInterpolateFitPoints",
-      "public_dotnet_name": "InterpolateNurbsFitPoints",
       "public_ts_name": "interpolateNurbsFitPoints",
       "receiver": "kernel",
       "return_type": "RgmStatus",
@@ -666,10 +1142,7 @@
     {
       "rust_name": "rgm_nurbs_interpolate_fit_points_ptr_tol",
       "c_name": "rgm_nurbs_interpolate_fit_points_ptr_tol",
-      "interop_dotnet_name": "InteropNurbsInterpolateFitPointsPtrTol",
       "interop_ts_name": "interopNurbsInterpolateFitPointsPtrTol",
-      "compat_ts_name": "nurbsInterpolateFitPointsPtrTol",
-      "public_dotnet_name": null,
       "public_ts_name": null,
       "receiver": null,
       "return_type": "RgmStatus",
@@ -707,10 +1180,7 @@
     {
       "rust_name": "rgm_object_release",
       "c_name": "rgm_object_release",
-      "interop_dotnet_name": "InteropObjectRelease",
       "interop_ts_name": "interopObjectRelease",
-      "compat_ts_name": "objectRelease",
-      "public_dotnet_name": null,
       "public_ts_name": null,
       "receiver": null,
       "return_type": "RgmStatus",
@@ -724,9 +1194,100 @@
           "ty": "RgmObjectHandle"
         }
       ]
+    },
+    {
+      "rust_name": "rgm_point_convert_coordinate_system",
+      "c_name": "rgm_point_convert_coordinate_system",
+      "interop_ts_name": "interopPointConvertCoordinateSystem",
+      "public_ts_name": "convertPointCoordinateSystem",
+      "receiver": "kernel",
+      "return_type": "RgmStatus",
+      "params": [
+        {
+          "name": "session",
+          "ty": "RgmKernelHandle"
+        },
+        {
+          "name": "x",
+          "ty": "f64"
+        },
+        {
+          "name": "y",
+          "ty": "f64"
+        },
+        {
+          "name": "z",
+          "ty": "f64"
+        },
+        {
+          "name": "source_coordinate_system",
+          "ty": "i32"
+        },
+        {
+          "name": "target_coordinate_system",
+          "ty": "i32"
+        },
+        {
+          "name": "out_point",
+          "ty": "*mutRgmPoint3"
+        }
+      ]
     }
   ],
   "ffi_types": [
+    {
+      "kind": "Enum",
+      "name": "RgmAlignmentCoordinateSystem",
+      "repr": "i32",
+      "variants": [
+        {
+          "name": "EastingNorthing",
+          "value": "0"
+        },
+        {
+          "name": "NorthingEasting",
+          "value": "1"
+        }
+      ]
+    },
+    {
+      "kind": "Struct",
+      "name": "RgmArc3",
+      "repr": "C",
+      "fields": [
+        {
+          "name": "plane",
+          "ty": "RgmPlane"
+        },
+        {
+          "name": "radius",
+          "ty": "f64"
+        },
+        {
+          "name": "start_angle",
+          "ty": "f64"
+        },
+        {
+          "name": "sweep_angle",
+          "ty": "f64"
+        }
+      ]
+    },
+    {
+      "kind": "Struct",
+      "name": "RgmCircle3",
+      "repr": "C",
+      "fields": [
+        {
+          "name": "plane",
+          "ty": "RgmPlane"
+        },
+        {
+          "name": "radius",
+          "ty": "f64"
+        }
+      ]
+    },
     {
       "kind": "Struct",
       "name": "RgmKernelHandle",
@@ -735,6 +1296,21 @@
         {
           "name": "field0",
           "ty": "u64"
+        }
+      ]
+    },
+    {
+      "kind": "Struct",
+      "name": "RgmLine3",
+      "repr": "C",
+      "fields": [
+        {
+          "name": "start",
+          "ty": "RgmPoint3"
+        },
+        {
+          "name": "end",
+          "ty": "RgmPoint3"
         }
       ]
     },
@@ -788,6 +1364,21 @@
         {
           "name": "z",
           "ty": "f64"
+        }
+      ]
+    },
+    {
+      "kind": "Struct",
+      "name": "RgmPolycurveSegment",
+      "repr": "C",
+      "fields": [
+        {
+          "name": "curve",
+          "ty": "RgmObjectHandle"
+        },
+        {
+          "name": "reversed",
+          "ty": "bool"
         }
       ]
     },

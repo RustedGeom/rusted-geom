@@ -1,11 +1,11 @@
-import type { RustedGeomApi } from "../generated/native";
+import type { NativeExports } from "../generated/native";
 import type { RgmPoint3 } from "../generated/types";
 import { RgmStatus } from "../generated/types";
 import { KernelRuntimeError, statusToName } from "./errors";
 import { KERNEL_LAYOUT, type KernelMemory } from "./memory";
 
 export interface CurveSampleContext {
-  api: RustedGeomApi;
+  api: NativeExports;
   memory: KernelMemory;
   session: bigint;
   getLastErrorMessage: () => string;
@@ -23,7 +23,7 @@ export function sampleCurvePolyline(
   try {
     for (let idx = 0; idx < count; idx += 1) {
       const tNorm = count === 1 ? 0 : idx / (count - 1);
-      const status = context.api.curvePointAt(
+      const status = context.api.rgm_curve_point_at(
         context.session,
         curve,
         tNorm,

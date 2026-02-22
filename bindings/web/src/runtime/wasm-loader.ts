@@ -37,7 +37,8 @@ export async function loadKernelWasm(source: WasmSource): Promise<KernelWasmModu
     throw new Error("fetch is required when loading wasm from URL");
   }
 
-  const response = await fetch(url);
+  // Avoid stale wasm binaries during rapid kernel iterations in the showcase.
+  const response = await fetch(url, { cache: "no-store" });
   if (!response.ok) {
     throw new Error(`Failed to fetch wasm: ${response.status} ${response.statusText}`);
   }

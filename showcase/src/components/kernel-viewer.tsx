@@ -6,11 +6,22 @@ import {
   type KernelRuntime,
   type KernelSession,
 } from "@rusted-geom/bindings-web";
-import type { RgmPoint3 } from "@rusted-geom/bindings-web";
+import type {
+  RgmArc3,
+  RgmCircle3,
+  RgmLine3,
+  RgmPlane,
+  RgmPoint3,
+  RgmPolycurveSegment,
+  RgmToleranceContext,
+} from "@rusted-geom/bindings-web";
 import { Pane } from "tweakpane";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
+import { Line2 } from "three/examples/jsm/lines/Line2.js";
+import { LineGeometry } from "three/examples/jsm/lines/LineGeometry.js";
+import { LineMaterial } from "three/examples/jsm/lines/LineMaterial.js";
 
 import {
   parseCurvePreset,
@@ -21,6 +32,8 @@ import {
 
 const DEFAULT_CAMERA_POSITION = new THREE.Vector3(10, 8, 11);
 const DEFAULT_CAMERA_TARGET = new THREE.Vector3(0, 0, 0);
+const MIN_RENDER_SAMPLES = 2048;
+const MAX_RENDER_SAMPLES = 12000;
 
 interface CameraSnapshot {
   position: RgmPoint3;
@@ -30,7 +43,7 @@ interface CameraSnapshot {
 }
 
 interface PaneChangeBinding {
-  on(event: "change", handler: (event: { value: unknown }) => void): void;
+  on(event: "change", handler: (event: { value: unknown; last?: boolean }) => void): void;
 }
 
 interface PaneButtonBinding {
@@ -44,7 +57,87 @@ interface PaneFolderBinding {
 
 interface PaneLike {
   addFolder(options: { title: string }): PaneFolderBinding;
+  refresh?(): void;
   dispose(): void;
+}
+
+type LogLevel = "info" | "debug" | "error";
+
+interface LogEntry {
+  id: number;
+  level: LogLevel;
+  time: string;
+  message: string;
+}
+
+interface ProbeUiState {
+  tNorm: number;
+  x: number;
+  y: number;
+  z: number;
+  probeLength: number;
+  totalLength: number;
+}
+
+type ExampleKey =
+  | "nurbs"
+  | "line"
+  | "polyline"
+  | "polycurve"
+  | "arc"
+  | "circle"
+  | "intersectCurveCurve"
+  | "intersectCurvePlane";
+
+const EXAMPLE_OPTIONS: Record<string, ExampleKey> = {
+  "NURBS (fit points)": "nurbs",
+  "Line (3D skew)": "line",
+  "Polyline (spatial)": "polyline",
+  "Polycurve (mixed)": "polycurve",
+  "Arc (tilted)": "arc",
+  "Circle (tilted)": "circle",
+  "Intersection (curve-curve)": "intersectCurveCurve",
+  "Intersection (curve-plane)": "intersectCurvePlane",
+};
+
+interface OverlayCurveVisual {
+  points: RgmPoint3[];
+  color: string;
+  width: number;
+  opacity: number;
+  name: string;
+}
+
+interface BuiltCurveExample {
+  curveHandle: bigint;
+  ownedHandles: bigint[];
+  name: string;
+  degreeLabel: string;
+  renderDegree: number;
+  renderSamples: number;
+  overlayCurves: OverlayCurveVisual[];
+  intersectionPoints: RgmPoint3[];
+  planeVisual: RgmPlane | null;
+  logs: string[];
+}
+
+function parseExampleSelection(value: unknown): ExampleKey | null {
+  const raw = String(value);
+  if (
+    raw === "nurbs" ||
+    raw === "line" ||
+    raw === "polyline" ||
+    raw === "polycurve" ||
+    raw === "arc" ||
+    raw === "circle" ||
+    raw === "intersectCurveCurve" ||
+    raw === "intersectCurvePlane"
+  ) {
+    return raw;
+  }
+
+  const mapped = EXAMPLE_OPTIONS[raw];
+  return mapped ?? null;
 }
 
 function toPoint3(vector: THREE.Vector3): RgmPoint3 {
@@ -74,25 +167,311 @@ function downloadDataUrl(filename: string, dataUrl: string): void {
   anchor.click();
 }
 
+function nowStamp(): string {
+  const d = new Date();
+  const hh = String(d.getHours()).padStart(2, "0");
+  const mm = String(d.getMinutes()).padStart(2, "0");
+  const ss = String(d.getSeconds()).padStart(2, "0");
+  const ms = String(d.getMilliseconds()).padStart(3, "0");
+  return `${hh}:${mm}:${ss}.${ms}`;
+}
+
+function dist(a: RgmPoint3, b: RgmPoint3): number {
+  const dx = a.x - b.x;
+  const dy = a.y - b.y;
+  const dz = a.z - b.z;
+  return Math.sqrt(dx * dx + dy * dy + dz * dz);
+}
+
+function chordParams(points: RgmPoint3[]): number[] {
+  if (points.length <= 1) {
+    return points.map(() => 0);
+  }
+
+  const cumulative = new Array(points.length).fill(0);
+  let total = 0;
+  for (let i = 1; i < points.length; i += 1) {
+    total += dist(points[i - 1], points[i]);
+    cumulative[i] = total;
+  }
+
+  if (total <= Number.EPSILON) {
+    return points.map((_, idx) => idx / Math.max(1, points.length - 1));
+  }
+
+  return cumulative.map((v) => v / total);
+}
+
+function clampedOpenKnots(pointCount: number, degree: number, params: number[]): number[] {
+  const knotCount = pointCount + degree + 1;
+  const knots = new Array(knotCount).fill(0);
+
+  for (let k = 0; k <= degree; k += 1) {
+    knots[k] = 0;
+    knots[knotCount - 1 - k] = 1;
+  }
+
+  if (pointCount > degree + 1) {
+    const n = pointCount - 1;
+    const interiorCount = n - degree;
+    for (let j = 1; j <= interiorCount; j += 1) {
+      let sum = 0;
+      for (let i = j; i < j + degree; i += 1) {
+        sum += params[i];
+      }
+      knots[j + degree] = sum / degree;
+    }
+  }
+
+  return knots;
+}
+
+function periodicKnots(controlCount: number, degree: number): number[] {
+  return Array.from({ length: controlCount + degree + 1 }, (_, idx) => idx);
+}
+
+function preview(values: number[], max = 12): string {
+  if (values.length <= max) {
+    return `[${values.map((v) => Number(v.toFixed(6))).join(", ")}]`;
+  }
+  const head = values.slice(0, Math.floor(max / 2)).map((v) => Number(v.toFixed(6)));
+  const tail = values.slice(values.length - Math.floor(max / 2)).map((v) => Number(v.toFixed(6)));
+  return `[${head.join(", ")}, ..., ${tail.join(", ")}]`;
+}
+
+function constructionLogLines(preset: CurvePreset): string[] {
+  const tol = Math.max(0, preset.tolerance.abs_tol);
+  let fitPoints = [...preset.points];
+  const lines: string[] = [];
+
+  lines.push(
+    `Preset "${preset.name}": degree=${preset.degree}, closed=${preset.closed}, fitPoints=${fitPoints.length}, sampleCount=${preset.sampleCount}`,
+  );
+
+  if (
+    preset.closed &&
+    fitPoints.length > 1 &&
+    dist(fitPoints[0], fitPoints[fitPoints.length - 1]) <= tol
+  ) {
+    fitPoints = fitPoints.slice(0, -1);
+    lines.push("Closed preset: removed duplicated end point (within abs_tol)");
+  }
+
+  if (fitPoints.length <= preset.degree) {
+    lines.push("Invalid construction: fitPoints <= degree");
+    return lines;
+  }
+
+  if (preset.closed) {
+    const baseCount = fitPoints.length;
+    const controlCount = baseCount + preset.degree;
+    const knots = periodicKnots(controlCount, preset.degree);
+    lines.push(
+      `Periodic construction: controlCount=${controlCount} (base ${baseCount} + degree ${preset.degree}), weights=all 1`,
+    );
+    lines.push(`Uniform periodic knots: ${preview(knots)}`);
+  } else {
+    const params = chordParams(fitPoints);
+    const knots = clampedOpenKnots(fitPoints.length, preset.degree, params);
+    lines.push(
+      `Open clamped construction: controlCount=${fitPoints.length}, weights=all 1, params=chord-length`,
+    );
+    lines.push(`Chord params: ${preview(params)}`);
+    lines.push(`Clamped knots: ${preview(knots)}`);
+  }
+
+  return lines;
+}
+
+function renderSampleCountForPreset(preset: CurvePreset): number {
+  const degreeBoost = (preset.degree + 1) * Math.max(6, preset.points.length) * 80;
+  return Math.max(
+    MIN_RENDER_SAMPLES,
+    Math.min(MAX_RENDER_SAMPLES, Math.max(preset.sampleCount, degreeBoost)),
+  );
+}
+
+function curveColorForDegree(degree: number): string {
+  if (degree <= 1) {
+    return "#ffc670";
+  }
+  if (degree === 2) {
+    return "#98f0ff";
+  }
+  if (degree === 3) {
+    return "#7dc4ff";
+  }
+  return "#a0b6ff";
+}
+
+function curveWidthForDegree(degree: number): number {
+  if (degree <= 1) {
+    return 2.1;
+  }
+  if (degree === 2) {
+    return 2.6;
+  }
+  if (degree === 3) {
+    return 3.0;
+  }
+  return 3.4;
+}
+
+function fallbackTolerance(): RgmToleranceContext {
+  return {
+    abs_tol: 1e-9,
+    rel_tol: 1e-9,
+    angle_tol: 1e-9,
+  };
+}
+
+function shouldShowProbeForExample(example: ExampleKey): boolean {
+  return example !== "intersectCurveCurve" && example !== "intersectCurvePlane";
+}
+
+function createWideLine(
+  points: RgmPoint3[],
+  color: string,
+  width: number,
+  opacity: number,
+  viewport: HTMLDivElement | null,
+): Line2 {
+  const positions = points.flatMap((point) => [point.x, point.y, point.z]);
+  const geometry = new LineGeometry();
+  geometry.setPositions(positions);
+  const material = new LineMaterial({
+    color,
+    transparent: opacity < 1,
+    opacity,
+    linewidth: width,
+    worldUnits: false,
+    depthTest: false,
+    depthWrite: false,
+  });
+  material.resolution.set(viewport?.clientWidth ?? 1, viewport?.clientHeight ?? 1);
+  const line = new Line2(geometry, material);
+  line.computeLineDistances();
+  return line;
+}
+
+function normalizedVector(input: RgmPoint3, fallback: THREE.Vector3): THREE.Vector3 {
+  const vector = new THREE.Vector3(input.x, input.y, input.z);
+  if (vector.lengthSq() <= Number.EPSILON) {
+    return fallback.clone();
+  }
+  return vector.normalize();
+}
+
+function buildPlaneFrame(plane: RgmPlane): {
+  origin: THREE.Vector3;
+  xAxis: THREE.Vector3;
+  yAxis: THREE.Vector3;
+  normal: THREE.Vector3;
+} {
+  const origin = new THREE.Vector3(plane.origin.x, plane.origin.y, plane.origin.z);
+  let normal = normalizedVector(plane.z_axis, new THREE.Vector3(0, 0, 1));
+  let xAxis = normalizedVector(plane.x_axis, new THREE.Vector3(1, 0, 0));
+  xAxis = xAxis.clone().sub(normal.clone().multiplyScalar(xAxis.dot(normal)));
+  if (xAxis.lengthSq() <= 1e-12) {
+    xAxis = new THREE.Vector3(0, 1, 0).cross(normal);
+  }
+  xAxis.normalize();
+  let yAxis = normal.clone().cross(xAxis).normalize();
+  if (yAxis.lengthSq() <= 1e-12) {
+    yAxis = normalizedVector(plane.y_axis, new THREE.Vector3(0, 1, 0));
+    yAxis = yAxis.clone().sub(normal.clone().multiplyScalar(yAxis.dot(normal)));
+    if (yAxis.lengthSq() <= 1e-12) {
+      yAxis = new THREE.Vector3(0, 0, 1).cross(xAxis);
+    }
+    yAxis.normalize();
+  }
+  normal = xAxis.clone().cross(yAxis).normalize();
+
+  return { origin, xAxis, yAxis, normal };
+}
+
+function centroidOfPoints(points: RgmPoint3[]): THREE.Vector3 {
+  if (points.length === 0) {
+    return new THREE.Vector3();
+  }
+  const centroid = new THREE.Vector3();
+  for (const point of points) {
+    centroid.add(new THREE.Vector3(point.x, point.y, point.z));
+  }
+  return centroid.multiplyScalar(1 / points.length);
+}
+
+function projectedPointOnPlane(
+  point: THREE.Vector3,
+  origin: THREE.Vector3,
+  normal: THREE.Vector3,
+): THREE.Vector3 {
+  const delta = point.clone().sub(origin);
+  return point.clone().sub(normal.clone().multiplyScalar(delta.dot(normal)));
+}
+
+function planeVisualSize(points: RgmPoint3[]): number {
+  if (points.length < 2) {
+    return 12;
+  }
+  const box = new THREE.Box3();
+  for (const point of points) {
+    box.expandByPoint(new THREE.Vector3(point.x, point.y, point.z));
+  }
+  const diagonal = box.getSize(new THREE.Vector3()).length();
+  return Math.max(10, diagonal * 1.6);
+}
+
 export function KernelViewer() {
   const viewportRef = useRef<HTMLDivElement | null>(null);
   const paneHostRef = useRef<HTMLDivElement | null>(null);
+  const logBodyRef = useRef<HTMLDivElement | null>(null);
   const sessionFileInputRef = useRef<HTMLInputElement | null>(null);
 
   const runtimeRef = useRef<KernelRuntime | null>(null);
   const sessionRef = useRef<KernelSession | null>(null);
   const curveHandleRef = useRef<bigint | null>(null);
+  const ownedCurveHandlesRef = useRef<bigint[]>([]);
+  const nurbsPresetRef = useRef<CurvePreset | null>(null);
 
   const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
   const sceneRef = useRef<THREE.Scene | null>(null);
   const cameraRef = useRef<THREE.PerspectiveCamera | null>(null);
   const controlsRef = useRef<OrbitControls | null>(null);
-  const lineRef = useRef<THREE.Line<THREE.BufferGeometry, THREE.LineBasicMaterial> | null>(null);
+  const paneRef = useRef<PaneLike | null>(null);
+  const lineRef = useRef<Line2 | null>(null);
+  const overlayLineRefs = useRef<Line2[]>([]);
+  const intersectionMarkerRefs = useRef<
+    THREE.Mesh<THREE.SphereGeometry, THREE.MeshStandardMaterial>[]
+  >([]);
+  const planeMeshRef = useRef<THREE.Mesh<THREE.PlaneGeometry, THREE.MeshStandardMaterial> | null>(
+    null,
+  );
+  const planeWireRef = useRef<THREE.LineSegments<THREE.EdgesGeometry, THREE.LineBasicMaterial> | null>(
+    null,
+  );
+  const planeNormalRef = useRef<THREE.ArrowHelper | null>(null);
+  const probeRef = useRef<THREE.Mesh<THREE.SphereGeometry, THREE.MeshStandardMaterial> | null>(
+    null,
+  );
   const gridRef = useRef<THREE.GridHelper | null>(null);
   const axesRef = useRef<THREE.AxesHelper | null>(null);
+  const probeTNormRef = useRef(0.35);
+  const probePointRef = useRef<RgmPoint3 | null>(null);
+  const probeUiStateRef = useRef<ProbeUiState | null>(null);
+  const totalLengthRef = useRef(0);
+  const logSequenceRef = useRef(1);
 
   const [preset, setPreset] = useState<CurvePreset | null>(null);
+  const [activeExample, setActiveExample] = useState<ExampleKey>("nurbs");
+  const [activeCurveName, setActiveCurveName] = useState("NURBS");
+  const [activeDegreeLabel, setActiveDegreeLabel] = useState("");
+  const [activeRenderDegree, setActiveRenderDegree] = useState(3);
   const [sampledPoints, setSampledPoints] = useState<RgmPoint3[]>([]);
+  const [overlayCurves, setOverlayCurves] = useState<OverlayCurveVisual[]>([]);
+  const [intersectionPoints, setIntersectionPoints] = useState<RgmPoint3[]>([]);
+  const [intersectionPlane, setIntersectionPlane] = useState<RgmPlane | null>(null);
+  const [logs, setLogs] = useState<LogEntry[]>([]);
   const [statusMessage, setStatusMessage] = useState("Booting kernel runtime...");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [capabilities, setCapabilities] = useState({ igesImport: false, igesExport: false });
@@ -101,27 +480,453 @@ export function KernelViewer() {
   const [orbitEnabled, setOrbitEnabled] = useState(true);
   const [mobilePaneOpen, setMobilePaneOpen] = useState(false);
 
-  const updateCurve = useCallback(
-    (nextPreset: CurvePreset, successMessage: string): void => {
+  const appendLog = useCallback((level: LogLevel, message: string): void => {
+    setLogs((previous) => {
+      const next = [
+        ...previous,
+        {
+          id: logSequenceRef.current,
+          level,
+          time: nowStamp(),
+          message,
+        },
+      ];
+      logSequenceRef.current += 1;
+      if (next.length > 500) {
+        return next.slice(next.length - 500);
+      }
+      return next;
+    });
+  }, []);
+
+  const clearLogs = useCallback(() => {
+    setLogs([]);
+  }, []);
+
+  const releaseOwnedCurveHandles = useCallback((): void => {
+    const session = sessionRef.current;
+    if (!session) {
+      return;
+    }
+    for (const handle of ownedCurveHandlesRef.current) {
+      session.releaseObject(handle);
+    }
+    ownedCurveHandlesRef.current = [];
+    curveHandleRef.current = null;
+  }, []);
+
+  const buildExampleCurve = useCallback(
+    (
+      session: KernelSession,
+      example: ExampleKey,
+      nurbsPresetOverride?: CurvePreset,
+    ): BuiltCurveExample => {
+      const tol = nurbsPresetOverride?.tolerance ?? nurbsPresetRef.current?.tolerance ?? fallbackTolerance();
+
+      if (example === "nurbs") {
+        const presetToUse = nurbsPresetOverride ?? nurbsPresetRef.current;
+        if (!presetToUse) {
+          throw new Error("NURBS preset is not loaded");
+        }
+        const handle = session.buildCurveFromPreset(presetToUse as CurvePresetInput);
+        return {
+          curveHandle: handle,
+          ownedHandles: [handle],
+          name: presetToUse.name,
+          degreeLabel: `NURBS p=${presetToUse.degree}`,
+          renderDegree: presetToUse.degree,
+          renderSamples: renderSampleCountForPreset(presetToUse),
+          overlayCurves: [],
+          intersectionPoints: [],
+          planeVisual: null,
+          logs: constructionLogLines(presetToUse),
+        };
+      }
+
+      if (example === "line") {
+        const line: RgmLine3 = {
+          start: { x: -7.8, y: -2.9, z: 1.6 },
+          end: { x: 8.1, y: 3.4, z: -2.3 },
+        };
+        const handle = session.createLine(line, tol);
+        return {
+          curveHandle: handle,
+          ownedHandles: [handle],
+          name: "Skew 3D Line Span",
+          degreeLabel: "Line (p=1)",
+          renderDegree: 1,
+          renderSamples: 320,
+          overlayCurves: [],
+          intersectionPoints: [],
+          planeVisual: null,
+          logs: [
+            `Line start=(${line.start.x}, ${line.start.y}, ${line.start.z})`,
+            `Line end=(${line.end.x}, ${line.end.y}, ${line.end.z})`,
+          ],
+        };
+      }
+
+      if (example === "polyline") {
+        const points: RgmPoint3[] = [
+          { x: -8.0, y: -2.1, z: 0.4 },
+          { x: -6.7, y: 1.2, z: 1.9 },
+          { x: -5.2, y: 2.6, z: -0.6 },
+          { x: -3.4, y: 0.5, z: -2.3 },
+          { x: -1.7, y: -1.6, z: -0.1 },
+          { x: 0.4, y: 0.2, z: 2.4 },
+          { x: 2.8, y: 2.9, z: 1.2 },
+          { x: 5.1, y: 1.7, z: -1.8 },
+          { x: 7.4, y: -1.1, z: -0.5 },
+        ];
+        const handle = session.createPolyline(points, false, tol);
+        return {
+          curveHandle: handle,
+          ownedHandles: [handle],
+          name: "Spatial Polyline Traverse",
+          degreeLabel: "Polyline (p=1)",
+          renderDegree: 1,
+          renderSamples: 1200,
+          overlayCurves: [],
+          intersectionPoints: [],
+          planeVisual: null,
+          logs: [`Polyline vertices=${points.length} closed=false`],
+        };
+      }
+
+      if (example === "arc") {
+        const arc: RgmArc3 = {
+          plane: {
+            origin: { x: -1.3, y: 0.9, z: 0.7 },
+            x_axis: { x: 0.8944271909999159, y: 0.0, z: 0.4472135954999579 },
+            y_axis: { x: 0.0, y: 1.0, z: 0.0 },
+            z_axis: { x: -0.4472135954999579, y: 0.0, z: 0.8944271909999159 },
+          },
+          radius: 4.25,
+          start_angle: -0.55,
+          sweep_angle: 2.35,
+        };
+        const handle = session.createArc(arc, tol);
+        return {
+          curveHandle: handle,
+          ownedHandles: [handle],
+          name: "Tilted Rational Arc",
+          degreeLabel: "Arc (rational p=2)",
+          renderDegree: 2,
+          renderSamples: 1800,
+          overlayCurves: [],
+          intersectionPoints: [],
+          planeVisual: null,
+          logs: [`Arc radius=${arc.radius} start=${arc.start_angle} sweep=${arc.sweep_angle}`],
+        };
+      }
+
+      if (example === "circle") {
+        const circle: RgmCircle3 = {
+          plane: {
+            origin: { x: 1.6, y: -0.7, z: 1.3 },
+            x_axis: { x: 0.7071067811865476, y: 0.7071067811865476, z: 0.0 },
+            y_axis: { x: -0.4082482904638631, y: 0.4082482904638631, z: 0.8164965809277261 },
+            z_axis: { x: 0.5773502691896258, y: -0.5773502691896258, z: 0.5773502691896258 },
+          },
+          radius: 3.6,
+        };
+        const handle = session.createCircle(circle, tol);
+        return {
+          curveHandle: handle,
+          ownedHandles: [handle],
+          name: "Tilted Rational Circle",
+          degreeLabel: "Circle (rational p=2 periodic)",
+          renderDegree: 2,
+          renderSamples: 2400,
+          overlayCurves: [],
+          intersectionPoints: [],
+          planeVisual: null,
+          logs: [`Circle radius=${circle.radius}`],
+        };
+      }
+
+      if (example === "intersectCurveCurve") {
+        const builtHandles: bigint[] = [];
+        try {
+          const transform = new THREE.Matrix4().makeRotationFromEuler(
+            new THREE.Euler(0.68, -0.41, 0.52, "XYZ"),
+          );
+          transform.setPosition(new THREE.Vector3(1.4, -0.9, 0.7));
+          const rotationOnly = new THREE.Matrix3().setFromMatrix4(transform);
+          const transformPoint = (x: number, y: number, z: number): RgmPoint3 =>
+            toPoint3(new THREE.Vector3(x, y, z).applyMatrix4(transform));
+          const transformAxis = (x: number, y: number, z: number): RgmPoint3 =>
+            toPoint3(new THREE.Vector3(x, y, z).applyMatrix3(rotationOnly).normalize());
+
+          const circlePrimary: RgmCircle3 = {
+            plane: {
+              origin: transformPoint(0, 0, 0),
+              x_axis: transformAxis(1, 0, 0),
+              y_axis: transformAxis(0, 1, 0),
+              z_axis: transformAxis(0, 0, 1),
+            },
+            radius: 4.8,
+          };
+          const circleSecondary: RgmCircle3 = {
+            plane: {
+              origin: transformPoint(0, 0, 0),
+              x_axis: transformAxis(0, 1, 0),
+              y_axis: transformAxis(0, 0, 1),
+              z_axis: transformAxis(1, 0, 0),
+            },
+            radius: 4.8,
+          };
+
+          const primaryHandle = session.createCircle(circlePrimary, tol);
+          builtHandles.push(primaryHandle);
+          const secondaryHandle = session.createCircle(circleSecondary, tol);
+          builtHandles.push(secondaryHandle);
+
+          const secondarySamples = session.sampleCurvePolyline(secondaryHandle, 2400);
+          const hits = session.intersectCurveCurve(primaryHandle, secondaryHandle);
+          const hitLogs = hits.map(
+            (point, idx) =>
+              `Curve-curve hit ${idx + 1}: (${point.x.toFixed(4)}, ${point.y.toFixed(4)}, ${point.z.toFixed(4)})`,
+          );
+
+          return {
+            curveHandle: primaryHandle,
+            ownedHandles: builtHandles,
+            name: "Dual Tilted Circle Intersection",
+            degreeLabel: "Intersection (curve-curve)",
+            renderDegree: 2,
+            renderSamples: 2400,
+            overlayCurves: [
+              {
+                points: secondarySamples,
+                color: "#f8ae63",
+                width: 2.4,
+                opacity: 0.95,
+                name: "secondary curve",
+              },
+            ],
+            intersectionPoints: hits,
+            planeVisual: null,
+            logs: [
+              "Primary: rational circle in tilted plane",
+              "Secondary: orthogonal tilted circle transformed in world space",
+              `Intersection count=${hits.length}`,
+              ...hitLogs,
+            ],
+          };
+        } catch (error) {
+          for (const handle of builtHandles) {
+            session.releaseObject(handle);
+          }
+          throw error;
+        }
+      }
+
+      if (example === "intersectCurvePlane") {
+        const planeNormal = new THREE.Vector3(0.46, -0.37, 0.81).normalize();
+        let planeXAxis = new THREE.Vector3(0.93, 0.15, -0.34).normalize();
+        planeXAxis = planeXAxis
+          .clone()
+          .sub(planeNormal.clone().multiplyScalar(planeXAxis.dot(planeNormal)))
+          .normalize();
+        const planeYAxis = new THREE.Vector3().crossVectors(planeNormal, planeXAxis).normalize();
+        const planeOrigin = new THREE.Vector3(-0.8, 0.5, 0.2);
+        const plane: RgmPlane = {
+          origin: toPoint3(planeOrigin),
+          x_axis: toPoint3(planeXAxis),
+          y_axis: toPoint3(planeYAxis),
+          z_axis: toPoint3(planeNormal),
+        };
+
+        const fitPoints: RgmPoint3[] = [];
+        for (let idx = 0; idx < 11; idx += 1) {
+          const along = -7.2 + idx * 1.45;
+          const across = Math.sin(idx * 0.92) * 2.9;
+          const normalOffset = (idx % 2 === 0 ? 1 : -1) * (1.2 + 0.3 * Math.cos(idx * 0.55));
+          const point = planeOrigin
+            .clone()
+            .add(planeXAxis.clone().multiplyScalar(along))
+            .add(planeYAxis.clone().multiplyScalar(across))
+            .add(planeNormal.clone().multiplyScalar(normalOffset));
+          fitPoints.push(toPoint3(point));
+        }
+
+        const curvePreset: CurvePresetInput = {
+          name: "Woven Plane-Crossing NURBS",
+          degree: 3,
+          closed: false,
+          points: fitPoints,
+          tolerance: tol,
+        };
+        const curveHandle = session.buildCurveFromPreset(curvePreset);
+        const hits = session.intersectCurvePlane(curveHandle, plane);
+        const hitLogs = hits.map(
+          (point, idx) =>
+            `Curve-plane hit ${idx + 1}: (${point.x.toFixed(4)}, ${point.y.toFixed(4)}, ${point.z.toFixed(4)})`,
+        );
+
+        return {
+          curveHandle,
+          ownedHandles: [curveHandle],
+          name: "NURBS vs Tilted Plane",
+          degreeLabel: "Intersection (curve-plane)",
+          renderDegree: 3,
+          renderSamples: 3600,
+          overlayCurves: [],
+          intersectionPoints: hits,
+          planeVisual: plane,
+          logs: [
+            `Curve control points=${fitPoints.length}`,
+            "Plane is intentionally oblique to world axes",
+            `Intersection count=${hits.length}`,
+            ...hitLogs,
+          ],
+        };
+      }
+
+      if (example !== "polycurve") {
+        throw new Error(`Unsupported example value: ${example}`);
+      }
+
+      const lineA: RgmLine3 = {
+        start: { x: -6.2, y: -2.1, z: 0.3 },
+        end: { x: -2.0, y: 1.0, z: 1.1 },
+      };
+      const arcA: RgmArc3 = {
+        plane: {
+          origin: { x: -4.0, y: 1.0, z: 1.1 },
+          x_axis: { x: 1.0, y: 0.0, z: 0.0 },
+          y_axis: { x: 0.0, y: 1.0, z: 0.0 },
+          z_axis: { x: 0.0, y: 0.0, z: 1.0 },
+        },
+        radius: 2.0,
+        start_angle: 0.0,
+        sweep_angle: Math.PI / 2,
+      };
+      const lineB: RgmLine3 = {
+        start: { x: -4.0, y: 3.0, z: 1.1 },
+        end: { x: 0.7, y: 1.8, z: -1.6 },
+      };
+      const arcB: RgmArc3 = {
+        plane: {
+          origin: { x: -0.38, y: 0.36, z: -1.6 },
+          x_axis: { x: 0.6, y: 0.8, z: 0.0 },
+          y_axis: { x: 0.0, y: 0.0, z: 1.0 },
+          z_axis: { x: 0.8, y: -0.6, z: 0.0 },
+        },
+        radius: 1.8,
+        start_angle: 0.0,
+        sweep_angle: -1.2,
+      };
+
+      const builtHandles: bigint[] = [];
+      try {
+        const hLineA = session.createLine(lineA, tol);
+        builtHandles.push(hLineA);
+        const hArcA = session.createArc(arcA, tol);
+        builtHandles.push(hArcA);
+        const hLineB = session.createLine(lineB, tol);
+        builtHandles.push(hLineB);
+        const hArcB = session.createArc(arcB, tol);
+        builtHandles.push(hArcB);
+
+        const segments: RgmPolycurveSegment[] = [
+          { curve: hLineA, reversed: false },
+          { curve: hArcA, reversed: false },
+          { curve: hLineB, reversed: false },
+          { curve: hArcB, reversed: false },
+        ];
+        const poly = session.createPolycurve(segments, tol);
+        builtHandles.unshift(poly);
+
+        return {
+          curveHandle: poly,
+          ownedHandles: builtHandles,
+          name: "Mixed Polycurve Ribbon",
+          degreeLabel: "Polycurve (line+arc+line+arc)",
+          renderDegree: 3,
+          renderSamples: 2800,
+          overlayCurves: [],
+          intersectionPoints: [],
+          planeVisual: null,
+          logs: [`Polycurve segments=${segments.length}`],
+        };
+      } catch (error) {
+        for (const handle of builtHandles) {
+          session.releaseObject(handle);
+        }
+        throw error;
+      }
+    },
+    [],
+  );
+
+  const updateCurveForExample = useCallback(
+    (example: ExampleKey, successMessage: string, nurbsPresetOverride?: CurvePreset): void => {
       const session = sessionRef.current;
       if (!session) {
         throw new Error("Kernel session is not ready");
       }
 
-      if (curveHandleRef.current !== null) {
-        session.releaseObject(curveHandleRef.current);
+      appendLog("info", `Building ${example} example`);
+      releaseOwnedCurveHandles();
+
+      const built = buildExampleCurve(session, example, nurbsPresetOverride);
+      curveHandleRef.current = built.curveHandle;
+      ownedCurveHandlesRef.current = built.ownedHandles;
+
+      for (const line of built.logs) {
+        appendLog("debug", line);
       }
 
-      const handle = session.buildCurveFromPreset(nextPreset as CurvePresetInput);
-      curveHandleRef.current = handle;
-      const curveSamples = session.sampleCurvePolyline(handle, nextPreset.sampleCount);
+      const curveSamples = session.sampleCurvePolyline(built.curveHandle, built.renderSamples);
+      const totalLength = session.curveLength(built.curveHandle);
+      totalLengthRef.current = totalLength;
+      const evaluatedProbe = session.pointAt(built.curveHandle, probeTNormRef.current);
+      const probeLength = session.curveLengthAt(built.curveHandle, probeTNormRef.current);
 
-      setPreset(nextPreset);
+      probePointRef.current = evaluatedProbe;
+      if (probeRef.current) {
+        probeRef.current.position.set(evaluatedProbe.x, evaluatedProbe.y, evaluatedProbe.z);
+        probeRef.current.visible = shouldShowProbeForExample(example);
+      }
+      if (probeUiStateRef.current) {
+        probeUiStateRef.current.tNorm = probeTNormRef.current;
+        probeUiStateRef.current.x = evaluatedProbe.x;
+        probeUiStateRef.current.y = evaluatedProbe.y;
+        probeUiStateRef.current.z = evaluatedProbe.z;
+        probeUiStateRef.current.probeLength = probeLength;
+        probeUiStateRef.current.totalLength = totalLength;
+        paneRef.current?.refresh?.();
+      }
+
+      if (nurbsPresetOverride) {
+        nurbsPresetRef.current = nurbsPresetOverride;
+        setPreset(nurbsPresetOverride);
+      }
+
+      setActiveExample(example);
+      setActiveCurveName(built.name);
+      setActiveDegreeLabel(built.degreeLabel);
+      setActiveRenderDegree(built.renderDegree);
       setSampledPoints(curveSamples);
-      setStatusMessage(successMessage);
+      setOverlayCurves(built.overlayCurves);
+      setIntersectionPoints(built.intersectionPoints);
+      setIntersectionPlane(built.planeVisual);
+      const intersectionSummary =
+        built.intersectionPoints.length > 0
+          ? ` • intersections ${built.intersectionPoints.length}`
+          : "";
+      setStatusMessage(
+        `${successMessage} • ${built.name} • ${built.degreeLabel}${intersectionSummary} • exact length ${totalLength.toFixed(6)} • render samples ${curveSamples.length}`,
+      );
       setErrorMessage(null);
+      appendLog(
+        "info",
+        `Built handle ${built.curveHandle.toString()} with exact length=${totalLength.toFixed(6)}, samples=${curveSamples.length}, intersections=${built.intersectionPoints.length}`,
+      );
     },
-    [],
+    [appendLog, buildExampleCurve, releaseOwnedCurveHandles],
   );
 
   const loadDefaultPreset = useCallback(async (): Promise<CurvePreset> => {
@@ -187,7 +992,7 @@ export function KernelViewer() {
 
   const applySession = useCallback(
     (sessionFile: ViewerSessionFile): void => {
-      updateCurve(sessionFile.preset, "Session loaded");
+      updateCurveForExample("nurbs", "Session loaded", sessionFile.preset);
       setShowGrid(sessionFile.view.showGrid);
       setShowAxes(sessionFile.view.showAxes);
       setOrbitEnabled(sessionFile.view.orbitEnabled);
@@ -203,7 +1008,7 @@ export function KernelViewer() {
         controls.update();
       }
     },
-    [updateCurve],
+    [updateCurveForExample],
   );
 
   useEffect(() => {
@@ -211,8 +1016,10 @@ export function KernelViewer() {
 
     (async () => {
       try {
-        const runtime = await createKernelRuntime("/wasm/kernel_ffi.wasm");
+        appendLog("info", "Loading kernel WASM runtime");
+        const runtime = await createKernelRuntime("/wasm/rusted_geom.wasm");
         const session = runtime.createSession();
+        appendLog("info", `Kernel session created: ${session.handle.toString()}`);
         const loadedPreset = await loadDefaultPreset();
         if (disposed) {
           session.destroy();
@@ -226,24 +1033,35 @@ export function KernelViewer() {
           igesImport: runtime.capabilities.igesImport,
           igesExport: runtime.capabilities.igesExport,
         });
-        updateCurve(loadedPreset, "Default preset loaded");
+        nurbsPresetRef.current = loadedPreset;
+        setPreset(loadedPreset);
+        updateCurveForExample("nurbs", "Default example loaded", loadedPreset);
       } catch (error) {
-        setErrorMessage(error instanceof Error ? error.message : String(error));
+        const message = error instanceof Error ? error.message : String(error);
+        setErrorMessage(message);
+        appendLog("error", `Startup failed: ${message}`);
       }
     })();
 
     return () => {
       disposed = true;
-      if (curveHandleRef.current !== null && sessionRef.current) {
-        sessionRef.current.releaseObject(curveHandleRef.current);
-      }
+      releaseOwnedCurveHandles();
       sessionRef.current?.destroy();
       runtimeRef.current?.destroy();
+      appendLog("info", "Kernel runtime destroyed");
       sessionRef.current = null;
       runtimeRef.current = null;
       curveHandleRef.current = null;
     };
-  }, [loadDefaultPreset, updateCurve]);
+  }, [appendLog, loadDefaultPreset, releaseOwnedCurveHandles, updateCurveForExample]);
+
+  useEffect(() => {
+    const container = logBodyRef.current;
+    if (!container) {
+      return;
+    }
+    container.scrollTop = container.scrollHeight;
+  }, [logs]);
 
   useEffect(() => {
     const viewport = viewportRef.current;
@@ -306,6 +1124,27 @@ export function KernelViewer() {
     axes.visible = false;
     scene.add(axes);
 
+    const probe = new THREE.Mesh(
+      new THREE.SphereGeometry(0.22, 28, 28),
+      new THREE.MeshStandardMaterial({
+        color: "#9fc0ff",
+        emissive: "#335fc2",
+        emissiveIntensity: 0.58,
+        roughness: 0.2,
+        metalness: 0.1,
+      }),
+    );
+    probe.visible = false;
+    if (probePointRef.current) {
+      probe.position.set(
+        probePointRef.current.x,
+        probePointRef.current.y,
+        probePointRef.current.z,
+      );
+      probe.visible = true;
+    }
+    scene.add(probe);
+
     const key = new THREE.DirectionalLight("#cfdbff", 0.62);
     key.position.set(3, 10, 7);
     scene.add(key);
@@ -335,6 +1174,14 @@ export function KernelViewer() {
           fallbackContext.restore();
         }
       }
+      if (lineRef.current) {
+        const material = lineRef.current.material as LineMaterial;
+        material.resolution.set(width, height);
+      }
+      for (const overlay of overlayLineRefs.current) {
+        const material = overlay.material as LineMaterial;
+        material.resolution.set(width, height);
+      }
     };
 
     const resizeObserver = new ResizeObserver(onResize);
@@ -357,6 +1204,7 @@ export function KernelViewer() {
     rendererRef.current = renderer;
     gridRef.current = grid;
     axesRef.current = axes;
+    probeRef.current = probe;
 
     return () => {
       window.cancelAnimationFrame(frame);
@@ -366,6 +1214,31 @@ export function KernelViewer() {
       if (lineRef.current) {
         lineRef.current.geometry.dispose();
         lineRef.current.material.dispose();
+      }
+      for (const overlay of overlayLineRefs.current) {
+        overlay.geometry.dispose();
+        overlay.material.dispose();
+      }
+      overlayLineRefs.current = [];
+      for (const marker of intersectionMarkerRefs.current) {
+        marker.geometry.dispose();
+        marker.material.dispose();
+      }
+      intersectionMarkerRefs.current = [];
+      if (planeMeshRef.current) {
+        planeMeshRef.current.geometry.dispose();
+        planeMeshRef.current.material.dispose();
+      }
+      if (planeWireRef.current) {
+        planeWireRef.current.geometry.dispose();
+        planeWireRef.current.material.dispose();
+      }
+      if (planeNormalRef.current) {
+        scene.remove(planeNormalRef.current);
+      }
+      if (probeRef.current) {
+        probeRef.current.geometry.dispose();
+        probeRef.current.material.dispose();
       }
       if (renderCanvas.parentElement === viewport) {
         viewport.removeChild(renderCanvas);
@@ -377,7 +1250,11 @@ export function KernelViewer() {
       rendererRef.current = null;
       gridRef.current = null;
       axesRef.current = null;
+      probeRef.current = null;
       lineRef.current = null;
+      planeMeshRef.current = null;
+      planeWireRef.current = null;
+      planeNormalRef.current = null;
     };
   }, []);
 
@@ -397,17 +1274,161 @@ export function KernelViewer() {
       return;
     }
 
-    const points = sampledPoints.map((point) => new THREE.Vector3(point.x, point.y, point.z));
-    const geometry = new THREE.BufferGeometry().setFromPoints(points);
-    const material = new THREE.LineBasicMaterial({
-      color: "#74a1ff",
-      transparent: true,
-      opacity: 0.96,
-    });
-    const line = new THREE.Line(geometry, material);
+    const curveDegree = activeRenderDegree;
+    const line = createWideLine(
+      sampledPoints,
+      curveColorForDegree(curveDegree),
+      curveWidthForDegree(curveDegree),
+      1,
+      viewportRef.current,
+    );
+    line.renderOrder = 30;
     lineRef.current = line;
     sceneRef.current.add(line);
-  }, [sampledPoints]);
+  }, [activeRenderDegree, sampledPoints]);
+
+  useEffect(() => {
+    const scene = sceneRef.current;
+    if (!scene) {
+      return;
+    }
+
+    for (const overlay of overlayLineRefs.current) {
+      scene.remove(overlay);
+      overlay.geometry.dispose();
+      overlay.material.dispose();
+    }
+    overlayLineRefs.current = [];
+
+    for (const overlayCurve of overlayCurves) {
+      if (overlayCurve.points.length < 2) {
+        continue;
+      }
+      const overlay = createWideLine(
+        overlayCurve.points,
+        overlayCurve.color,
+        overlayCurve.width,
+        overlayCurve.opacity,
+        viewportRef.current,
+      );
+      overlay.renderOrder = 26;
+      scene.add(overlay);
+      overlayLineRefs.current.push(overlay);
+    }
+  }, [overlayCurves]);
+
+  useEffect(() => {
+    const scene = sceneRef.current;
+    if (!scene) {
+      return;
+    }
+
+    for (const marker of intersectionMarkerRefs.current) {
+      scene.remove(marker);
+      marker.geometry.dispose();
+      marker.material.dispose();
+    }
+    intersectionMarkerRefs.current = [];
+
+    for (const hit of intersectionPoints) {
+      const marker = new THREE.Mesh(
+        new THREE.SphereGeometry(0.25, 20, 20),
+        new THREE.MeshStandardMaterial({
+          color: "#ff8fd9",
+          emissive: "#7e2f67",
+          emissiveIntensity: 0.64,
+          roughness: 0.18,
+          metalness: 0.2,
+          depthWrite: false,
+        }),
+      );
+      marker.position.set(hit.x, hit.y, hit.z);
+      marker.renderOrder = 40;
+      scene.add(marker);
+      intersectionMarkerRefs.current.push(marker);
+    }
+  }, [intersectionPoints]);
+
+  useEffect(() => {
+    const scene = sceneRef.current;
+    if (!scene) {
+      return;
+    }
+
+    if (planeMeshRef.current) {
+      scene.remove(planeMeshRef.current);
+      planeMeshRef.current.geometry.dispose();
+      planeMeshRef.current.material.dispose();
+      planeMeshRef.current = null;
+    }
+    if (planeWireRef.current) {
+      scene.remove(planeWireRef.current);
+      planeWireRef.current.geometry.dispose();
+      planeWireRef.current.material.dispose();
+      planeWireRef.current = null;
+    }
+    if (planeNormalRef.current) {
+      scene.remove(planeNormalRef.current);
+      planeNormalRef.current = null;
+    }
+
+    if (!intersectionPlane) {
+      return;
+    }
+
+    const frame = buildPlaneFrame(intersectionPlane);
+    const center = projectedPointOnPlane(
+      centroidOfPoints(sampledPoints),
+      frame.origin,
+      frame.normal,
+    );
+    const size = planeVisualSize(sampledPoints);
+    const basis = new THREE.Matrix4().makeBasis(frame.xAxis, frame.yAxis, frame.normal);
+
+    const planeMesh = new THREE.Mesh(
+      new THREE.PlaneGeometry(size, size, 1, 1),
+      new THREE.MeshStandardMaterial({
+        color: "#66c5f6",
+        transparent: true,
+        opacity: 0.24,
+        side: THREE.DoubleSide,
+        roughness: 0.62,
+        metalness: 0.06,
+        depthWrite: false,
+      }),
+    );
+    planeMesh.position.copy(center);
+    planeMesh.setRotationFromMatrix(basis);
+    planeMesh.renderOrder = 8;
+    scene.add(planeMesh);
+    planeMeshRef.current = planeMesh;
+
+    const planeWire = new THREE.LineSegments(
+      new THREE.EdgesGeometry(new THREE.PlaneGeometry(size, size, 1, 1)),
+      new THREE.LineBasicMaterial({
+        color: "#8fdbff",
+        transparent: true,
+        opacity: 0.7,
+      }),
+    );
+    planeWire.position.copy(center);
+    planeWire.setRotationFromMatrix(basis);
+    planeWire.renderOrder = 9;
+    scene.add(planeWire);
+    planeWireRef.current = planeWire;
+
+    const arrowLength = Math.max(3, size * 0.34);
+    const normalArrow = new THREE.ArrowHelper(
+      frame.normal.clone(),
+      center.clone(),
+      arrowLength,
+      0x95e3ff,
+      arrowLength * 0.16,
+      arrowLength * 0.08,
+    );
+    scene.add(normalArrow);
+    planeNormalRef.current = normalArrow;
+  }, [intersectionPlane, sampledPoints]);
 
   useEffect(() => {
     if (gridRef.current) {
@@ -435,84 +1456,116 @@ export function KernelViewer() {
 
   useEffect(() => {
     const paneHost = paneHostRef.current;
-    if (!paneHost || !preset) {
+    if (!paneHost || !preset || !sessionRef.current) {
       return;
     }
 
     paneHost.innerHTML = "";
     const pane = new Pane({
       container: paneHost,
-      title: "Kernel Lab",
+      title: "Curve Probe",
     }) as unknown as PaneLike;
+    paneRef.current = pane;
 
-    const kernelState = {
-      degree: preset.degree,
-      closed: preset.closed,
-      sampleCount: preset.sampleCount,
-      absTol: preset.tolerance.abs_tol,
-      relTol: preset.tolerance.rel_tol,
-      angleTol: preset.tolerance.angle_tol,
-      points: preset.points.length,
-      sampled: sampledPoints.length,
+    const session = sessionRef.current;
+    const curveHandle = curveHandleRef.current;
+    const initialProbeLength =
+      session && curveHandle !== null ? session.curveLengthAt(curveHandle, probeTNormRef.current) : 0;
+
+    const exampleState = {
+      example: activeExample,
+      active: activeCurveName,
+      degree: activeDegreeLabel,
     };
+    const showProbeControls = shouldShowProbeForExample(activeExample);
 
-    const kernelFolder = pane.addFolder({ title: "Kernel" });
-    kernelFolder.addBinding(kernelState, "degree", { min: 1, max: 7, step: 1 });
-    kernelFolder.addBinding(kernelState, "closed");
-    kernelFolder.addBinding(kernelState, "sampleCount", { min: 2, max: 512, step: 1 });
-    kernelFolder.addBinding(kernelState, "absTol", { min: 1e-12, max: 1e-4 });
-    kernelFolder.addBinding(kernelState, "relTol", { min: 1e-12, max: 1e-4 });
-    kernelFolder.addBinding(kernelState, "angleTol", { min: 1e-12, max: 1e-4 });
-    kernelFolder
-      .addButton({ title: "Apply Kernel Params" })
-      .on("click", () => {
-        const nextPreset: CurvePreset = {
-          ...preset,
-          degree: Math.max(1, Math.floor(kernelState.degree)),
-          closed: kernelState.closed,
-          sampleCount: Math.max(2, Math.floor(kernelState.sampleCount)),
-          tolerance: {
-            abs_tol: kernelState.absTol,
-            rel_tol: kernelState.relTol,
-            angle_tol: kernelState.angleTol,
-          },
-        };
-
+    const exampleFolder = pane.addFolder({ title: "Example" });
+    exampleFolder
+      .addBinding(exampleState, "example", { options: EXAMPLE_OPTIONS, label: "curve" })
+      .on("change", (event: { value: unknown }) => {
+        const next = parseExampleSelection(event.value);
+        if (!next) {
+          appendLog("error", `Unknown example selection: ${String(event.value)}`);
+          return;
+        }
+        if (next === activeExample) {
+          return;
+        }
         try {
-          updateCurve(nextPreset, "Kernel params applied");
-          zoomExtents();
+          updateCurveForExample(next, "Example switched");
         } catch (error) {
           setErrorMessage(error instanceof Error ? error.message : String(error));
+          appendLog("error", `Example switch failed: ${String(error)}`);
         }
       });
+    exampleFolder.addBinding(exampleState, "active", { readonly: true, label: "name" });
+    exampleFolder.addBinding(exampleState, "degree", { readonly: true, label: "type" });
 
-    const renderState = {
-      showGrid,
-      showAxes,
-      orbitEnabled,
-    };
+    if (showProbeControls) {
+      const probeState: ProbeUiState = {
+        tNorm: probeTNormRef.current,
+        x: probePointRef.current?.x ?? 0,
+        y: probePointRef.current?.y ?? 0,
+        z: probePointRef.current?.z ?? 0,
+        probeLength: initialProbeLength,
+        totalLength: totalLengthRef.current,
+      };
+      probeUiStateRef.current = probeState;
 
-    const renderFolder = pane.addFolder({ title: "Render" });
-    renderFolder
-      .addBinding(renderState, "showGrid")
-      .on("change", (event: { value: unknown }) => {
-      setShowGrid(Boolean(event.value));
-      });
-    renderFolder
-      .addBinding(renderState, "showAxes")
-      .on("change", (event: { value: unknown }) => {
-      setShowAxes(Boolean(event.value));
-      });
-    renderFolder
-      .addBinding(renderState, "orbitEnabled")
-      .on("change", (event: { value: unknown }) => {
-      setOrbitEnabled(Boolean(event.value));
-      });
+      const probeFolder = pane.addFolder({ title: "Probe" });
+      probeFolder
+        .addBinding(probeState, "tNorm", { min: 0, max: 1, step: 0.0005, label: "t" })
+        .on("change", (event: { value: unknown; last?: boolean }) => {
+          const next = Math.min(1, Math.max(0, Number(event.value)));
+          probeTNormRef.current = next;
+          probeState.tNorm = next;
+
+          const liveSession = sessionRef.current;
+          const liveCurveHandle = curveHandleRef.current;
+
+          if (!liveSession || liveCurveHandle === null) {
+            return;
+          }
+
+          try {
+            const point = liveSession.pointAt(liveCurveHandle, next);
+            probePointRef.current = point;
+            if (probeRef.current) {
+              probeRef.current.position.set(point.x, point.y, point.z);
+              probeRef.current.visible = shouldShowProbeForExample(activeExample);
+            }
+            probeState.x = point.x;
+            probeState.y = point.y;
+            probeState.z = point.z;
+            probeState.probeLength = liveSession.curveLengthAt(liveCurveHandle, next);
+            probeState.totalLength = totalLengthRef.current;
+            setErrorMessage(null);
+            if (event.last) {
+              appendLog(
+                "debug",
+                `Probe t=${next.toFixed(5)} point=(${point.x.toFixed(5)}, ${point.y.toFixed(5)}, ${point.z.toFixed(5)}) len=${probeState.probeLength.toFixed(5)}/${probeState.totalLength.toFixed(5)}`,
+              );
+            }
+            pane.refresh?.();
+          } catch (error) {
+            setErrorMessage(error instanceof Error ? error.message : String(error));
+          }
+        });
+      probeFolder.addBinding(probeState, "x", { readonly: true });
+      probeFolder.addBinding(probeState, "y", { readonly: true });
+      probeFolder.addBinding(probeState, "z", { readonly: true });
+      probeFolder.addBinding(probeState, "probeLength", { readonly: true, label: "s(t)" });
+      probeFolder.addBinding(probeState, "totalLength", { readonly: true, label: "s(total)" });
+    } else {
+      probeUiStateRef.current = null;
+    }
 
     return () => {
+      paneRef.current = null;
+      probeUiStateRef.current = null;
       pane.dispose();
     };
-  }, [orbitEnabled, preset, sampledPoints.length, showAxes, showGrid, updateCurve, zoomExtents]);
+  }, [activeCurveName, activeDegreeLabel, activeExample, appendLog, preset, updateCurveForExample]);
 
   const canExportIges = useMemo(() => capabilities.igesExport, [capabilities.igesExport]);
   const canImportIges = useMemo(() => capabilities.igesImport, [capabilities.igesImport]);
@@ -662,15 +1715,29 @@ export function KernelViewer() {
         <section className="viewport-wrap">
           <div ref={viewportRef} className="viewport" aria-label="Three.js viewport" />
         </section>
-
-        <aside className={`pane-dock ${mobilePaneOpen ? "mobile-open" : ""}`}>
-          <div className="pane-header">
-            <h2>Kernel Controls</h2>
-            <p>Runtime-bound parameter testing with no UI-side geometry generation.</p>
-          </div>
-          <div ref={paneHostRef} className="pane-host" />
-        </aside>
       </main>
+      <div
+        ref={paneHostRef}
+        className={`pane-host ${mobilePaneOpen ? "mobile-open" : ""}`}
+        aria-label="Tweakpane controls"
+      />
+      <aside className="kernel-console" aria-label="Kernel console">
+        <div className="kernel-console-header">
+          <strong>Kernel Console</strong>
+          <button type="button" className="tool-btn" onClick={clearLogs}>
+            Clear
+          </button>
+        </div>
+        <div ref={logBodyRef} className="kernel-console-body">
+          {logs.map((entry) => (
+            <div key={entry.id} className={`kernel-log kernel-log-${entry.level}`}>
+              <span className="kernel-log-time">{entry.time}</span>
+              <span className="kernel-log-level">{entry.level.toUpperCase()}</span>
+              <span className="kernel-log-message">{entry.message}</span>
+            </div>
+          ))}
+        </div>
+      </aside>
     </div>
   );
 }

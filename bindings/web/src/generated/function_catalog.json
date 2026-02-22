@@ -1,5 +1,13 @@
 [
+  "convertPointCoordinateSystem",
   "create",
+  "createArc",
+  "createArcBy3Points",
+  "createArcByAngles",
+  "createCircle",
+  "createLine",
+  "createPolycurve",
+  "createPolyline",
   "d0",
   "d0AtLength",
   "d1",
@@ -8,6 +16,8 @@
   "d2AtLength",
   "dispose",
   "interpolateNurbsFitPoints",
+  "length",
+  "lengthAt",
   "normalAt",
   "normalAtLength",
   "planeAt",
@@ -15,5 +25,6 @@
   "pointAt",
   "pointAtLength",
   "tangentAt",
-  "tangentAtLength"
+  "tangentAtLength",
+  "toNurbs"
 ]

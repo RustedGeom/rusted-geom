@@ -6,10 +6,8 @@ Metadata-driven geometry kernel binding pipeline in Rust.
 - `crates/kernel-abi-meta`: ABI annotation proc macros.
 - `crates/kernel-ffi`: session-scoped C ABI surface.
 - `tools/abi-gen`: metadata extractor and binding generator.
-- `bindings/dotnet`: generated .NET 8 interop layer.
 - `bindings/web`: generated TypeScript facade + typed WASM runtime bridge.
 - `showcase`: Next.js full-page Three.js + Tweakpane kernel viewer.
-- `include/rusted_geom.h`: generated C header.
 
 ## Scripts
 
@@ -22,8 +20,6 @@ All scripts in `scripts/` include front matter (`script`, `description`, `usage`
 | `check_abi_compat.sh` | Enforce ABI compatibility against baseline with semver-major checks. | `./scripts/check_abi_compat.sh` |
 | `update_abi_baseline.sh` | Regenerate ABI and update `abi/baseline/rgm_abi.json`. | `./scripts/update_abi_baseline.sh` |
 | `build_kernel_wasm.sh` | Build wasm kernel artifact and copy to showcase public assets. | `./scripts/build_kernel_wasm.sh` |
-| `stage_dotnet_natives.sh` | Build and stage native libs under `bindings/dotnet/runtimes/<rid>/native`. | `./scripts/stage_dotnet_natives.sh [rid ...]` |
-| `pack_dotnet.sh` | Build staged native libs and produce NuGet artifacts in `dist/nuget`. | `./scripts/pack_dotnet.sh [rid ...]` |
 | `stage_web_wasm.sh` | Build wasm kernel artifact and stage it into `bindings/web/dist/wasm`. | `./scripts/stage_web_wasm.sh` |
 | `pack_web.sh` | Build web bindings (JS + `.d.ts` + wasm) and pack tarball into `dist/npm`. | `./scripts/pack_web.sh` |
 
@@ -32,8 +28,6 @@ All scripts in `scripts/` include front matter (`script`, `description`, `usage`
 ```mermaid
 flowchart TD
   A["Rust ABI metadata (`crates/*`)"] --> B["`abi-gen` (`tools/abi-gen`)"]
-  B --> C["Generated C header (`include/rusted_geom.h`)"]
-  B --> D["Generated .NET bindings (`bindings/dotnet`)"]
   B --> E["Generated TS bindings (`bindings/web`)"]
   B --> F["ABI snapshot (`target/abi/rgm_abi.json`)"]
   F --> G["Baseline (`abi/baseline/rgm_abi.json`)"]
@@ -56,7 +50,7 @@ If breaking changes are intentional, regenerate and commit a new baseline with:
 
 ## CAD Naming Migration (1.0.0 Hard Break)
 
-Legacy curve evaluator names were replaced with CAD-kernel names across C/.NET/TS.
+Legacy curve evaluator names were replaced with CAD-kernel names across C/TS.
 
 | Old | New |
 | --- | --- |
@@ -74,9 +68,111 @@ New additions:
 - `rgm_curve_normal_at`, `rgm_curve_normal_at_length`
 - `rgm_curve_d0_at`, `rgm_curve_d0_at_length`
 
-.NET and TS generated APIs now expose `CurveHandle` instance methods:
+TS generated APIs expose `CurveHandle` instance methods:
 - `PointAt`, `PointAtLength`, `TangentAt`, `TangentAtLength`, `NormalAt`, `NormalAtLength`, `PlaneAt`, `PlaneAtLength`
 - `D0`, `D0AtLength`, `D1`, `D1AtLength`, `D2`, `D2AtLength`
+
+## Kernel Usage Examples
+
+### WASM + TypeScript (`@rusted-geom/bindings-web`)
+
+Build and pack the web bindings (includes JS, types, and `rusted_geom.wasm`):
+
+```bash
+./scripts/pack_web.sh
+```
+
+Then install the tarball in your app:
+
+```bash
+npm install /absolute/path/to/rusted-geom/dist/npm/*.tgz
+```
+
+End-to-end kernel session example:
+
+```ts
+import {
+  createKernelRuntime,
+  KernelRuntimeError,
+  statusToName,
+  type CurvePresetInput,
+  type KernelSession,
+} from "@rusted-geom/bindings-web";
+import wasmUrl from "@rusted-geom/bindings-web/wasm/rusted_geom.wasm";
+
+const preset: CurvePresetInput = {
+  name: "demo-spline",
+  degree: 3,
+  closed: false,
+  points: [
+    { x: 0, y: 0, z: 0 },
+    { x: 1, y: 0.25, z: 0 },
+    { x: 2, y: 1.0, z: 0 },
+    { x: 3, y: 1.25, z: 0 },
+    { x: 4, y: 1.0, z: 0 },
+  ],
+  tolerance: {
+    abs_tol: 1e-9,
+    rel_tol: 1e-9,
+    angle_tol: 1e-9,
+  },
+};
+
+async function runKernelDemo(): Promise<void> {
+  const runtime = await createKernelRuntime(wasmUrl);
+  let session: KernelSession | null = null;
+  let curveHandle: bigint | null = null;
+
+  try {
+    session = runtime.createSession();
+    curveHandle = session.buildCurveFromPreset(preset);
+
+    const point = session.pointAt(curveHandle, 0.35);
+    const totalLength = session.curveLength(curveHandle);
+    const lengthAt35 = session.curveLengthAt(curveHandle, 0.35);
+    const sampled = session.sampleCurvePolyline(curveHandle, 64);
+
+    console.log("Kernel capabilities:", runtime.capabilities);
+    console.log("Point @ t=0.35:", point);
+    console.log("Total length:", totalLength);
+    console.log("Length @ t=0.35:", lengthAt35);
+    console.log("Polyline sample count:", sampled.length);
+  } catch (error) {
+    if (error instanceof KernelRuntimeError) {
+      console.error(
+        `KernelRuntimeError (${statusToName(error.status)}):`,
+        error.details ?? error.message,
+      );
+    } else {
+      console.error("Unexpected error:", error);
+    }
+
+    if (session) {
+      console.error("Last kernel error:", session.lastError());
+    }
+  } finally {
+    if (session && curveHandle !== null) {
+      session.releaseObject(curveHandle);
+    }
+    if (session) {
+      session.destroy();
+    }
+    runtime.destroy();
+  }
+}
+
+void runKernelDemo();
+```
+
+If you prefer loading wasm bytes directly (e.g., Node.js/SSR), pass `Uint8Array` or `ArrayBuffer` instead of a URL:
+
+```ts
+import { readFile } from "node:fs/promises";
+import { createKernelRuntime } from "@rusted-geom/bindings-web";
+
+const wasmBytes = await readFile("/absolute/path/to/rusted_geom.wasm");
+const runtime = await createKernelRuntime(wasmBytes);
+```
 
 ## Test
 ```bash
@@ -88,12 +184,10 @@ cargo test --workspace
 Build release packages with generated types and staged native assets:
 
 ```bash
-./scripts/pack_dotnet.sh osx-arm64
 ./scripts/pack_web.sh
 ```
 
 Outputs:
-- NuGet: `dist/nuget/*.nupkg`
 - npm tarball: `dist/npm/*.tgz`
 
 ## Showcase Quickstart

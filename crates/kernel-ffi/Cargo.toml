@@ -6,6 +6,7 @@ license.workspace = true
 authors.workspace = true
 
 [lib]
+name = "rusted_geom"
 crate-type = ["rlib", "cdylib"]
 
 [dependencies]

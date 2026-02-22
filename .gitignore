@@ -1,7 +1,4 @@
 /target
 **/node_modules
 bindings/web/dist
-bindings/dotnet/bin
-bindings/dotnet/obj
-bindings/dotnet/runtimes
 dist

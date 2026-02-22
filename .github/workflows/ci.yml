@@ -16,6 +16,9 @@ jobs:
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
 
+      - name: Add wasm32 target
+        run: rustup target add wasm32-unknown-unknown
+
       - name: Rust tests
         run: cargo test --workspace
 
@@ -25,16 +28,17 @@ jobs:
       - name: Check ABI compatibility
         run: ./scripts/check_abi_compat.sh
 
-      - name: Setup .NET
-        uses: actions/setup-dotnet@v4
+      - name: Stage ABI/API snapshots
+        run: |
+          mkdir -p dist/ci
+          cp ./target/abi/rgm_abi.json ./dist/ci/rgm_abi.json
+          cp ./bindings/web/src/generated/function_catalog.json ./dist/ci/function_catalog.json
+
+      - name: Upload ABI/API snapshots
+        uses: actions/upload-artifact@v4
         with:
-          dotnet-version: 8.0.x
-
-      - name: .NET smoke build
-        run: dotnet build ./bindings/dotnet/RustedGeom.Bindings.csproj
-
-      - name: NuGet smoke pack (linux-x64)
-        run: ./scripts/pack_dotnet.sh linux-x64
+          name: abi-api-snapshots
+          path: ./dist/ci
 
       - name: Setup Node
         uses: actions/setup-node@v4
@@ -45,6 +49,9 @@ jobs:
         run: |
           npm --prefix ./bindings/web install
           npm --prefix ./bindings/web run typecheck
+
+      - name: Web runtime tests
+        run: npm --prefix ./bindings/web run test
 
       - name: Web package smoke build
         run: npm --prefix ./bindings/web run build

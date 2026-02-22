@@ -75,6 +75,6 @@ test.describe("viewer shell", () => {
     const paramsButton = page.locator(".mobile-pane-toggle");
     await expect(paramsButton).toBeVisible();
     await paramsButton.click();
-    await expect(page.locator(".pane-dock.mobile-open")).toBeVisible();
+    await expect(page.locator(".pane-host.mobile-open")).toBeVisible();
   });
 });

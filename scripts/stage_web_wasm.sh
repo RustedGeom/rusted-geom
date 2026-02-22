@@ -16,7 +16,7 @@ rustup target add wasm32-unknown-unknown >/dev/null
 cargo build -p kernel-ffi --target wasm32-unknown-unknown --release
 
 mkdir -p "$repo_root/bindings/web/dist/wasm"
-cp "$repo_root/target/wasm32-unknown-unknown/release/kernel_ffi.wasm" \
-  "$repo_root/bindings/web/dist/wasm/kernel_ffi.wasm"
+cp "$repo_root/target/wasm32-unknown-unknown/release/rusted_geom.wasm" \
+  "$repo_root/bindings/web/dist/wasm/rusted_geom.wasm"
 
-echo "staged web wasm: $repo_root/bindings/web/dist/wasm/kernel_ffi.wasm"
+echo "staged web wasm: $repo_root/bindings/web/dist/wasm/rusted_geom.wasm"
