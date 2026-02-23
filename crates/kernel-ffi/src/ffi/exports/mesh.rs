@@ -179,7 +179,7 @@ pub extern "C" fn rgm_mesh_vertex_count(
 ) -> RgmStatus {
     let result = with_session_mut(session, |state| {
         let mesh = find_mesh(state, mesh)?;
-        write_u32(
+        write_out(
             out_count,
             mesh.vertices.len().try_into().unwrap_or(u32::MAX),
         )
@@ -202,7 +202,7 @@ pub extern "C" fn rgm_mesh_triangle_count(
 ) -> RgmStatus {
     let result = with_session_mut(session, |state| {
         let mesh = find_mesh(state, mesh)?;
-        write_u32(
+        write_out(
             out_count,
             mesh.triangles.len().try_into().unwrap_or(u32::MAX),
         )
@@ -336,7 +336,7 @@ pub extern "C" fn rgm_intersect_mesh_plane(
                 }
             }
         }
-        write_intersection_points(out_points, point_capacity, &segments, out_count)
+        write_slice(out_points, point_capacity, &segments, out_count)
     });
 
     match result {
@@ -470,7 +470,7 @@ pub extern "C" fn rgm_intersect_mesh_mesh(
                 }
             }
         }
-        write_intersection_points(out_points, point_capacity, &segments, out_count)
+        write_slice(out_points, point_capacity, &segments, out_count)
     });
     match result {
         Ok(()) => {

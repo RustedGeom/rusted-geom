@@ -16,8 +16,8 @@ const bodyFont = Source_Sans_3({
 });
 
 export const metadata: Metadata = {
-  title: "Rusted Geom Showcase",
-  description: "Kernel-driven Three.js + Tweakpane viewer for Rusted Geom WASM",
+  title: "rusted-geom | Geometry Kernel Showcase",
+  description: "Interactive showcase for the rusted-geom WASM geometry kernel — NURBS, meshes, surfaces, intersections, and trim operations.",
 };
 
 export default function RootLayout({

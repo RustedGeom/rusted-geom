@@ -1,33 +1,21 @@
+//! Frenet–Serret frame computation from curve evaluation results.
+//!
+//! Given a [`CurveEvalResult`] (position + first/second derivatives), this
+//! module computes the tangent, principal normal, and full Frenet plane at a
+//! curve parameter.
+//!
+//! **Fallback normal for straight segments:** when the curvature vector is
+//! near-zero (straight line or inflection point), the normal is synthesised
+//! from the world Z-axis (`[0, 0, 1]`), falling back to Y-axis (`[0, 1, 0]`)
+//! if the tangent is nearly parallel to Z.
+//!
+//! **Numerical stability:** `abs_tol` from [`RgmToleranceContext`] is used as
+//! the minimum acceptable tangent length; values below `1e-12` are clamped to
+//! prevent false near-zero detection on near-unit-scale geometry.
+
 use super::nurbs_curve_eval::CurveEvalResult;
+use super::vec3::{cross, dot, normalize};
 use crate::{RgmPlane, RgmPoint3, RgmStatus, RgmVec3};
-
-fn dot(a: RgmVec3, b: RgmVec3) -> f64 {
-    a.x * b.x + a.y * b.y + a.z * b.z
-}
-
-fn cross(a: RgmVec3, b: RgmVec3) -> RgmVec3 {
-    RgmVec3 {
-        x: a.y * b.z - a.z * b.y,
-        y: a.z * b.x - a.x * b.z,
-        z: a.x * b.y - a.y * b.x,
-    }
-}
-
-fn norm(v: RgmVec3) -> f64 {
-    dot(v, v).sqrt()
-}
-
-fn normalize(v: RgmVec3) -> Option<RgmVec3> {
-    let n = norm(v);
-    if n <= f64::EPSILON {
-        return None;
-    }
-    Some(RgmVec3 {
-        x: v.x / n,
-        y: v.y / n,
-        z: v.z / n,
-    })
-}
 
 pub(crate) fn tangent(eval: CurveEvalResult) -> Result<RgmVec3, RgmStatus> {
     normalize(eval.d1).ok_or(RgmStatus::DegenerateGeometry)

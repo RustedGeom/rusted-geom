@@ -9,7 +9,7 @@ fn interpolate_branch_sample(
 ) -> (RgmPoint3, Option<RgmUv2>, Option<RgmUv2>, Option<f64>) {
     let p0 = branch.points[idx0];
     let p1 = branch.points[idx1];
-    let point = point_add_vec(p0, vec_scale(point_sub(p1, p0), alpha));
+    let point = v3::add_vec(p0, v3::scale(v3::sub(p1, p0), alpha));
     let uv_a = if has_uv_a {
         Some(uv_lerp(branch.uv_a[idx0], branch.uv_a[idx1], alpha))
     } else {
@@ -108,20 +108,20 @@ fn stitch_intersection_branches(
                 let b_end = branches[j].points[branches[j].points.len() - 1];
 
                 let mut merged: Option<IntersectionBranchData> = None;
-                if distance(a_end, b_start) <= tol {
+                if v3::distance(a_end, b_start) <= tol {
                     let mut out = branches[i].clone();
                     branch_extend_forward(&mut out, &branches[j]);
                     merged = Some(out);
-                } else if distance(a_end, b_end) <= tol {
+                } else if v3::distance(a_end, b_end) <= tol {
                     let mut out = branches[i].clone();
                     let rev = reverse_branch(&branches[j]);
                     branch_extend_forward(&mut out, &rev);
                     merged = Some(out);
-                } else if distance(a_start, b_end) <= tol {
+                } else if v3::distance(a_start, b_end) <= tol {
                     let mut out = branches[j].clone();
                     branch_extend_forward(&mut out, &branches[i]);
                     merged = Some(out);
-                } else if distance(a_start, b_start) <= tol {
+                } else if v3::distance(a_start, b_start) <= tol {
                     let rev_b = reverse_branch(&branches[j]);
                     let mut out = rev_b;
                     branch_extend_forward(&mut out, &branches[i]);
@@ -130,7 +130,7 @@ fn stitch_intersection_branches(
 
                 if let Some(mut out) = merged {
                     if out.points.len() >= 3
-                        && distance(out.points[0], out.points[out.points.len() - 1]) <= tol
+                        && v3::distance(out.points[0], out.points[out.points.len() - 1]) <= tol
                     {
                         out.closed = true;
                     }
@@ -150,7 +150,7 @@ fn adaptive_stitch_tolerance(branches: &[IntersectionBranchData], base_tol: f64)
     let mut count = 0usize;
     for branch in branches {
         for idx in 1..branch.points.len() {
-            let len = distance(branch.points[idx - 1], branch.points[idx]);
+            let len = v3::distance(branch.points[idx - 1], branch.points[idx]);
             if len.is_finite() && len > 0.0 {
                 length_sum += len;
                 count += 1;
@@ -191,7 +191,7 @@ fn cluster_uv_node(
             if let Some(indices) = buckets.get(&nkey) {
                 for idx in indices {
                     if uv_distance(nodes_uv[*idx], uv) <= uv_tol
-                        || distance(nodes_point[*idx], point) <= world_tol
+                        || v3::distance(nodes_point[*idx], point) <= world_tol
                     {
                         return *idx;
                     }

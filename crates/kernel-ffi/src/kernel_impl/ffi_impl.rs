@@ -577,10 +577,7 @@ fn rgm_curve_create_line_impl(
         out_object,
         |_| {
             let canonical_nurbs = build_line_nurbs(line, tol)?;
-            Ok(CurveData::Line(LineData {
-                line,
-                canonical_nurbs,
-            }))
+            Ok(CurveData::Line(canonical_nurbs))
         },
         "Line constructor failed",
     )
@@ -597,10 +594,7 @@ fn rgm_curve_create_circle_impl(
         out_object,
         |_| {
             let canonical_nurbs = build_circle_nurbs(circle, tol)?;
-            Ok(CurveData::Circle(CircleData {
-                circle,
-                canonical_nurbs,
-            }))
+            Ok(CurveData::Circle(canonical_nurbs))
         },
         "Circle constructor failed",
     )
@@ -617,10 +611,7 @@ fn rgm_curve_create_arc_impl(
         out_object,
         |_| {
             let canonical_nurbs = build_arc_nurbs(arc, tol)?;
-            Ok(CurveData::Arc(ArcData {
-                arc,
-                canonical_nurbs,
-            }))
+            Ok(CurveData::Arc(canonical_nurbs))
         },
         "Arc constructor failed",
     )
@@ -683,11 +674,7 @@ fn rgm_curve_create_polyline_impl(
         out_object,
         |_| {
             let canonical_nurbs = build_polyline_nurbs(points, closed, tol)?;
-            Ok(CurveData::Polyline(PolylineData {
-                closed,
-                points: points.to_vec(),
-                canonical_nurbs,
-            }))
+            Ok(CurveData::Polyline(canonical_nurbs))
         },
         "Polyline constructor failed",
     )
@@ -744,6 +731,7 @@ fn rgm_curve_create_polycurve_impl(
 }
 
 
+include!("../ffi/ptr.rs");
 include!("../ffi/exports/kernel.rs");
 include!("../ffi/exports/memory.rs");
 include!("../ffi/exports/curve.rs");

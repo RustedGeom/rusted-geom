@@ -1,17 +1,17 @@
 fn plane_signed_distance(point: RgmPoint3, origin: RgmPoint3, normal: RgmVec3) -> f64 {
-    vec_dot(point_sub(point, origin), normal)
+    v3::dot(v3::sub(point, origin), normal)
 }
 
 fn point_segment_distance(point: RgmPoint3, a: RgmPoint3, b: RgmPoint3) -> f64 {
-    let ab = point_sub(b, a);
-    let ap = point_sub(point, a);
-    let ab_len2 = vec_dot(ab, ab);
+    let ab = v3::sub(b, a);
+    let ap = v3::sub(point, a);
+    let ab_len2 = v3::dot(ab, ab);
     if ab_len2 <= f64::EPSILON {
-        return distance(point, a);
+        return v3::distance(point, a);
     }
-    let t = (vec_dot(ap, ab) / ab_len2).clamp(0.0, 1.0);
-    let proj = point_add_vec(a, vec_scale(ab, t));
-    distance(point, proj)
+    let t = (v3::dot(ap, ab) / ab_len2).clamp(0.0, 1.0);
+    let proj = v3::add_vec(a, v3::scale(ab, t));
+    v3::distance(point, proj)
 }
 
 fn project_surface_plane_curve_point(
@@ -48,7 +48,7 @@ fn project_surface_plane_curve_point(
 
         let mut jtj = [[0.0; 2]; 2];
         let mut jtr = [0.0; 2];
-        let j1 = [vec_dot(frame.du, normal), vec_dot(frame.dv, normal)];
+        let j1 = [v3::dot(frame.du, normal), v3::dot(frame.dv, normal)];
         let j2 = [uv_tangent.x, uv_tangent.y];
         for i in 0..2 {
             jtr[i] = j1[i] * f1 + j2[i] * f2;
@@ -428,7 +428,7 @@ impl BranchSpatialDeduper {
                     let key = (kx + dx, ky + dy, kz + dz);
                     if let Some(indices) = self.buckets.get(&key) {
                         for idx in indices {
-                            if distance(point, self.mids[*idx]) <= self.tol {
+                            if v3::distance(point, self.mids[*idx]) <= self.tol {
                                 return true;
                             }
                         }
