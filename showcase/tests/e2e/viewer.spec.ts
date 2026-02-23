@@ -43,6 +43,12 @@ test.describe("viewer shell", () => {
         .locator(".inspector-readout output")
         .filter({ hasText: "Boolean Difference (Box - Torus)" }),
     ).toBeVisible();
+    await exampleSelect.selectOption("surfaceLarge");
+    await expect(
+      page
+        .locator(".inspector-readout output")
+        .filter({ hasText: "Large Trimmed NURBS Surface" }),
+    ).toBeVisible();
   });
 
   test("saves and loads a session json", async ({ page, isMobile }) => {

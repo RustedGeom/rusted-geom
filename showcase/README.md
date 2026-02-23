@@ -21,7 +21,8 @@ pnpm --dir showcase dev
 
 - `Mesh (CSG difference: box - torus)` demonstrates constructive solid geometry.
 - CSG operation shown: `result = A - B`, where `A` is a box and `B` is an offset torus that intersects the box wall.
-- The translucent overlays are the source solids; the highlighted solid mesh is the boolean result.
+- Select either source solid in the Gizmo target dropdown (`A` or `B`) and drag to move/rotate/scale it.
+- On drag commit, the viewer recomputes the boolean result from kernel state and refreshes the result mesh.
 
 ## IGES Status
 

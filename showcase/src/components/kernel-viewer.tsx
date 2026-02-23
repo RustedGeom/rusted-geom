@@ -10,10 +10,13 @@ import type {
   RgmArc3,
   RgmCircle3,
   RgmLine3,
+  RgmNurbsSurfaceDesc,
   RgmPlane,
   RgmPoint3,
   RgmPolycurveSegment,
+  RgmSurfaceTessellationOptions,
   RgmToleranceContext,
+  RgmUv2,
 } from "@rusted-geom/bindings-web";
 import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import * as THREE from "three";
@@ -77,7 +80,14 @@ type ExampleKey =
   | "meshTransform"
   | "meshIntersectMeshMesh"
   | "meshIntersectMeshPlane"
-  | "meshBoolean";
+  | "meshBoolean"
+  | "surfaceLarge"
+  | "surfaceTransform"
+  | "surfaceIntersectSurface"
+  | "surfaceIntersectPlane"
+  | "surfaceIntersectCurve"
+  | "trimEditWorkflow"
+  | "trimValidationFailures";
 
 const EXAMPLE_OPTIONS: Record<string, ExampleKey> = {
   "NURBS (fit points)": "nurbs",
@@ -93,6 +103,13 @@ const EXAMPLE_OPTIONS: Record<string, ExampleKey> = {
   "Mesh (mesh-mesh intersection)": "meshIntersectMeshMesh",
   "Mesh (mesh-plane section)": "meshIntersectMeshPlane",
   "Mesh (CSG difference: box - torus)": "meshBoolean",
+  "Surface (large trimmed)": "surfaceLarge",
+  "Surface (transform chain)": "surfaceTransform",
+  "Surface (surface-surface intersection)": "surfaceIntersectSurface",
+  "Surface (surface-plane intersection)": "surfaceIntersectPlane",
+  "Surface (surface-curve intersection)": "surfaceIntersectCurve",
+  "Trim (edit workflow)": "trimEditWorkflow",
+  "Trim (validation failures)": "trimValidationFailures",
 };
 
 const EXAMPLE_SUMMARIES: Record<ExampleKey, string> = {
@@ -110,6 +127,13 @@ const EXAMPLE_SUMMARIES: Record<ExampleKey, string> = {
   meshIntersectMeshPlane: "Cuts a mesh with a plane and shows section segments.",
   meshBoolean:
     "Select A or B, move it with the gizmo, and recompute the CSG difference (A - B) on every drag commit.",
+  surfaceLarge: "Builds a high-density trimmed NURBS surface and tessellates it in-kernel.",
+  surfaceTransform: "Applies translation, rotation, and scaling to a surface in-kernel.",
+  surfaceIntersectSurface: "Computes trimmed surface-surface intersection branches in-kernel.",
+  surfaceIntersectPlane: "Computes trimmed surface-plane section branches in-kernel.",
+  surfaceIntersectCurve: "Computes surface-curve intersections with UV and curve-parameter traces.",
+  trimEditWorkflow: "Demonstrates trim loop edit operations and retessellation in-kernel.",
+  trimValidationFailures: "Creates an intentionally invalid trim topology and reports validation/heal behavior.",
 };
 
 interface OverlayCurveVisual {
@@ -193,7 +217,14 @@ function parseExampleSelection(value: unknown): ExampleKey | null {
     raw === "meshTransform" ||
     raw === "meshIntersectMeshMesh" ||
     raw === "meshIntersectMeshPlane" ||
-    raw === "meshBoolean"
+    raw === "meshBoolean" ||
+    raw === "surfaceLarge" ||
+    raw === "surfaceTransform" ||
+    raw === "surfaceIntersectSurface" ||
+    raw === "surfaceIntersectPlane" ||
+    raw === "surfaceIntersectCurve" ||
+    raw === "trimEditWorkflow" ||
+    raw === "trimValidationFailures"
   ) {
     return raw;
   }
@@ -338,6 +369,70 @@ function periodicKnots(controlCount: number, degree: number): number[] {
   return Array.from({ length: controlCount + degree + 1 }, (_, idx) => idx);
 }
 
+function clampedUniformKnots(controlCount: number, degree: number): number[] {
+  const knotCount = controlCount + degree + 1;
+  const knots = new Array(knotCount).fill(0);
+  const interior = controlCount - degree - 1;
+  for (let i = 0; i <= degree; i += 1) {
+    knots[i] = 0;
+    knots[knotCount - 1 - i] = 1;
+  }
+  for (let i = 1; i <= interior; i += 1) {
+    knots[degree + i] = i / (interior + 1);
+  }
+  return knots;
+}
+
+function buildWarpedSurfaceNet(
+  uCount: number,
+  vCount: number,
+  spanU: number,
+  spanV: number,
+  warpScale: number,
+): { desc: RgmNurbsSurfaceDesc; points: RgmPoint3[]; weights: number[]; knotsU: number[]; knotsV: number[] } {
+  const points: RgmPoint3[] = [];
+  const weights: number[] = [];
+  const halfU = spanU * 0.5;
+  const halfV = spanV * 0.5;
+  for (let iu = 0; iu < uCount; iu += 1) {
+    const u = iu / Math.max(1, uCount - 1);
+    const x = -halfU + u * spanU;
+    for (let iv = 0; iv < vCount; iv += 1) {
+      const v = iv / Math.max(1, vCount - 1);
+      const y = -halfV + v * spanV;
+      const z =
+        Math.sin((u * 2.0 + v * 1.2) * Math.PI) * warpScale +
+        Math.cos((u * 0.8 - v * 1.6) * Math.PI) * (warpScale * 0.6);
+      points.push({ x, y, z });
+      weights.push(1.0 + 0.08 * Math.sin((u + v) * Math.PI));
+    }
+  }
+
+  return {
+    desc: {
+      degree_u: 3,
+      degree_v: 3,
+      periodic_u: false,
+      periodic_v: false,
+      control_u_count: uCount,
+      control_v_count: vCount,
+    },
+    points,
+    weights,
+    knotsU: clampedUniformKnots(uCount, 3),
+    knotsV: clampedUniformKnots(vCount, 3),
+  };
+}
+
+function rectangleLoopUV(uMin: number, uMax: number, vMin: number, vMax: number): RgmUv2[] {
+  return [
+    { u: uMin, v: vMin },
+    { u: uMax, v: vMin },
+    { u: uMax, v: vMax },
+    { u: uMin, v: vMax },
+  ];
+}
+
 function preview(values: number[], max = 12): string {
   if (values.length <= max) {
     return `[${values.map((v) => Number(v.toFixed(6))).join(", ")}]`;
@@ -441,7 +536,14 @@ function shouldShowProbeForExample(example: ExampleKey): boolean {
     example !== "meshTransform" &&
     example !== "meshIntersectMeshMesh" &&
     example !== "meshIntersectMeshPlane" &&
-    example !== "meshBoolean"
+    example !== "meshBoolean" &&
+    example !== "surfaceLarge" &&
+    example !== "surfaceTransform" &&
+    example !== "surfaceIntersectSurface" &&
+    example !== "surfaceIntersectPlane" &&
+    example !== "surfaceIntersectCurve" &&
+    example !== "trimEditWorkflow" &&
+    example !== "trimValidationFailures"
   );
 }
 
@@ -1392,6 +1494,554 @@ export function KernelViewer() {
         }
       }
 
+      if (example === "surfaceLarge") {
+        const built: bigint[] = [];
+        try {
+          const net = buildWarpedSurfaceNet(28, 24, 18, 14, 1.6);
+          const surface = session.createNurbsSurface(
+            net.desc,
+            net.points,
+            net.weights,
+            net.knotsU,
+            net.knotsV,
+            tol,
+          );
+          built.push(surface);
+          const face = session.createFaceFromSurface(surface);
+          built.push(face);
+          const outer = rectangleLoopUV(0.02, 0.98, 0.02, 0.98);
+          session.faceAddLoop(face, outer, true);
+          const hole: RgmUv2[] = [];
+          for (let i = 0; i < 20; i += 1) {
+            const t = (i / 20) * Math.PI * 2;
+            hole.push({ u: 0.5 + Math.cos(t) * 0.17, v: 0.52 + Math.sin(t) * 0.13 });
+          }
+          session.faceAddLoop(face, hole, false);
+          session.faceHeal(face);
+          const mesh = session.faceTessellateToMesh(face, {
+            min_u_segments: 220,
+            min_v_segments: 180,
+            max_u_segments: 220,
+            max_v_segments: 180,
+            chord_tol: 1e-4,
+            normal_tol_rad: 0.04,
+          });
+          built.push(mesh);
+          const buffers = session.meshToBuffers(mesh);
+          return {
+            kind: "mesh",
+            curveHandle: null,
+            ownedHandles: built,
+            name: "Large Trimmed NURBS Surface",
+            degreeLabel: "Surface + trim loops (kernel tessellation)",
+            renderDegree: 0,
+            renderSamples: 0,
+            meshVisual: {
+              vertices: buffers.vertices,
+              indices: buffers.indices,
+              color: "#77addf",
+              opacity: 0.92,
+              wireframe: false,
+              name: "trimmed surface",
+            },
+            overlayMeshes: [],
+            overlayCurves: [],
+            segmentOverlays: [],
+            intersectionPoints: [],
+            planeVisual: null,
+            interactiveMeshHandle: null,
+            transformTargets: [],
+            defaultTransformTargetKey: null,
+            intersectionMs: 0,
+            logs: [
+              `control net=${net.desc.control_u_count}x${net.desc.control_v_count}`,
+              `triangles=${session.meshTriangleCount(mesh)}`,
+              `face valid=${session.faceValidate(face)}`,
+            ],
+          };
+        } catch (error) {
+          for (const handle of built) {
+            session.releaseObject(handle);
+          }
+          throw error;
+        }
+      }
+
+      if (example === "surfaceTransform") {
+        const built: bigint[] = [];
+        try {
+          const net = buildWarpedSurfaceNet(16, 14, 12, 10, 1.1);
+          const surface = session.createNurbsSurface(
+            net.desc,
+            net.points,
+            net.weights,
+            net.knotsU,
+            net.knotsV,
+            tol,
+          );
+          built.push(surface);
+          const moved = session.surfaceTranslate(surface, { x: 1.4, y: -0.7, z: 0.9 });
+          built.push(moved);
+          const rotated = session.surfaceRotate(
+            moved,
+            { x: 0.4, y: 1.0, z: 0.2 },
+            0.68,
+            { x: 0, y: 0, z: 0 },
+          );
+          built.push(rotated);
+          const scaled = session.surfaceScale(
+            rotated,
+            { x: 1.15, y: 0.82, z: 1.3 },
+            { x: 0.5, y: -0.2, z: 0.1 },
+          );
+          built.push(scaled);
+          const baseMesh = session.surfaceTessellateToMesh(surface);
+          const transformedMesh = session.surfaceTessellateToMesh(scaled);
+          built.push(baseMesh, transformedMesh);
+          const baseBuffers = session.meshToBuffers(baseMesh);
+          const transformedBuffers = session.meshToBuffers(transformedMesh);
+          return {
+            kind: "mesh",
+            curveHandle: null,
+            ownedHandles: built,
+            name: "Surface Transform Chain",
+            degreeLabel: "translate -> rotate -> scale (kernel surface ops)",
+            renderDegree: 0,
+            renderSamples: 0,
+            meshVisual: {
+              vertices: transformedBuffers.vertices,
+              indices: transformedBuffers.indices,
+              color: "#8ac6ff",
+              opacity: 0.9,
+              wireframe: true,
+              name: "transformed surface",
+            },
+            overlayMeshes: [
+              {
+                vertices: baseBuffers.vertices,
+                indices: baseBuffers.indices,
+                color: "#f7c88a",
+                opacity: 0.24,
+                wireframe: true,
+                name: "original surface",
+              },
+            ],
+            overlayCurves: [],
+            segmentOverlays: [],
+            intersectionPoints: [],
+            planeVisual: null,
+            interactiveMeshHandle: null,
+            transformTargets: [],
+            defaultTransformTargetKey: null,
+            intersectionMs: 0,
+            logs: [
+              `base triangles=${session.meshTriangleCount(baseMesh)}`,
+              `transformed triangles=${session.meshTriangleCount(transformedMesh)}`,
+              "Transform APIs used: surfaceTranslate, surfaceRotate, surfaceScale",
+            ],
+          };
+        } catch (error) {
+          for (const handle of built) {
+            session.releaseObject(handle);
+          }
+          throw error;
+        }
+      }
+
+      if (example === "surfaceIntersectSurface") {
+        const built: bigint[] = [];
+        try {
+          const a = buildWarpedSurfaceNet(16, 15, 12, 10, 1.0);
+          const b = buildWarpedSurfaceNet(15, 16, 11, 11, 1.25);
+          const surfaceA = session.createNurbsSurface(a.desc, a.points, a.weights, a.knotsU, a.knotsV, tol);
+          const surfaceB0 = session.createNurbsSurface(b.desc, b.points, b.weights, b.knotsU, b.knotsV, tol);
+          built.push(surfaceA, surfaceB0);
+          const surfaceB = session.surfaceRotate(
+            session.surfaceTranslate(surfaceB0, { x: 0.6, y: 0.3, z: -0.1 }),
+            { x: 0.3, y: 1.0, z: 0.2 },
+            0.72,
+            { x: 0, y: 0, z: 0 },
+          );
+          built.push(surfaceB);
+
+          const faceA = session.createFaceFromSurface(surfaceA);
+          const faceB = session.createFaceFromSurface(surfaceB);
+          built.push(faceA, faceB);
+          session.faceAddLoop(faceA, rectangleLoopUV(0.04, 0.96, 0.05, 0.95), true);
+          session.faceAddLoop(faceB, rectangleLoopUV(0.08, 0.95, 0.04, 0.9), true);
+          session.faceHeal(faceA);
+          session.faceHeal(faceB);
+
+          const meshA = session.faceTessellateToMesh(faceA);
+          const meshB = session.faceTessellateToMesh(faceB);
+          built.push(meshA, meshB);
+          const intersectionStart = performance.now();
+          const inter = session.intersectSurfaceSurface(faceA, faceB);
+          const intersectionMs = performance.now() - intersectionStart;
+          built.push(inter);
+
+          const branchCount = session.intersectionBranchCount(inter);
+          const segmentPts: RgmPoint3[] = [];
+          for (let bi = 0; bi < branchCount; bi += 1) {
+            const branch = session.intersectionBranchPoints(inter, bi);
+            for (let i = 1; i < branch.length; i += 1) {
+              segmentPts.push(branch[i - 1], branch[i]);
+            }
+          }
+          const buffersA = session.meshToBuffers(meshA);
+          const buffersB = session.meshToBuffers(meshB);
+          return {
+            kind: "mesh",
+            curveHandle: null,
+            ownedHandles: built,
+            name: "Trimmed Surface vs Surface",
+            degreeLabel: "surface-surface intersection branches",
+            renderDegree: 0,
+            renderSamples: 0,
+            meshVisual: {
+              vertices: buffersA.vertices,
+              indices: buffersA.indices,
+              color: "#7aafd7",
+              opacity: 0.3,
+              wireframe: false,
+              name: "surface A",
+            },
+            overlayMeshes: [
+              {
+                vertices: buffersB.vertices,
+                indices: buffersB.indices,
+                color: "#f0b775",
+                opacity: 0.3,
+                wireframe: false,
+                name: "surface B",
+              },
+            ],
+            overlayCurves: [],
+            segmentOverlays: [
+              {
+                points: segmentPts,
+                color: "#fff07b",
+                opacity: 0.98,
+                name: "surface-surface branches",
+              },
+            ],
+            intersectionPoints: [],
+            planeVisual: null,
+            interactiveMeshHandle: null,
+            transformTargets: [],
+            defaultTransformTargetKey: null,
+            intersectionMs,
+            logs: [
+              `branch count=${branchCount}`,
+              `segment pairs=${Math.floor(segmentPts.length / 2)}`,
+              `intersection solve=${intersectionMs.toFixed(2)}ms`,
+            ],
+          };
+        } catch (error) {
+          for (const handle of built) {
+            session.releaseObject(handle);
+          }
+          throw error;
+        }
+      }
+
+      if (example === "surfaceIntersectPlane") {
+        const built: bigint[] = [];
+        try {
+          const net = buildWarpedSurfaceNet(18, 16, 13, 11, 1.35);
+          const surface = session.createNurbsSurface(
+            net.desc,
+            net.points,
+            net.weights,
+            net.knotsU,
+            net.knotsV,
+            tol,
+          );
+          built.push(surface);
+          const face = session.createFaceFromSurface(surface);
+          built.push(face);
+          session.faceAddLoop(face, rectangleLoopUV(0.05, 0.97, 0.03, 0.95), true);
+          const hole = rectangleLoopUV(0.38, 0.62, 0.4, 0.62);
+          session.faceAddLoop(face, hole, false);
+          session.faceHeal(face);
+          const mesh = session.faceTessellateToMesh(face);
+          built.push(mesh);
+          const plane: RgmPlane = {
+            origin: { x: 0.2, y: -0.4, z: 0.25 },
+            x_axis: { x: 1.0, y: 0.1, z: -0.1 },
+            y_axis: { x: -0.1, y: 0.94, z: 0.32 },
+            z_axis: { x: 0.12, y: -0.31, z: 0.94 },
+          };
+          const intersectionStart = performance.now();
+          const inter = session.intersectSurfacePlane(face, plane);
+          const intersectionMs = performance.now() - intersectionStart;
+          built.push(inter);
+          const branchCount = session.intersectionBranchCount(inter);
+          const segments: RgmPoint3[] = [];
+          for (let bi = 0; bi < branchCount; bi += 1) {
+            const branch = session.intersectionBranchPoints(inter, bi);
+            for (let i = 1; i < branch.length; i += 1) {
+              segments.push(branch[i - 1], branch[i]);
+            }
+          }
+          const buffers = session.meshToBuffers(mesh);
+          return {
+            kind: "mesh",
+            curveHandle: null,
+            ownedHandles: built,
+            name: "Trimmed Surface vs Plane",
+            degreeLabel: "surface-plane section branches",
+            renderDegree: 0,
+            renderSamples: 0,
+            meshVisual: {
+              vertices: buffers.vertices,
+              indices: buffers.indices,
+              color: "#79aed9",
+              opacity: 0.35,
+              wireframe: false,
+              name: "trimmed surface",
+            },
+            overlayMeshes: [],
+            overlayCurves: [],
+            segmentOverlays: [
+              {
+                points: segments,
+                color: "#fff07f",
+                opacity: 0.99,
+                name: "surface-plane branches",
+              },
+            ],
+            intersectionPoints: [],
+            planeVisual: plane,
+            interactiveMeshHandle: null,
+            transformTargets: [],
+            defaultTransformTargetKey: null,
+            intersectionMs,
+            logs: [
+              `branch count=${branchCount}`,
+              `segment pairs=${Math.floor(segments.length / 2)}`,
+              `intersection solve=${intersectionMs.toFixed(2)}ms`,
+            ],
+          };
+        } catch (error) {
+          for (const handle of built) {
+            session.releaseObject(handle);
+          }
+          throw error;
+        }
+      }
+
+      if (example === "surfaceIntersectCurve") {
+        const built: bigint[] = [];
+        try {
+          const net = buildWarpedSurfaceNet(16, 16, 12, 12, 1.2);
+          const surface = session.createNurbsSurface(
+            net.desc,
+            net.points,
+            net.weights,
+            net.knotsU,
+            net.knotsV,
+            tol,
+          );
+          built.push(surface);
+          const face = session.createFaceFromSurface(surface);
+          built.push(face);
+          session.faceAddLoop(face, rectangleLoopUV(0.04, 0.97, 0.05, 0.96), true);
+          session.faceHeal(face);
+          const curveHandle = session.buildCurveFromPreset({
+            degree: 3,
+            closed: false,
+            points: [
+              { x: -6.2, y: -3.4, z: -2.0 },
+              { x: -3.1, y: -0.2, z: 2.5 },
+              { x: -0.5, y: 2.8, z: -1.8 },
+              { x: 2.2, y: 1.1, z: 2.2 },
+              { x: 4.8, y: -1.6, z: -2.3 },
+              { x: 6.1, y: 2.3, z: 1.9 },
+            ],
+            tolerance: tol,
+          });
+          built.push(curveHandle);
+          const mesh = session.faceTessellateToMesh(face);
+          built.push(mesh);
+          const intersectionStart = performance.now();
+          const inter = session.intersectSurfaceCurve(face, curveHandle);
+          const intersectionMs = performance.now() - intersectionStart;
+          built.push(inter);
+          const hits: RgmPoint3[] = [];
+          const branchCount = session.intersectionBranchCount(inter);
+          for (let bi = 0; bi < branchCount; bi += 1) {
+            hits.push(...session.intersectionBranchPoints(inter, bi));
+          }
+          const curveSamples = session.sampleCurvePolyline(curveHandle, 3600);
+          const buffers = session.meshToBuffers(mesh);
+          return {
+            kind: "mesh",
+            curveHandle: null,
+            ownedHandles: built,
+            name: "Trimmed Surface vs Curve",
+            degreeLabel: "surface-curve intersection points",
+            renderDegree: 0,
+            renderSamples: 0,
+            meshVisual: {
+              vertices: buffers.vertices,
+              indices: buffers.indices,
+              color: "#7baed7",
+              opacity: 0.32,
+              wireframe: false,
+              name: "surface",
+            },
+            overlayMeshes: [],
+            overlayCurves: [
+              {
+                points: curveSamples,
+                color: "#f8b36e",
+                width: 2.2,
+                opacity: 0.98,
+                name: "curve",
+              },
+            ],
+            segmentOverlays: [],
+            intersectionPoints: hits,
+            planeVisual: null,
+            interactiveMeshHandle: null,
+            transformTargets: [],
+            defaultTransformTargetKey: null,
+            intersectionMs,
+            logs: [
+              `intersection points=${hits.length}`,
+              `intersection solve=${intersectionMs.toFixed(2)}ms`,
+            ],
+          };
+        } catch (error) {
+          for (const handle of built) {
+            session.releaseObject(handle);
+          }
+          throw error;
+        }
+      }
+
+      if (example === "trimEditWorkflow") {
+        const built: bigint[] = [];
+        try {
+          const net = buildWarpedSurfaceNet(14, 12, 10, 9, 0.95);
+          const surface = session.createNurbsSurface(
+            net.desc,
+            net.points,
+            net.weights,
+            net.knotsU,
+            net.knotsV,
+            tol,
+          );
+          built.push(surface);
+          const face = session.createFaceFromSurface(surface);
+          built.push(face);
+          session.faceAddLoop(face, rectangleLoopUV(0.05, 0.95, 0.08, 0.92), true);
+          session.faceAddLoop(face, rectangleLoopUV(0.35, 0.65, 0.35, 0.65), false);
+          session.faceSplitTrimEdge(face, 0, 1, 0.42);
+          session.faceReverseLoop(face, 1);
+          session.faceHeal(face);
+          const valid = session.faceValidate(face);
+          const mesh = session.faceTessellateToMesh(face);
+          built.push(mesh);
+          const buffers = session.meshToBuffers(mesh);
+          return {
+            kind: "mesh",
+            curveHandle: null,
+            ownedHandles: built,
+            name: "Trim Edit Workflow",
+            degreeLabel: "add loop -> split edge -> reverse loop -> heal",
+            renderDegree: 0,
+            renderSamples: 0,
+            meshVisual: {
+              vertices: buffers.vertices,
+              indices: buffers.indices,
+              color: "#81b6df",
+              opacity: 0.9,
+              wireframe: true,
+              name: "edited trimmed face",
+            },
+            overlayMeshes: [],
+            overlayCurves: [],
+            segmentOverlays: [],
+            intersectionPoints: [],
+            planeVisual: null,
+            interactiveMeshHandle: null,
+            transformTargets: [],
+            defaultTransformTargetKey: null,
+            intersectionMs: 0,
+            logs: [`face valid=${valid}`, `triangles=${session.meshTriangleCount(mesh)}`],
+          };
+        } catch (error) {
+          for (const handle of built) {
+            session.releaseObject(handle);
+          }
+          throw error;
+        }
+      }
+
+      if (example === "trimValidationFailures") {
+        const built: bigint[] = [];
+        try {
+          const net = buildWarpedSurfaceNet(12, 10, 9, 8, 0.7);
+          const surface = session.createNurbsSurface(
+            net.desc,
+            net.points,
+            net.weights,
+            net.knotsU,
+            net.knotsV,
+            tol,
+          );
+          built.push(surface);
+          const face = session.createFaceFromSurface(surface);
+          built.push(face);
+          session.faceAddLoop(face, rectangleLoopUV(0.1, 0.92, 0.1, 0.9), true);
+          session.faceAddLoop(face, rectangleLoopUV(0.22, 0.48, 0.22, 0.48), true);
+          const before = session.faceValidate(face);
+          session.faceHeal(face);
+          const after = session.faceValidate(face);
+          const mesh = session.faceTessellateToMesh(face);
+          built.push(mesh);
+          const buffers = session.meshToBuffers(mesh);
+          return {
+            kind: "mesh",
+            curveHandle: null,
+            ownedHandles: built,
+            name: "Trim Validation Failure + Heal",
+            degreeLabel: "intentionally invalid topology diagnostics",
+            renderDegree: 0,
+            renderSamples: 0,
+            meshVisual: {
+              vertices: buffers.vertices,
+              indices: buffers.indices,
+              color: "#88bade",
+              opacity: 0.86,
+              wireframe: true,
+              name: "validation face",
+            },
+            overlayMeshes: [],
+            overlayCurves: [],
+            segmentOverlays: [],
+            intersectionPoints: [],
+            planeVisual: null,
+            interactiveMeshHandle: null,
+            transformTargets: [],
+            defaultTransformTargetKey: null,
+            intersectionMs: 0,
+            logs: [
+              `valid before heal=${before}`,
+              `valid after heal=${after}`,
+              "Two outer loops were added intentionally to trigger a validation failure.",
+            ],
+          };
+        } catch (error) {
+          for (const handle of built) {
+            session.releaseObject(handle);
+          }
+          throw error;
+        }
+      }
+
       if (example !== "polycurve") {
         throw new Error(`Unsupported example value: ${example}`);
       }
@@ -1710,7 +2360,7 @@ export function KernelViewer() {
 
   const applyTransformTargetSelection = useCallback(
     (nextKey: string, logSelection: boolean): void => {
-      if (activeExample !== "meshTransform") {
+      if (activeExample !== "meshTransform" && activeExample !== "meshBoolean") {
         return;
       }
       const session = sessionRef.current;
@@ -1720,6 +2370,55 @@ export function KernelViewer() {
       const options = transformTargetsRef.current;
       const selected = options.find((target) => target.key === nextKey);
       if (!selected) {
+        return;
+      }
+
+      if (activeExample === "meshBoolean") {
+        const resultHandle = booleanResultMeshHandleRef.current;
+        if (resultHandle === null) {
+          return;
+        }
+        const primaryBuffers = session.meshToBuffers(selected.handle);
+        const resultBuffers = session.meshToBuffers(resultHandle);
+        const overlays: MeshVisual[] = options
+          .filter((target) => target.key !== nextKey)
+          .map((target) => {
+            const buffers = session.meshToBuffers(target.handle);
+            return {
+              vertices: buffers.vertices,
+              indices: buffers.indices,
+              color: target.color,
+              opacity: Math.max(0.14, target.opacity * 0.6),
+              wireframe: true,
+              name: target.label,
+            } satisfies MeshVisual;
+          });
+        overlays.push({
+          vertices: resultBuffers.vertices,
+          indices: resultBuffers.indices,
+          color: "#8ac6ff",
+          opacity: 0.84,
+          wireframe: false,
+          name: "boolean result (A - B)",
+        } satisfies MeshVisual);
+
+        interactiveMeshHandleRef.current = selected.handle;
+        setTransformTargetKey(nextKey);
+        setMeshVisual({
+          vertices: primaryBuffers.vertices,
+          indices: primaryBuffers.indices,
+          color: selected.color,
+          opacity: selected.opacity,
+          wireframe: true,
+          name: `${selected.label} (active target)`,
+        });
+        setOverlayMeshes(overlays);
+        if (logSelection) {
+          appendLog(
+            "info",
+            `CSG target selected: ${selected.label} (${selected.handle.toString()})`,
+          );
+        }
         return;
       }
 
@@ -2019,6 +2718,51 @@ export function KernelViewer() {
           target.key === transformTargetKey ? { ...target, handle: nextHandle } : target,
         );
         applyTransformTargetSelection(transformTargetKey, false);
+      } else if (activeExample === "meshBoolean") {
+        const activeTargetKey =
+          transformTargetKey === "base" || transformTargetKey === "tool"
+            ? transformTargetKey
+            : (transformTargetsRef.current.find((target) => target.handle === meshHandle)?.key ?? "tool");
+        transformTargetsRef.current = transformTargetsRef.current.map((target) =>
+          target.key === activeTargetKey ? { ...target, handle: nextHandle } : target,
+        );
+
+        if (activeTargetKey === "base") {
+          booleanBaseMeshHandleRef.current = nextHandle;
+        } else if (activeTargetKey === "tool") {
+          booleanToolMeshHandleRef.current = nextHandle;
+        }
+
+        const baseHandle = booleanBaseMeshHandleRef.current;
+        const toolHandle = booleanToolMeshHandleRef.current;
+        const previousResult = booleanResultMeshHandleRef.current;
+        if (baseHandle === null || toolHandle === null || previousResult === null) {
+          throw new Error("Boolean state is not initialized");
+        }
+
+        const csgStart = performance.now();
+        const nextResult = session.meshBoolean(baseHandle, toolHandle, 2);
+        const csgMs = performance.now() - csgStart;
+        const resultTriangles = session.meshTriangleCount(nextResult);
+
+        session.releaseObject(previousResult);
+        booleanResultMeshHandleRef.current = nextResult;
+        ownedCurveHandlesRef.current = ownedCurveHandlesRef.current.map((handle) =>
+          handle === previousResult ? nextResult : handle,
+        );
+
+        setTransformTargetKey(activeTargetKey);
+        applyTransformTargetSelection(activeTargetKey, false);
+        setPerfStats((previous) => ({ ...previous, intersectionMs: csgMs }));
+        setStatusMessage(
+          `CSG updated • mode ${mode} • target ${activeTargetKey} • result triangles ${resultTriangles} • solve ${csgMs.toFixed(2)}ms`,
+        );
+        setErrorMessage(null);
+        appendLog(
+          "debug",
+          `csg recompute mode=${mode} target=${activeTargetKey} result=${resultTriangles} time=${csgMs.toFixed(2)}ms`,
+        );
+        return;
       } else if (activeExample === "meshIntersectMeshPlane") {
         meshPlaneMeshHandleRef.current = nextHandle;
         const buffers = session.meshToBuffers(nextHandle);
@@ -2480,7 +3224,8 @@ export function KernelViewer() {
     }
 
     const interactive =
-      activeExample === "meshTransform" && interactiveMeshHandleRef.current !== null;
+      (activeExample === "meshTransform" || activeExample === "meshBoolean") &&
+      interactiveMeshHandleRef.current !== null;
     const origin = interactive ? centroidOfPoints(meshVisual.vertices) : undefined;
     const geometry = createMeshGeometry(meshVisual.vertices, meshVisual.indices, origin);
     const material = new THREE.MeshStandardMaterial({
@@ -2535,7 +3280,7 @@ export function KernelViewer() {
 
     const mesh = meshRef.current;
     let targetObject: THREE.Object3D | null = null;
-    if (activeExample === "meshTransform") {
+    if (activeExample === "meshTransform" || activeExample === "meshBoolean") {
       if (mesh && interactiveMeshHandleRef.current !== null) {
         targetObject = mesh;
       }
@@ -2885,11 +3630,16 @@ export function KernelViewer() {
   const canImportIges = useMemo(() => capabilities.igesImport, [capabilities.igesImport]);
   const showProbeControls = useMemo(() => shouldShowProbeForExample(activeExample), [activeExample]);
   const showGizmoControls = useMemo(
-    () => activeExample === "meshTransform" || activeExample === "meshIntersectMeshPlane",
+    () =>
+      activeExample === "meshTransform" ||
+      activeExample === "meshBoolean" ||
+      activeExample === "meshIntersectMeshPlane",
     [activeExample],
   );
   const showTransformTargetControls = useMemo(
-    () => activeExample === "meshTransform" && transformTargetsUi.length > 1,
+    () =>
+      (activeExample === "meshTransform" || activeExample === "meshBoolean") &&
+      transformTargetsUi.length > 1,
     [activeExample, transformTargetsUi.length],
   );
   const showMeshPlaneTargetControls = useMemo(

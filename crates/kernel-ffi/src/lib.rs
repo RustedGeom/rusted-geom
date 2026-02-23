@@ -393,26 +393,6 @@ fn write_point(out: *mut RgmPoint3, value: RgmPoint3) -> Result<(), RgmStatus> {
     Ok(())
 }
 
-fn write_point2(out: *mut RgmPoint2, value: RgmPoint2) -> Result<(), RgmStatus> {
-    if out.is_null() {
-        return Err(RgmStatus::InvalidInput);
-    }
-    unsafe {
-        *out = value;
-    }
-    Ok(())
-}
-
-fn write_uv(out: *mut RgmUv2, value: RgmUv2) -> Result<(), RgmStatus> {
-    if out.is_null() {
-        return Err(RgmStatus::InvalidInput);
-    }
-    unsafe {
-        *out = value;
-    }
-    Ok(())
-}
-
 fn write_vec(out: *mut RgmVec3, value: RgmVec3) -> Result<(), RgmStatus> {
     if out.is_null() {
         return Err(RgmStatus::InvalidInput);
@@ -5703,7 +5683,7 @@ pub extern "C" fn rgm_mesh_boolean(
     rgm_mesh_boolean_impl(session, mesh_a, mesh_b, op, out_mesh)
 }
 
-#[rgm_export(ts = "createNurbs", receiver = "surface")]
+#[rgm_export]
 #[no_mangle]
 pub extern "C" fn rgm_surface_create_nurbs(
     session: RgmKernelHandle,
@@ -5740,7 +5720,7 @@ pub extern "C" fn rgm_surface_create_nurbs(
     )
 }
 
-#[rgm_export(ts = "pointAt", receiver = "surface")]
+#[rgm_export]
 #[no_mangle]
 pub extern "C" fn rgm_surface_point_at(
     session: RgmKernelHandle,
@@ -5766,7 +5746,7 @@ pub extern "C" fn rgm_surface_point_at(
     }
 }
 
-#[rgm_export(ts = "d1At", receiver = "surface")]
+#[rgm_export]
 #[no_mangle]
 pub extern "C" fn rgm_surface_d1_at(
     session: RgmKernelHandle,
@@ -5794,7 +5774,7 @@ pub extern "C" fn rgm_surface_d1_at(
     }
 }
 
-#[rgm_export(ts = "d2At", receiver = "surface")]
+#[rgm_export]
 #[no_mangle]
 pub extern "C" fn rgm_surface_d2_at(
     session: RgmKernelHandle,
@@ -5827,7 +5807,7 @@ pub extern "C" fn rgm_surface_d2_at(
     }
 }
 
-#[rgm_export(ts = "normalAt", receiver = "surface")]
+#[rgm_export]
 #[no_mangle]
 pub extern "C" fn rgm_surface_normal_at(
     session: RgmKernelHandle,
@@ -5853,7 +5833,7 @@ pub extern "C" fn rgm_surface_normal_at(
     }
 }
 
-#[rgm_export(ts = "frameAt", receiver = "surface")]
+#[rgm_export]
 #[no_mangle]
 pub extern "C" fn rgm_surface_frame_at(
     session: RgmKernelHandle,
@@ -5879,7 +5859,7 @@ pub extern "C" fn rgm_surface_frame_at(
     }
 }
 
-#[rgm_export(ts = "translate", receiver = "surface")]
+#[rgm_export]
 #[no_mangle]
 pub extern "C" fn rgm_surface_translate(
     session: RgmKernelHandle,
@@ -5901,7 +5881,7 @@ pub extern "C" fn rgm_surface_translate(
     )
 }
 
-#[rgm_export(ts = "rotate", receiver = "surface")]
+#[rgm_export]
 #[no_mangle]
 pub extern "C" fn rgm_surface_rotate(
     session: RgmKernelHandle,
@@ -5924,7 +5904,7 @@ pub extern "C" fn rgm_surface_rotate(
     rgm_surface_transform_impl(session, surface, transform, out_surface, "Surface rotation failed")
 }
 
-#[rgm_export(ts = "scale", receiver = "surface")]
+#[rgm_export]
 #[no_mangle]
 pub extern "C" fn rgm_surface_scale(
     session: RgmKernelHandle,
@@ -5942,7 +5922,7 @@ pub extern "C" fn rgm_surface_scale(
     rgm_surface_transform_impl(session, surface, transform, out_surface, "Surface scale failed")
 }
 
-#[rgm_export(ts = "bakeTransform", receiver = "surface")]
+#[rgm_export]
 #[no_mangle]
 pub extern "C" fn rgm_surface_bake_transform(
     session: RgmKernelHandle,
@@ -5952,7 +5932,7 @@ pub extern "C" fn rgm_surface_bake_transform(
     rgm_surface_bake_transform_impl(session, surface, out_surface)
 }
 
-#[rgm_export(ts = "tessellateToMesh", receiver = "surface")]
+#[rgm_export]
 #[no_mangle]
 pub extern "C" fn rgm_surface_tessellate_to_mesh(
     session: RgmKernelHandle,
@@ -5968,7 +5948,7 @@ pub extern "C" fn rgm_surface_tessellate_to_mesh(
     rgm_surface_tessellate_to_mesh_impl(session, surface, options, out_mesh)
 }
 
-#[rgm_export(ts = "createFromSurface", receiver = "face")]
+#[rgm_export]
 #[no_mangle]
 pub extern "C" fn rgm_face_create_from_surface(
     session: RgmKernelHandle,
@@ -5978,7 +5958,7 @@ pub extern "C" fn rgm_face_create_from_surface(
     rgm_face_create_from_surface_impl(session, surface, out_face)
 }
 
-#[rgm_export(ts = "addLoop", receiver = "face")]
+#[rgm_export]
 #[no_mangle]
 pub extern "C" fn rgm_face_add_loop(
     session: RgmKernelHandle,
@@ -5990,7 +5970,7 @@ pub extern "C" fn rgm_face_add_loop(
     rgm_face_add_loop_impl(session, face, points, point_count, is_outer)
 }
 
-#[rgm_export(ts = "removeLoop", receiver = "face")]
+#[rgm_export]
 #[no_mangle]
 pub extern "C" fn rgm_face_remove_loop(
     session: RgmKernelHandle,
@@ -6000,7 +5980,7 @@ pub extern "C" fn rgm_face_remove_loop(
     rgm_face_remove_loop_impl(session, face, loop_index)
 }
 
-#[rgm_export(ts = "splitTrimEdge", receiver = "face")]
+#[rgm_export]
 #[no_mangle]
 pub extern "C" fn rgm_face_split_trim_edge(
     session: RgmKernelHandle,
@@ -6012,7 +5992,7 @@ pub extern "C" fn rgm_face_split_trim_edge(
     rgm_face_split_trim_edge_impl(session, face, loop_index, edge_index, split_t)
 }
 
-#[rgm_export(ts = "reverseLoop", receiver = "face")]
+#[rgm_export]
 #[no_mangle]
 pub extern "C" fn rgm_face_reverse_loop(
     session: RgmKernelHandle,
@@ -6022,7 +6002,7 @@ pub extern "C" fn rgm_face_reverse_loop(
     rgm_face_reverse_loop_impl(session, face, loop_index)
 }
 
-#[rgm_export(ts = "validate", receiver = "face")]
+#[rgm_export]
 #[no_mangle]
 pub extern "C" fn rgm_face_validate(
     session: RgmKernelHandle,
@@ -6032,13 +6012,13 @@ pub extern "C" fn rgm_face_validate(
     rgm_face_validate_impl(session, face, out_valid)
 }
 
-#[rgm_export(ts = "heal", receiver = "face")]
+#[rgm_export]
 #[no_mangle]
 pub extern "C" fn rgm_face_heal(session: RgmKernelHandle, face: RgmObjectHandle) -> RgmStatus {
     rgm_face_heal_impl(session, face)
 }
 
-#[rgm_export(ts = "tessellateToMesh", receiver = "face")]
+#[rgm_export]
 #[no_mangle]
 pub extern "C" fn rgm_face_tessellate_to_mesh(
     session: RgmKernelHandle,
@@ -6054,7 +6034,7 @@ pub extern "C" fn rgm_face_tessellate_to_mesh(
     rgm_face_tessellate_to_mesh_impl(session, face, options, out_mesh)
 }
 
-#[rgm_export(ts = "intersectSurfaceSurface", receiver = "kernel")]
+#[rgm_export]
 #[no_mangle]
 pub extern "C" fn rgm_intersect_surface_surface(
     session: RgmKernelHandle,
@@ -6065,7 +6045,7 @@ pub extern "C" fn rgm_intersect_surface_surface(
     rgm_intersect_surface_surface_impl(session, surface_a, surface_b, out_intersection)
 }
 
-#[rgm_export(ts = "intersectSurfacePlane", receiver = "kernel")]
+#[rgm_export]
 #[no_mangle]
 pub extern "C" fn rgm_intersect_surface_plane(
     session: RgmKernelHandle,
@@ -6080,7 +6060,7 @@ pub extern "C" fn rgm_intersect_surface_plane(
     rgm_intersect_surface_plane_impl(session, surface, plane, out_intersection)
 }
 
-#[rgm_export(ts = "intersectSurfaceCurve", receiver = "kernel")]
+#[rgm_export]
 #[no_mangle]
 pub extern "C" fn rgm_intersect_surface_curve(
     session: RgmKernelHandle,
@@ -6091,7 +6071,7 @@ pub extern "C" fn rgm_intersect_surface_curve(
     rgm_intersect_surface_curve_impl(session, surface, curve, out_intersection)
 }
 
-#[rgm_export(ts = "branchCount", receiver = "intersection")]
+#[rgm_export]
 #[no_mangle]
 pub extern "C" fn rgm_intersection_branch_count(
     session: RgmKernelHandle,
@@ -6152,7 +6132,7 @@ pub extern "C" fn rgm_intersection_branch_summary(
     }
 }
 
-#[rgm_export(ts = "copyBranchPoints", receiver = "intersection")]
+#[rgm_export]
 #[no_mangle]
 pub extern "C" fn rgm_intersection_copy_branch_points(
     session: RgmKernelHandle,
@@ -6179,7 +6159,7 @@ pub extern "C" fn rgm_intersection_copy_branch_points(
     }
 }
 
-#[rgm_export(ts = "copyBranchUvOnSurfaceA", receiver = "intersection")]
+#[rgm_export]
 #[no_mangle]
 pub extern "C" fn rgm_intersection_copy_branch_uv_on_surface_a(
     session: RgmKernelHandle,
@@ -6206,7 +6186,7 @@ pub extern "C" fn rgm_intersection_copy_branch_uv_on_surface_a(
     }
 }
 
-#[rgm_export(ts = "copyBranchUvOnSurfaceB", receiver = "intersection")]
+#[rgm_export]
 #[no_mangle]
 pub extern "C" fn rgm_intersection_copy_branch_uv_on_surface_b(
     session: RgmKernelHandle,
@@ -6233,7 +6213,7 @@ pub extern "C" fn rgm_intersection_copy_branch_uv_on_surface_b(
     }
 }
 
-#[rgm_export(ts = "copyBranchCurveT", receiver = "intersection")]
+#[rgm_export]
 #[no_mangle]
 pub extern "C" fn rgm_intersection_copy_branch_curve_t(
     session: RgmKernelHandle,
@@ -6260,7 +6240,7 @@ pub extern "C" fn rgm_intersection_copy_branch_curve_t(
     }
 }
 
-#[rgm_export(ts = "branchToNurbs", receiver = "intersection")]
+#[rgm_export]
 #[no_mangle]
 pub extern "C" fn rgm_intersection_branch_to_nurbs(
     session: RgmKernelHandle,
