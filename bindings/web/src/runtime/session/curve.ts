@@ -8,7 +8,7 @@ export interface CurveClient {
   createPolyline: LegacyKernelSession["createPolyline"];
   createPolycurve: LegacyKernelSession["createPolycurve"];
   sampleCurvePolyline: LegacyKernelSession["sampleCurvePolyline"];
-  pointAt: LegacyKernelSession["pointAt"];
+  curvePointAt: LegacyKernelSession["curvePointAt"];
   curveLength: LegacyKernelSession["curveLength"];
   curveLengthAt: LegacyKernelSession["curveLengthAt"];
 }
@@ -37,8 +37,8 @@ export class CurveClientImpl implements CurveClient {
   sampleCurvePolyline: CurveClient["sampleCurvePolyline"] = (curveHandle, sampleCount) =>
     this.session.sampleCurvePolyline(curveHandle, sampleCount);
 
-  pointAt: CurveClient["pointAt"] = (curveHandle, tNorm) =>
-    this.session.pointAt(curveHandle, tNorm);
+  curvePointAt: CurveClient["curvePointAt"] = (curveHandle, tNorm) =>
+    this.session.curvePointAt(curveHandle, tNorm);
 
   curveLength: CurveClient["curveLength"] = (curveHandle) => this.session.curveLength(curveHandle);
 
