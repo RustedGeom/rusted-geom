@@ -8,6 +8,8 @@ import type {
   RgmPlane,
   RgmPoint3,
   RgmPolycurveSegment,
+  RgmTrimEdgeInput,
+  RgmTrimLoopInput,
   RgmSurfaceEvalFrame,
   RgmSurfaceTessellationOptions,
   RgmToleranceContext,
@@ -31,6 +33,8 @@ const POLYCURVE_SEGMENT_BYTES = 16;
 const TOLERANCE_BYTES = F64_BYTES * 3;
 const UV2_BYTES = F64_BYTES * 2;
 const NURBS_SURFACE_DESC_BYTES = 20;
+const TRIM_LOOP_INPUT_BYTES = 8;
+const TRIM_EDGE_INPUT_BYTES = UV2_BYTES * 2 + U64_BYTES + 8;
 const SURFACE_EVAL_FRAME_BYTES = POINT3_BYTES + VEC3_BYTES * 3;
 const SURFACE_TESSELLATION_OPTIONS_BYTES = I32_BYTES * 4 + F64_BYTES * 2;
 const INTERSECTION_BRANCH_SUMMARY_BYTES = 24;
@@ -207,6 +211,32 @@ export class KernelMemory {
     view.setUint32(ptr + 16, desc.control_v_count, true);
   }
 
+  writeTrimLoopInput(ptr: number, input: RgmTrimLoopInput): void {
+    const view = this.dataView();
+    view.setUint32(ptr, input.edge_count, true);
+    view.setUint8(ptr + I32_BYTES, input.is_outer ? 1 : 0);
+    view.setUint8(ptr + I32_BYTES + 1, 0);
+    view.setUint8(ptr + I32_BYTES + 2, 0);
+    view.setUint8(ptr + I32_BYTES + 3, 0);
+  }
+
+  writeTrimEdgeInput(ptr: number, input: RgmTrimEdgeInput): void {
+    this.writeUv(ptr, input.start_uv);
+    this.writeUv(ptr + UV2_BYTES, input.end_uv);
+    const view = this.dataView();
+    view.setBigUint64(ptr + UV2_BYTES * 2, input.curve_3d, true);
+    view.setUint8(ptr + UV2_BYTES * 2 + U64_BYTES, input.has_curve_3d ? 1 : 0);
+    for (let off = ptr + UV2_BYTES * 2 + U64_BYTES + 1; off < ptr + TRIM_EDGE_INPUT_BYTES; off += 1) {
+      view.setUint8(off, 0);
+    }
+  }
+
+  writeTrimEdgeInputArray(ptr: number, edges: RgmTrimEdgeInput[]): void {
+    for (let idx = 0; idx < edges.length; idx += 1) {
+      this.writeTrimEdgeInput(ptr + idx * TRIM_EDGE_INPUT_BYTES, edges[idx]);
+    }
+  }
+
   writeSurfaceTessellationOptions(
     ptr: number,
     options: RgmSurfaceTessellationOptions,
@@ -260,6 +290,8 @@ export const KERNEL_LAYOUT = {
   TOLERANCE_BYTES,
   UV2_BYTES,
   NURBS_SURFACE_DESC_BYTES,
+  TRIM_LOOP_INPUT_BYTES,
+  TRIM_EDGE_INPUT_BYTES,
   SURFACE_EVAL_FRAME_BYTES,
   SURFACE_TESSELLATION_OPTIONS_BYTES,
   INTERSECTION_BRANCH_SUMMARY_BYTES,

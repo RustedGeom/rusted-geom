@@ -65,11 +65,11 @@ describe("kernel runtime", () => {
     const runtime = await createKernelRuntime(wasmBytes);
     const session = runtime.createSession();
 
-    const handle = session.buildCurveFromPreset(preset);
-    const samples = session.sampleCurvePolyline(handle, 32);
-    const point = session.pointAt(handle, 0.37);
-    const totalLength = session.curveLength(handle);
-    const lengthAtPoint = session.curveLengthAt(handle, 0.37);
+    const handle = session.curve.buildCurveFromPreset(preset);
+    const samples = session.curve.sampleCurvePolyline(handle, 32);
+    const point = session.curve.pointAt(handle, 0.37);
+    const totalLength = session.curve.curveLength(handle);
+    const lengthAtPoint = session.curve.curveLengthAt(handle, 0.37);
 
     expect(runtime.capabilities.igesImport).toBe(false);
     expect(runtime.capabilities.igesExport).toBe(false);
@@ -82,7 +82,7 @@ describe("kernel runtime", () => {
     expect(lengthAtPoint).toBeGreaterThan(0);
     expect(lengthAtPoint).toBeLessThan(totalLength);
 
-    const circleHandle = session.createCircle(
+    const circleHandle = session.curve.createCircle(
       {
         plane: {
           origin: { x: 1.25, y: -0.8, z: 0.4 },
@@ -95,7 +95,7 @@ describe("kernel runtime", () => {
       preset.tolerance,
     );
     for (const t of [0, 0.11, 0.3, 0.5, 0.77, 1]) {
-      const p = session.pointAt(circleHandle, t);
+      const p = session.curve.pointAt(circleHandle, t);
       const dx = p.x - 1.25;
       const dy = p.y + 0.8;
       const dz = p.z - 0.4;
@@ -103,14 +103,14 @@ describe("kernel runtime", () => {
       expect(r).toBeCloseTo(3.6, 3);
     }
 
-    const lineA = session.createLine(
+    const lineA = session.curve.createLine(
       {
         start: { x: -1, y: 0, z: 0 },
         end: { x: 1, y: 0, z: 0 },
       },
       preset.tolerance,
     );
-    const lineB = session.createLine(
+    const lineB = session.curve.createLine(
       {
         start: { x: 0, y: -1, z: 0 },
         end: { x: 0, y: 1, z: 0 },
@@ -118,12 +118,12 @@ describe("kernel runtime", () => {
       preset.tolerance,
     );
 
-    const curveHits = session.intersectCurveCurve(lineA, lineB);
+    const curveHits = session.intersection.intersectCurveCurve(lineA, lineB);
     expect(curveHits.length).toBe(1);
     expect(curveHits[0].x).toBeCloseTo(0, 3);
     expect(curveHits[0].y).toBeCloseTo(0, 3);
 
-    const planeHits = session.intersectCurvePlane(lineA, {
+    const planeHits = session.intersection.intersectCurvePlane(lineA, {
       origin: { x: 0, y: 0, z: 0 },
       x_axis: { x: 1, y: 0, z: 0 },
       y_axis: { x: 0, y: 1, z: 0 },
@@ -131,33 +131,33 @@ describe("kernel runtime", () => {
     });
     expect(planeHits.length).toBeGreaterThanOrEqual(1);
 
-    const meshBox = session.createMeshBox(
+    const meshBox = session.mesh.createMeshBox(
       { x: 0, y: 0, z: 0 },
       { x: 4, y: 3, z: 2 },
     );
-    expect(session.meshVertexCount(meshBox)).toBe(8);
-    expect(session.meshTriangleCount(meshBox)).toBe(12);
+    expect(session.mesh.meshVertexCount(meshBox)).toBe(8);
+    expect(session.mesh.meshTriangleCount(meshBox)).toBe(12);
 
-    const translated = session.meshTranslate(meshBox, { x: 0.8, y: -0.4, z: 1.2 });
-    const transformed = session.meshRotate(
+    const translated = session.mesh.meshTranslate(meshBox, { x: 0.8, y: -0.4, z: 1.2 });
+    const transformed = session.mesh.meshRotate(
       translated,
       { x: 0, y: 1, z: 0.2 },
       0.7,
       { x: 0, y: 0, z: 0 },
     );
-    const baked = session.meshBakeTransform(transformed);
-    const bakedBuffers = session.meshToBuffers(baked);
+    const baked = session.mesh.meshBakeTransform(transformed);
+    const bakedBuffers = session.mesh.meshToBuffers(baked);
     expect(bakedBuffers.vertices.length).toBe(8);
     expect(bakedBuffers.indices.length).toBe(36);
 
-    const torus = session.createMeshTorus(
+    const torus = session.mesh.createMeshTorus(
       { x: 0, y: 0, z: 0 },
       3.8,
       1.1,
       28,
       20,
     );
-    const meshPlaneHits = session.intersectMeshPlane(torus, {
+    const meshPlaneHits = session.intersection.intersectMeshPlane(torus, {
       origin: { x: 0, y: 0, z: 0.2 },
       x_axis: { x: 1, y: 0, z: 0 },
       y_axis: { x: 0, y: 1, z: 0 },
@@ -166,29 +166,29 @@ describe("kernel runtime", () => {
     expect(meshPlaneHits.length).toBeGreaterThan(0);
     expect(meshPlaneHits.length % 2).toBe(0);
 
-    const sphere = session.createMeshUvSphere(
+    const sphere = session.mesh.createMeshUvSphere(
       { x: 0, y: 0, z: 0 },
       4.2,
       24,
       16,
     );
-    const meshMeshHits = session.intersectMeshMesh(sphere, torus);
+    const meshMeshHits = session.intersection.intersectMeshMesh(sphere, torus);
     expect(meshMeshHits.length).toBeGreaterThan(0);
     expect(meshMeshHits.length % 2).toBe(0);
 
-    const booleanHost = session.createMeshBox(
+    const booleanHost = session.mesh.createMeshBox(
       { x: 0, y: 0, z: 0 },
       { x: 8.8, y: 8.8, z: 8.8 },
     );
-    const innerTorus = session.createMeshTorus(
+    const innerTorus = session.mesh.createMeshTorus(
       { x: 0, y: 0, z: 0 },
       2.4,
       0.8,
       32,
       24,
     );
-    const booleanDiff = session.meshBoolean(booleanHost, innerTorus, 2);
-    expect(session.meshTriangleCount(booleanDiff)).toBeGreaterThan(0);
+    const booleanDiff = session.mesh.meshBoolean(booleanHost, innerTorus, 2);
+    expect(session.mesh.meshTriangleCount(booleanDiff)).toBeGreaterThan(0);
 
     const surfacePoints = [
       { x: -2, y: -2, z: 0 },
@@ -201,7 +201,7 @@ describe("kernel runtime", () => {
       { x: 2, y: 0, z: 0.6 },
       { x: 2, y: 2, z: 0.2 },
     ];
-    const surface = session.createNurbsSurface(
+    const surface = session.surface.createNurbsSurface(
       {
         degree_u: 2,
         degree_v: 2,
@@ -216,12 +216,23 @@ describe("kernel runtime", () => {
       clampedUniformKnots(3, 2),
       preset.tolerance,
     );
-    const frame = session.surfaceFrameAt(surface, { u: 0.5, v: 0.5 });
+    const frame = session.surface.surfaceFrameAt(surface, { u: 0.5, v: 0.5 });
+    const d0 = session.surface.surfacePointAt(surface, { u: 0.5, v: 0.5 });
+    const d1 = session.surface.surfaceD1At(surface, { u: 0.5, v: 0.5 });
+    const d2 = session.surface.surfaceD2At(surface, { u: 0.5, v: 0.5 });
+    expect(frame.point.x).toBeCloseTo(d0.x, 7);
+    expect(frame.point.y).toBeCloseTo(d0.y, 7);
+    expect(frame.point.z).toBeCloseTo(d0.z, 7);
+    expect(frame.du.x).toBeCloseTo(d1.du.x, 7);
+    expect(frame.dv.y).toBeCloseTo(d1.dv.y, 7);
+    expect(Number.isFinite(d2.duu.x)).toBe(true);
+    expect(Number.isFinite(d2.duv.y)).toBe(true);
+    expect(Number.isFinite(d2.dvv.z)).toBe(true);
     expect(Number.isFinite(frame.point.x)).toBe(true);
     expect(Number.isFinite(frame.normal.z)).toBe(true);
 
-    const face = session.createFaceFromSurface(surface);
-    session.faceAddLoop(
+    const face = session.face.createFaceFromSurface(surface);
+    session.face.faceAddLoop(
       face,
       [
         { u: 0.05, v: 0.05 },
@@ -231,36 +242,68 @@ describe("kernel runtime", () => {
       ],
       true,
     );
-    expect(session.faceValidate(face)).toBe(true);
-    const faceMesh = session.faceTessellateToMesh(face);
-    expect(session.meshTriangleCount(faceMesh)).toBeGreaterThan(0);
+    const trimCircle = session.curve.createCircle(
+      {
+        plane: {
+          origin: { x: 0.5, y: 0.5, z: 0 },
+          x_axis: { x: 1, y: 0, z: 0 },
+          y_axis: { x: 0, y: 1, z: 0 },
+          z_axis: { x: 0, y: 0, z: 1 },
+        },
+        radius: 0.18,
+      },
+      preset.tolerance,
+    );
+    session.face.faceAddLoopEdges(
+      face,
+      { edge_count: 1, is_outer: false },
+      [
+        {
+          start_uv: { u: 0.68, v: 0.5 },
+          end_uv: { u: 0.68, v: 0.5 },
+          curve_3d: trimCircle,
+          has_curve_3d: true,
+        },
+      ],
+    );
+    expect(session.face.faceValidate(face)).toBe(true);
+    const faceMesh = session.face.faceTessellateToMesh(face, {
+      min_u_segments: 28,
+      min_v_segments: 28,
+      max_u_segments: 48,
+      max_v_segments: 48,
+      chord_tol: 1e-4,
+      normal_tol_rad: 0.08,
+    });
+    expect(session.mesh.meshTriangleCount(faceMesh)).toBeGreaterThan(0);
 
-    const surfacePlaneIntersection = session.intersectSurfacePlane(surface, {
+    const surfacePlaneIntersection = session.intersection.intersectSurfacePlane(surface, {
       origin: { x: 0, y: 0, z: 0.1 },
       x_axis: { x: 1, y: 0, z: 0 },
       y_axis: { x: 0, y: 1, z: 0 },
       z_axis: { x: 0, y: 0, z: 1 },
     });
-    const branchCount = session.intersectionBranchCount(surfacePlaneIntersection);
+    const branchCount = session.intersection.intersectionBranchCount(surfacePlaneIntersection);
     expect(branchCount).toBeGreaterThanOrEqual(0);
 
-    session.releaseObject(lineB);
-    session.releaseObject(lineA);
-    session.releaseObject(circleHandle);
-    session.releaseObject(booleanDiff);
-    session.releaseObject(booleanHost);
-    session.releaseObject(innerTorus);
-    session.releaseObject(surfacePlaneIntersection);
-    session.releaseObject(faceMesh);
-    session.releaseObject(face);
-    session.releaseObject(surface);
-    session.releaseObject(sphere);
-    session.releaseObject(torus);
-    session.releaseObject(baked);
-    session.releaseObject(transformed);
-    session.releaseObject(translated);
-    session.releaseObject(meshBox);
-    session.releaseObject(handle);
+    session.kernel.releaseObject(lineB);
+    session.kernel.releaseObject(lineA);
+    session.kernel.releaseObject(circleHandle);
+    session.kernel.releaseObject(booleanDiff);
+    session.kernel.releaseObject(booleanHost);
+    session.kernel.releaseObject(innerTorus);
+    session.kernel.releaseObject(surfacePlaneIntersection);
+    session.kernel.releaseObject(faceMesh);
+    session.kernel.releaseObject(trimCircle);
+    session.kernel.releaseObject(face);
+    session.kernel.releaseObject(surface);
+    session.kernel.releaseObject(sphere);
+    session.kernel.releaseObject(torus);
+    session.kernel.releaseObject(baked);
+    session.kernel.releaseObject(transformed);
+    session.kernel.releaseObject(translated);
+    session.kernel.releaseObject(meshBox);
+    session.kernel.releaseObject(handle);
     session.destroy();
     runtime.destroy();
   });
@@ -277,7 +320,7 @@ describe("kernel runtime", () => {
 
     let thrown: unknown = undefined;
     try {
-      session.buildCurveFromPreset(invalidPreset);
+      session.curve.buildCurveFromPreset(invalidPreset);
     } catch (error) {
       thrown = error;
     }
@@ -314,7 +357,7 @@ describe("kernel runtime", () => {
         end: { x: 0, y: 0, z: 1 },
       });
       memory.writeTolerance(tolPtr, preset.tolerance);
-      expect(api.rgm_curve_create_line_ptr_tol(session, linePtr, tolPtr, outObjectPtr)).toBe(
+      expect(api.rgm_curve_create_line(session, linePtr, tolPtr, outObjectPtr)).toBe(
         RgmStatus.Ok,
       );
       const line = memory.readU64(outObjectPtr);
@@ -326,7 +369,7 @@ describe("kernel runtime", () => {
         z_axis: { x: 0, y: 0, z: 1 },
       });
 
-      expect(api.rgm_intersect_curve_plane_ptr(session, line, planePtr, pointsPtr, 8, outCountPtr)).toBe(
+      expect(api.rgm_intersect_curve_plane(session, line, planePtr, pointsPtr, 8, outCountPtr)).toBe(
         RgmStatus.Ok,
       );
       expect(memory.readU32(outCountPtr)).toBe(1);

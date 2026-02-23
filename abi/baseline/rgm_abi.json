@@ -1,7 +1,7 @@
 {
   "crate_name": "kernel-ffi",
-  "version": "4.0.0",
-  "abi_hash": "1827693db805b73a594219a81beb04827659a3687b84a39f12cd70c19c71fa80",
+  "version": "5.0.0",
+  "abi_hash": "da1b174906e416862e79a6eeb0736daa68ce970e91d15b74c5b9ece5360ebf75",
   "functions": [
     {
       "rust_name": "rgm_alloc",
@@ -57,11 +57,11 @@
         },
         {
           "name": "arc",
-          "ty": "RgmArc3"
+          "ty": "*constRgmArc3"
         },
         {
           "name": "tol",
-          "ty": "RgmToleranceContext"
+          "ty": "*constRgmToleranceContext"
         },
         {
           "name": "out_object",
@@ -75,40 +75,6 @@
       "interop_ts_name": "interopCurveCreateArcBy3Points",
       "public_ts_name": "createArcBy3Points",
       "receiver": "kernel",
-      "return_type": "RgmStatus",
-      "params": [
-        {
-          "name": "session",
-          "ty": "RgmKernelHandle"
-        },
-        {
-          "name": "start",
-          "ty": "RgmPoint3"
-        },
-        {
-          "name": "mid",
-          "ty": "RgmPoint3"
-        },
-        {
-          "name": "end",
-          "ty": "RgmPoint3"
-        },
-        {
-          "name": "tol",
-          "ty": "RgmToleranceContext"
-        },
-        {
-          "name": "out_object",
-          "ty": "*mutRgmObjectHandle"
-        }
-      ]
-    },
-    {
-      "rust_name": "rgm_curve_create_arc_by_3_points_ptr_tol",
-      "c_name": "rgm_curve_create_arc_by_3_points_ptr_tol",
-      "interop_ts_name": "interopCurveCreateArcBy3PointsPtrTol",
-      "public_ts_name": null,
-      "receiver": null,
       "return_type": "RgmStatus",
       "params": [
         {
@@ -151,44 +117,6 @@
         },
         {
           "name": "plane",
-          "ty": "RgmPlane"
-        },
-        {
-          "name": "radius",
-          "ty": "f64"
-        },
-        {
-          "name": "start_angle",
-          "ty": "f64"
-        },
-        {
-          "name": "end_angle",
-          "ty": "f64"
-        },
-        {
-          "name": "tol",
-          "ty": "RgmToleranceContext"
-        },
-        {
-          "name": "out_object",
-          "ty": "*mutRgmObjectHandle"
-        }
-      ]
-    },
-    {
-      "rust_name": "rgm_curve_create_arc_by_angles_ptr_tol",
-      "c_name": "rgm_curve_create_arc_by_angles_ptr_tol",
-      "interop_ts_name": "interopCurveCreateArcByAnglesPtrTol",
-      "public_ts_name": null,
-      "receiver": null,
-      "return_type": "RgmStatus",
-      "params": [
-        {
-          "name": "session",
-          "ty": "RgmKernelHandle"
-        },
-        {
-          "name": "plane",
           "ty": "*constRgmPlane"
         },
         {
@@ -214,63 +142,11 @@
       ]
     },
     {
-      "rust_name": "rgm_curve_create_arc_ptr_tol",
-      "c_name": "rgm_curve_create_arc_ptr_tol",
-      "interop_ts_name": "interopCurveCreateArcPtrTol",
-      "public_ts_name": null,
-      "receiver": null,
-      "return_type": "RgmStatus",
-      "params": [
-        {
-          "name": "session",
-          "ty": "RgmKernelHandle"
-        },
-        {
-          "name": "arc",
-          "ty": "*constRgmArc3"
-        },
-        {
-          "name": "tol",
-          "ty": "*constRgmToleranceContext"
-        },
-        {
-          "name": "out_object",
-          "ty": "*mutRgmObjectHandle"
-        }
-      ]
-    },
-    {
       "rust_name": "rgm_curve_create_circle",
       "c_name": "rgm_curve_create_circle",
       "interop_ts_name": "interopCurveCreateCircle",
       "public_ts_name": "createCircle",
       "receiver": "kernel",
-      "return_type": "RgmStatus",
-      "params": [
-        {
-          "name": "session",
-          "ty": "RgmKernelHandle"
-        },
-        {
-          "name": "circle",
-          "ty": "RgmCircle3"
-        },
-        {
-          "name": "tol",
-          "ty": "RgmToleranceContext"
-        },
-        {
-          "name": "out_object",
-          "ty": "*mutRgmObjectHandle"
-        }
-      ]
-    },
-    {
-      "rust_name": "rgm_curve_create_circle_ptr_tol",
-      "c_name": "rgm_curve_create_circle_ptr_tol",
-      "interop_ts_name": "interopCurveCreateCirclePtrTol",
-      "public_ts_name": null,
-      "receiver": null,
       "return_type": "RgmStatus",
       "params": [
         {
@@ -297,32 +173,6 @@
       "interop_ts_name": "interopCurveCreateLine",
       "public_ts_name": "createLine",
       "receiver": "kernel",
-      "return_type": "RgmStatus",
-      "params": [
-        {
-          "name": "session",
-          "ty": "RgmKernelHandle"
-        },
-        {
-          "name": "line",
-          "ty": "RgmLine3"
-        },
-        {
-          "name": "tol",
-          "ty": "RgmToleranceContext"
-        },
-        {
-          "name": "out_object",
-          "ty": "*mutRgmObjectHandle"
-        }
-      ]
-    },
-    {
-      "rust_name": "rgm_curve_create_line_ptr_tol",
-      "c_name": "rgm_curve_create_line_ptr_tol",
-      "interop_ts_name": "interopCurveCreateLinePtrTol",
-      "public_ts_name": null,
-      "receiver": null,
       "return_type": "RgmStatus",
       "params": [
         {
@@ -364,36 +214,6 @@
           "ty": "usize"
         },
         {
-          "name": "_tol",
-          "ty": "RgmToleranceContext"
-        },
-        {
-          "name": "out_object",
-          "ty": "*mutRgmObjectHandle"
-        }
-      ]
-    },
-    {
-      "rust_name": "rgm_curve_create_polycurve_ptr_tol",
-      "c_name": "rgm_curve_create_polycurve_ptr_tol",
-      "interop_ts_name": "interopCurveCreatePolycurvePtrTol",
-      "public_ts_name": null,
-      "receiver": null,
-      "return_type": "RgmStatus",
-      "params": [
-        {
-          "name": "session",
-          "ty": "RgmKernelHandle"
-        },
-        {
-          "name": "segments",
-          "ty": "*constRgmPolycurveSegment"
-        },
-        {
-          "name": "segment_count",
-          "ty": "usize"
-        },
-        {
           "name": "tol",
           "ty": "*constRgmToleranceContext"
         },
@@ -409,40 +229,6 @@
       "interop_ts_name": "interopCurveCreatePolyline",
       "public_ts_name": "createPolyline",
       "receiver": "kernel",
-      "return_type": "RgmStatus",
-      "params": [
-        {
-          "name": "session",
-          "ty": "RgmKernelHandle"
-        },
-        {
-          "name": "points",
-          "ty": "*constRgmPoint3"
-        },
-        {
-          "name": "point_count",
-          "ty": "usize"
-        },
-        {
-          "name": "closed",
-          "ty": "bool"
-        },
-        {
-          "name": "tol",
-          "ty": "RgmToleranceContext"
-        },
-        {
-          "name": "out_object",
-          "ty": "*mutRgmObjectHandle"
-        }
-      ]
-    },
-    {
-      "rust_name": "rgm_curve_create_polyline_ptr_tol",
-      "c_name": "rgm_curve_create_polyline_ptr_tol",
-      "interop_ts_name": "interopCurveCreatePolylinePtrTol",
-      "public_ts_name": null,
-      "receiver": null,
       "return_type": "RgmStatus",
       "params": [
         {
@@ -958,6 +744,36 @@
       ]
     },
     {
+      "rust_name": "rgm_face_add_loop_edges",
+      "c_name": "rgm_face_add_loop_edges",
+      "interop_ts_name": "interopFaceAddLoopEdges",
+      "public_ts_name": null,
+      "receiver": null,
+      "return_type": "RgmStatus",
+      "params": [
+        {
+          "name": "session",
+          "ty": "RgmKernelHandle"
+        },
+        {
+          "name": "face",
+          "ty": "RgmObjectHandle"
+        },
+        {
+          "name": "loop_input",
+          "ty": "*constRgmTrimLoopInput"
+        },
+        {
+          "name": "edges",
+          "ty": "*constRgmTrimEdgeInput"
+        },
+        {
+          "name": "edge_count",
+          "ty": "usize"
+        }
+      ]
+    },
+    {
       "rust_name": "rgm_face_create_from_surface",
       "c_name": "rgm_face_create_from_surface",
       "interop_ts_name": "interopFaceCreateFromSurface",
@@ -1157,40 +973,6 @@
       "rust_name": "rgm_intersect_curve_plane",
       "c_name": "rgm_intersect_curve_plane",
       "interop_ts_name": "interopIntersectCurvePlane",
-      "public_ts_name": null,
-      "receiver": null,
-      "return_type": "RgmStatus",
-      "params": [
-        {
-          "name": "session",
-          "ty": "RgmKernelHandle"
-        },
-        {
-          "name": "curve",
-          "ty": "RgmObjectHandle"
-        },
-        {
-          "name": "plane",
-          "ty": "RgmPlane"
-        },
-        {
-          "name": "out_points",
-          "ty": "*mutRgmPoint3"
-        },
-        {
-          "name": "point_capacity",
-          "ty": "u32"
-        },
-        {
-          "name": "out_count",
-          "ty": "*mutu32"
-        }
-      ]
-    },
-    {
-      "rust_name": "rgm_intersect_curve_plane_ptr",
-      "c_name": "rgm_intersect_curve_plane_ptr",
-      "interop_ts_name": "interopIntersectCurvePlanePtr",
       "public_ts_name": null,
       "receiver": null,
       "return_type": "RgmStatus",
@@ -1779,32 +1561,6 @@
         },
         {
           "name": "center",
-          "ty": "RgmPoint3"
-        },
-        {
-          "name": "size",
-          "ty": "RgmVec3"
-        },
-        {
-          "name": "out_object",
-          "ty": "*mutRgmObjectHandle"
-        }
-      ]
-    },
-    {
-      "rust_name": "rgm_mesh_create_box_ptr",
-      "c_name": "rgm_mesh_create_box_ptr",
-      "interop_ts_name": "interopMeshCreateBoxPtr",
-      "public_ts_name": null,
-      "receiver": null,
-      "return_type": "RgmStatus",
-      "params": [
-        {
-          "name": "session",
-          "ty": "RgmKernelHandle"
-        },
-        {
-          "name": "center",
           "ty": "*constRgmPoint3"
         },
         {
@@ -1865,44 +1621,6 @@
         },
         {
           "name": "center",
-          "ty": "RgmPoint3"
-        },
-        {
-          "name": "major_radius",
-          "ty": "f64"
-        },
-        {
-          "name": "minor_radius",
-          "ty": "f64"
-        },
-        {
-          "name": "major_steps",
-          "ty": "u32"
-        },
-        {
-          "name": "minor_steps",
-          "ty": "u32"
-        },
-        {
-          "name": "out_object",
-          "ty": "*mutRgmObjectHandle"
-        }
-      ]
-    },
-    {
-      "rust_name": "rgm_mesh_create_torus_ptr",
-      "c_name": "rgm_mesh_create_torus_ptr",
-      "interop_ts_name": "interopMeshCreateTorusPtr",
-      "public_ts_name": null,
-      "receiver": null,
-      "return_type": "RgmStatus",
-      "params": [
-        {
-          "name": "session",
-          "ty": "RgmKernelHandle"
-        },
-        {
-          "name": "center",
           "ty": "*constRgmPoint3"
         },
         {
@@ -1931,40 +1649,6 @@
       "rust_name": "rgm_mesh_create_uv_sphere",
       "c_name": "rgm_mesh_create_uv_sphere",
       "interop_ts_name": "interopMeshCreateUvSphere",
-      "public_ts_name": null,
-      "receiver": null,
-      "return_type": "RgmStatus",
-      "params": [
-        {
-          "name": "session",
-          "ty": "RgmKernelHandle"
-        },
-        {
-          "name": "center",
-          "ty": "RgmPoint3"
-        },
-        {
-          "name": "radius",
-          "ty": "f64"
-        },
-        {
-          "name": "u_steps",
-          "ty": "u32"
-        },
-        {
-          "name": "v_steps",
-          "ty": "u32"
-        },
-        {
-          "name": "out_object",
-          "ty": "*mutRgmObjectHandle"
-        }
-      ]
-    },
-    {
-      "rust_name": "rgm_mesh_create_uv_sphere_ptr",
-      "c_name": "rgm_mesh_create_uv_sphere_ptr",
-      "interop_ts_name": "interopMeshCreateUvSpherePtr",
       "public_ts_name": null,
       "receiver": null,
       "return_type": "RgmStatus",
@@ -2013,40 +1697,6 @@
         },
         {
           "name": "axis",
-          "ty": "RgmVec3"
-        },
-        {
-          "name": "angle_rad",
-          "ty": "f64"
-        },
-        {
-          "name": "pivot",
-          "ty": "RgmPoint3"
-        },
-        {
-          "name": "out_mesh",
-          "ty": "*mutRgmObjectHandle"
-        }
-      ]
-    },
-    {
-      "rust_name": "rgm_mesh_rotate_ptr",
-      "c_name": "rgm_mesh_rotate_ptr",
-      "interop_ts_name": "interopMeshRotatePtr",
-      "public_ts_name": null,
-      "receiver": null,
-      "return_type": "RgmStatus",
-      "params": [
-        {
-          "name": "session",
-          "ty": "RgmKernelHandle"
-        },
-        {
-          "name": "mesh",
-          "ty": "RgmObjectHandle"
-        },
-        {
-          "name": "axis",
           "ty": "*constRgmVec3"
         },
         {
@@ -2081,36 +1731,6 @@
         },
         {
           "name": "scale",
-          "ty": "RgmVec3"
-        },
-        {
-          "name": "pivot",
-          "ty": "RgmPoint3"
-        },
-        {
-          "name": "out_mesh",
-          "ty": "*mutRgmObjectHandle"
-        }
-      ]
-    },
-    {
-      "rust_name": "rgm_mesh_scale_ptr",
-      "c_name": "rgm_mesh_scale_ptr",
-      "interop_ts_name": "interopMeshScalePtr",
-      "public_ts_name": null,
-      "receiver": null,
-      "return_type": "RgmStatus",
-      "params": [
-        {
-          "name": "session",
-          "ty": "RgmKernelHandle"
-        },
-        {
-          "name": "mesh",
-          "ty": "RgmObjectHandle"
-        },
-        {
-          "name": "scale",
           "ty": "*constRgmVec3"
         },
         {
@@ -2127,32 +1747,6 @@
       "rust_name": "rgm_mesh_translate",
       "c_name": "rgm_mesh_translate",
       "interop_ts_name": "interopMeshTranslate",
-      "public_ts_name": null,
-      "receiver": null,
-      "return_type": "RgmStatus",
-      "params": [
-        {
-          "name": "session",
-          "ty": "RgmKernelHandle"
-        },
-        {
-          "name": "mesh",
-          "ty": "RgmObjectHandle"
-        },
-        {
-          "name": "delta",
-          "ty": "RgmVec3"
-        },
-        {
-          "name": "out_mesh",
-          "ty": "*mutRgmObjectHandle"
-        }
-      ]
-    },
-    {
-      "rust_name": "rgm_mesh_translate_ptr",
-      "c_name": "rgm_mesh_translate_ptr",
-      "interop_ts_name": "interopMeshTranslatePtr",
       "public_ts_name": null,
       "receiver": null,
       "return_type": "RgmStatus",
@@ -2225,44 +1819,6 @@
       "interop_ts_name": "interopNurbsInterpolateFitPoints",
       "public_ts_name": "interpolateNurbsFitPoints",
       "receiver": "kernel",
-      "return_type": "RgmStatus",
-      "params": [
-        {
-          "name": "session",
-          "ty": "RgmKernelHandle"
-        },
-        {
-          "name": "points",
-          "ty": "*constRgmPoint3"
-        },
-        {
-          "name": "point_count",
-          "ty": "usize"
-        },
-        {
-          "name": "degree",
-          "ty": "u32"
-        },
-        {
-          "name": "closed",
-          "ty": "bool"
-        },
-        {
-          "name": "tol",
-          "ty": "RgmToleranceContext"
-        },
-        {
-          "name": "out_object",
-          "ty": "*mutRgmObjectHandle"
-        }
-      ]
-    },
-    {
-      "rust_name": "rgm_nurbs_interpolate_fit_points_ptr_tol",
-      "c_name": "rgm_nurbs_interpolate_fit_points_ptr_tol",
-      "interop_ts_name": "interopNurbsInterpolateFitPointsPtrTol",
-      "public_ts_name": null,
-      "receiver": null,
       "return_type": "RgmStatus",
       "params": [
         {
