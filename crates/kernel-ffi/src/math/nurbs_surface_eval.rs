@@ -182,9 +182,17 @@ pub(crate) fn eval_nurbs_surface_uv(
             let idx = ctrl_u * surface.control_v_count + ctrl_v;
             let pw = point_to_h4(surface.control_points[idx], surface.weights[idx]);
             for ku in 0..=2 {
-                let bu = ders_u[ku][iu];
+                let bu = if ku <= surface.degree_u {
+                    ders_u[ku][iu]
+                } else {
+                    0.0
+                };
                 for kv in 0..=2 {
-                    let bv = ders_v[kv][iv];
+                    let bv = if kv <= surface.degree_v {
+                        ders_v[kv][iv]
+                    } else {
+                        0.0
+                    };
                     skl[ku][kv].add_scaled(pw, bu * bv);
                 }
             }

@@ -18,6 +18,7 @@ All scripts in `scripts/` include front matter (`script`, `description`, `usage`
 | `generate_bindings.sh` | Generate ABI artifacts for the workspace. | `./scripts/generate_bindings.sh` |
 | `check_bindings.sh` | Verify generated artifacts are current (`--check`). | `./scripts/check_bindings.sh` |
 | `check_abi_compat.sh` | Enforce ABI compatibility against baseline with semver-major checks. | `./scripts/check_abi_compat.sh` |
+| `check_modularity.sh` | Enforce facade-size guards to prevent monolith regressions. | `./scripts/check_modularity.sh` |
 | `update_abi_baseline.sh` | Regenerate ABI and update `abi/baseline/rgm_abi.json`. | `./scripts/update_abi_baseline.sh` |
 | `build_kernel_wasm.sh` | Build wasm kernel artifact and copy to showcase public assets. | `./scripts/build_kernel_wasm.sh` |
 | `stage_web_wasm.sh` | Build wasm kernel artifact and stage it into `bindings/web/dist/wasm`. | `./scripts/stage_web_wasm.sh` |
@@ -88,7 +89,17 @@ Then install the tarball in your app:
 npm install /absolute/path/to/rusted-geom/dist/npm/*.tgz
 ```
 
-End-to-end kernel session example:
+### v5 API shape
+
+`KernelSession` is now domain-scoped:
+- `session.kernel.*`
+- `session.curve.*`
+- `session.mesh.*`
+- `session.surface.*`
+- `session.face.*`
+- `session.intersection.*`
+
+### Example 1: Curve create/eval
 
 ```ts
 import {
@@ -96,7 +107,6 @@ import {
   KernelRuntimeError,
   statusToName,
   type CurvePresetInput,
-  type KernelSession,
 } from "@rusted-geom/bindings-web";
 import wasmUrl from "@rusted-geom/bindings-web/wasm/rusted_geom.wasm";
 
@@ -120,17 +130,17 @@ const preset: CurvePresetInput = {
 
 async function runKernelDemo(): Promise<void> {
   const runtime = await createKernelRuntime(wasmUrl);
-  let session: KernelSession | null = null;
+  let session: ReturnType<typeof runtime.createSession> | null = null;
   let curveHandle: bigint | null = null;
 
   try {
     session = runtime.createSession();
-    curveHandle = session.buildCurveFromPreset(preset);
+    curveHandle = session.curve.buildCurveFromPreset(preset);
 
-    const point = session.pointAt(curveHandle, 0.35);
-    const totalLength = session.curveLength(curveHandle);
-    const lengthAt35 = session.curveLengthAt(curveHandle, 0.35);
-    const sampled = session.sampleCurvePolyline(curveHandle, 64);
+    const point = session.curve.pointAt(curveHandle, 0.35);
+    const totalLength = session.curve.curveLength(curveHandle);
+    const lengthAt35 = session.curve.curveLengthAt(curveHandle, 0.35);
+    const sampled = session.curve.sampleCurvePolyline(curveHandle, 64);
 
     console.log("Kernel capabilities:", runtime.capabilities);
     console.log("Point @ t=0.35:", point);
@@ -148,11 +158,11 @@ async function runKernelDemo(): Promise<void> {
     }
 
     if (session) {
-      console.error("Last kernel error:", session.lastError());
+      console.error("Last kernel error:", session.kernel.lastError());
     }
   } finally {
     if (session && curveHandle !== null) {
-      session.releaseObject(curveHandle);
+      session.kernel.releaseObject(curveHandle);
     }
     if (session) {
       session.destroy();
@@ -163,6 +173,59 @@ async function runKernelDemo(): Promise<void> {
 
 void runKernelDemo();
 ```
+
+### Example 2: Mesh transform + boolean
+
+```ts
+const session = runtime.createSession();
+const host = session.mesh.createMeshBox({ x: 0, y: 0, z: 0 }, { x: 8, y: 8, z: 8 });
+const tool = session.mesh.createMeshTorus({ x: 2, y: 0, z: 0 }, 2.5, 0.8, 64, 48);
+const movedTool = session.mesh.meshTranslate(tool, { x: -0.4, y: 0.3, z: 0.2 });
+const result = session.mesh.meshBoolean(host, movedTool, 2);
+const triCount = session.mesh.meshTriangleCount(result);
+```
+
+### Example 3: Surface + face trim workflow
+
+```ts
+const surface = session.surface.createNurbsSurface(desc, controlPoints, weights, knotsU, knotsV, tol);
+const face = session.face.createFaceFromSurface(surface);
+session.face.faceAddLoop(face, outerLoopUv, true);
+session.face.faceAddLoop(face, holeLoopUv, false);
+session.face.faceHeal(face);
+const valid = session.face.faceValidate(face);
+const faceMesh = session.face.faceTessellateToMesh(face);
+```
+
+### Example 4: Intersection branch extraction
+
+```ts
+const inter = session.intersection.intersectSurfacePlane(surface, plane);
+const branchCount = session.intersection.intersectionBranchCount(inter);
+for (let i = 0; i < branchCount; i += 1) {
+  const summary = session.intersection.intersectionBranchSummary(inter, i);
+  const points = session.intersection.intersectionBranchPoints(inter, i);
+  console.log(i, summary, points.length);
+}
+```
+
+## v4 -> v5 Migration
+
+Hard-break changes in `5.0.0`:
+
+| v4 | v5 |
+| --- | --- |
+| `session.buildCurveFromPreset(...)` | `session.curve.buildCurveFromPreset(...)` |
+| `session.pointAt(...)` | `session.curve.pointAt(...)` |
+| `session.curveLength(...)` | `session.curve.curveLength(...)` |
+| `session.createMeshBox(...)` | `session.mesh.createMeshBox(...)` |
+| `session.meshBoolean(...)` | `session.mesh.meshBoolean(...)` |
+| `session.createNurbsSurface(...)` | `session.surface.createNurbsSurface(...)` |
+| `session.createFaceFromSurface(...)` | `session.face.createFaceFromSurface(...)` |
+| `session.intersectSurfacePlane(...)` | `session.intersection.intersectSurfacePlane(...)` |
+| `session.intersectionBranchPoints(...)` | `session.intersection.intersectionBranchPoints(...)` |
+| `session.releaseObject(...)` | `session.kernel.releaseObject(...)` |
+| `session.lastError()` | `session.kernel.lastError()` |
 
 If you prefer loading wasm bytes directly (e.g., Node.js/SSR), pass `Uint8Array` or `ArrayBuffer` instead of a URL:
 

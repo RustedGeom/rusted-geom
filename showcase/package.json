@@ -3,9 +3,10 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
+    "bindings:build": "pnpm --dir ../bindings/web build",
     "wasm:build": "../scripts/build_kernel_wasm.sh",
-    "dev": "pnpm wasm:build && next dev",
-    "build": "pnpm wasm:build && next build",
+    "dev": "pnpm bindings:build && pnpm wasm:build && next dev",
+    "build": "pnpm bindings:build && pnpm wasm:build && next build",
     "start": "next start",
     "lint": "eslint",
     "test:unit": "vitest run",

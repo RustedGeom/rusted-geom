@@ -1,0 +1,1 @@
+//! Face healing extraction target.

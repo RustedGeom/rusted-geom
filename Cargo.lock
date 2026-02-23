@@ -4,7 +4,7 @@ version = 4
 
 [[package]]
 name = "abi-gen"
-version = "4.0.0"
+version = "5.0.0"
 dependencies = [
  "anyhow",
  "clap",
@@ -230,7 +230,7 @@ checksum = "92ecc6618181def0457392ccd0ee51198e065e016d1d527a7ac1b6dc7c1f09d2"
 
 [[package]]
 name = "kernel-abi-meta"
-version = "4.0.0"
+version = "5.0.0"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -239,7 +239,7 @@ dependencies = [
 
 [[package]]
 name = "kernel-ffi"
-version = "4.0.0"
+version = "5.0.0"
 dependencies = [
  "boolmesh",
  "kernel-abi-meta",

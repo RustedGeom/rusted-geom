@@ -22,6 +22,9 @@ jobs:
       - name: Rust tests
         run: cargo test --workspace
 
+      - name: Modularity guard
+        run: ./scripts/check_modularity.sh
+
       - name: Check generated bindings are up to date
         run: ./scripts/check_bindings.sh
 

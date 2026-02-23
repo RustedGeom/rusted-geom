@@ -17,6 +17,7 @@ import type {
   RgmSurfaceTessellationOptions,
   RgmToleranceContext,
   RgmUv2,
+  RgmVec3,
 } from "@rusted-geom/bindings-web";
 import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import * as THREE from "three";
@@ -67,6 +68,19 @@ interface ProbeUiState {
   totalLength: number;
 }
 
+interface SurfaceProbeUiState {
+  u: number;
+  v: number;
+  point: RgmPoint3;
+  du: RgmVec3;
+  dv: RgmVec3;
+  normal: RgmVec3;
+  hasD2: boolean;
+  duu: RgmVec3;
+  duv: RgmVec3;
+  dvv: RgmVec3;
+}
+
 type ExampleKey =
   | "nurbs"
   | "line"
@@ -83,6 +97,7 @@ type ExampleKey =
   | "meshBoolean"
   | "surfaceLarge"
   | "surfaceTransform"
+  | "surfaceUvEval"
   | "surfaceIntersectSurface"
   | "surfaceIntersectPlane"
   | "surfaceIntersectCurve"
@@ -103,8 +118,9 @@ const EXAMPLE_OPTIONS: Record<string, ExampleKey> = {
   "Mesh (mesh-mesh intersection)": "meshIntersectMeshMesh",
   "Mesh (mesh-plane section)": "meshIntersectMeshPlane",
   "Mesh (CSG difference: box - torus)": "meshBoolean",
-  "Surface (large trimmed)": "surfaceLarge",
+  "Surface (large untrimmed)": "surfaceLarge",
   "Surface (transform chain)": "surfaceTransform",
+  "Surface (UV evaluate D0/D1/D2)": "surfaceUvEval",
   "Surface (surface-surface intersection)": "surfaceIntersectSurface",
   "Surface (surface-plane intersection)": "surfaceIntersectPlane",
   "Surface (surface-curve intersection)": "surfaceIntersectCurve",
@@ -127,10 +143,12 @@ const EXAMPLE_SUMMARIES: Record<ExampleKey, string> = {
   meshIntersectMeshPlane: "Cuts a mesh with a plane and shows section segments.",
   meshBoolean:
     "Select A or B, move it with the gizmo, and recompute the CSG difference (A - B) on every drag commit.",
-  surfaceLarge: "Builds a high-density trimmed NURBS surface and tessellates it in-kernel.",
+  surfaceLarge: "Builds a high-density untrimmed NURBS surface and tessellates it in-kernel.",
   surfaceTransform: "Applies translation, rotation, and scaling to a surface in-kernel.",
-  surfaceIntersectSurface: "Computes trimmed surface-surface intersection branches in-kernel.",
-  surfaceIntersectPlane: "Computes trimmed surface-plane section branches in-kernel.",
+  surfaceUvEval:
+    "Evaluates a non-trivial rational NURBS surface at normalized UV points and reports D0/D1 plus D2 when available.",
+  surfaceIntersectSurface: "Computes untrimmed surface-surface intersection branches in-kernel.",
+  surfaceIntersectPlane: "Computes untrimmed surface-plane section branches in-kernel.",
   surfaceIntersectCurve: "Computes surface-curve intersections with UV and curve-parameter traces.",
   trimEditWorkflow: "Demonstrates trim loop edit operations and retessellation in-kernel.",
   trimValidationFailures: "Creates an intentionally invalid trim topology and reports validation/heal behavior.",
@@ -148,6 +166,7 @@ interface SegmentOverlayVisual {
   points: RgmPoint3[];
   color: string;
   opacity: number;
+  width?: number;
   name: string;
 }
 
@@ -191,6 +210,9 @@ interface BuiltExample {
   interactiveMeshHandle: bigint | null;
   transformTargets: TransformTarget[];
   defaultTransformTargetKey: string | null;
+  surfaceProbeHandle?: bigint | null;
+  surfaceProbeD1Scale?: number;
+  surfaceProbeD2Scale?: number;
   booleanState?:
     | {
         baseHandle: bigint;
@@ -220,6 +242,7 @@ function parseExampleSelection(value: unknown): ExampleKey | null {
     raw === "meshBoolean" ||
     raw === "surfaceLarge" ||
     raw === "surfaceTransform" ||
+    raw === "surfaceUvEval" ||
     raw === "surfaceIntersectSurface" ||
     raw === "surfaceIntersectPlane" ||
     raw === "surfaceIntersectCurve" ||
@@ -320,6 +343,85 @@ function dist(a: RgmPoint3, b: RgmPoint3): number {
   const dy = a.y - b.y;
   const dz = a.z - b.z;
   return Math.sqrt(dx * dx + dy * dy + dz * dz);
+}
+
+function addScaled(point: RgmPoint3, vector: RgmVec3, scale: number): RgmPoint3 {
+  return {
+    x: point.x + vector.x * scale,
+    y: point.y + vector.y * scale,
+    z: point.z + vector.z * scale,
+  };
+}
+
+function scaleVec(vector: RgmVec3, scale: number): RgmVec3 {
+  return {
+    x: vector.x * scale,
+    y: vector.y * scale,
+    z: vector.z * scale,
+  };
+}
+
+function crossVec(a: RgmVec3, b: RgmVec3): RgmVec3 {
+  return {
+    x: a.y * b.z - a.z * b.y,
+    y: a.z * b.x - a.x * b.z,
+    z: a.x * b.y - a.y * b.x,
+  };
+}
+
+function normalizedVec(vector: RgmVec3): RgmVec3 | null {
+  const len = magnitude(vector);
+  if (!Number.isFinite(len) || len <= 1e-12) {
+    return null;
+  }
+  return {
+    x: vector.x / len,
+    y: vector.y / len,
+    z: vector.z / len,
+  };
+}
+
+function buildArrowSegments(origin: RgmPoint3, vector: RgmVec3, scale: number): RgmPoint3[] {
+  const scaled = scaleVec(vector, scale);
+  const stemLength = magnitude(scaled);
+  if (!Number.isFinite(stemLength) || stemLength <= 1e-10) {
+    return [];
+  }
+
+  const tip = addScaled(origin, vector, scale);
+  const dir = normalizedVec(scaled);
+  if (!dir) {
+    return [];
+  }
+
+  const upRef = Math.abs(dir.z) < 0.9 ? { x: 0, y: 0, z: 1 } : { x: 0, y: 1, z: 0 };
+  let side = normalizedVec(crossVec(dir, upRef));
+  if (!side) {
+    side = normalizedVec(crossVec(dir, { x: 1, y: 0, z: 0 }));
+  }
+  if (!side) {
+    return [origin, tip];
+  }
+
+  const headLength = stemLength * 0.34;
+  const headWidth = headLength * 0.6;
+  const base = addScaled(tip, dir, -headLength);
+  const wingA = addScaled(base, side, headWidth);
+  const wingB = addScaled(base, side, -headWidth);
+
+  return [origin, tip, tip, wingA, tip, wingB];
+}
+
+function magnitude(vector: RgmVec3): number {
+  return Math.sqrt(vector.x * vector.x + vector.y * vector.y + vector.z * vector.z);
+}
+
+function formatPoint(point: RgmPoint3): string {
+  return `(${point.x.toFixed(4)}, ${point.y.toFixed(4)}, ${point.z.toFixed(4)})`;
+}
+
+function formatVec(vector: RgmVec3): string {
+  return `(${vector.x.toFixed(4)}, ${vector.y.toFixed(4)}, ${vector.z.toFixed(4)})`;
 }
 
 function chordParams(points: RgmPoint3[]): number[] {
@@ -539,6 +641,7 @@ function shouldShowProbeForExample(example: ExampleKey): boolean {
     example !== "meshBoolean" &&
     example !== "surfaceLarge" &&
     example !== "surfaceTransform" &&
+    example !== "surfaceUvEval" &&
     example !== "surfaceIntersectSurface" &&
     example !== "surfaceIntersectPlane" &&
     example !== "surfaceIntersectCurve" &&
@@ -595,6 +698,7 @@ function createSegmentLines(
   points: RgmPoint3[],
   color: string,
   opacity: number,
+  width: number,
   viewport: HTMLDivElement | null,
 ): LineSegments2 | null {
   const segmentCount = Math.floor(points.length / 2);
@@ -621,7 +725,7 @@ function createSegmentLines(
     color,
     transparent: opacity < 1,
     opacity,
-    linewidth: 3.2,
+    linewidth: width,
     worldUnits: false,
     depthWrite: false,
     depthTest: false,
@@ -788,6 +892,13 @@ export function KernelViewer() {
   const probeTNormRef = useRef(0.35);
   const probePointRef = useRef<RgmPoint3 | null>(null);
   const totalLengthRef = useRef(0);
+  const surfaceProbeHandleRef = useRef<bigint | null>(null);
+  const surfaceProbeD1ScaleRef = useRef(0.2);
+  const surfaceProbeD2ScaleRef = useRef(0.1);
+  const surfaceProbeUvRef = useRef<RgmUv2>({ u: 0.47, v: 0.63 });
+  const updateSurfaceProbeForUvRef = useRef<(nextU: number, nextV: number, logCommit: boolean) => void>(
+    () => {},
+  );
   const logSequenceRef = useRef(1);
 
   const [preset, setPreset] = useState<CurvePreset | null>(null);
@@ -824,6 +935,18 @@ export function KernelViewer() {
     probeLength: 0,
     totalLength: 0,
   });
+  const [surfaceProbeUiState, setSurfaceProbeUiState] = useState<SurfaceProbeUiState>({
+    u: surfaceProbeUvRef.current.u,
+    v: surfaceProbeUvRef.current.v,
+    point: { x: 0, y: 0, z: 0 },
+    du: { x: 0, y: 0, z: 0 },
+    dv: { x: 0, y: 0, z: 0 },
+    normal: { x: 0, y: 0, z: 1 },
+    hasD2: false,
+    duu: { x: 0, y: 0, z: 0 },
+    duv: { x: 0, y: 0, z: 0 },
+    dvv: { x: 0, y: 0, z: 0 },
+  });
   const [isInspectorOpen, setIsInspectorOpen] = useState(true);
   const [isConsoleOpen, setIsConsoleOpen] = useState(true);
   const [isMobileLayout, setIsMobileLayout] = useState(false);
@@ -857,7 +980,7 @@ export function KernelViewer() {
       return;
     }
     for (const handle of ownedCurveHandlesRef.current) {
-      session.releaseObject(handle);
+      session.kernel.releaseObject(handle);
     }
     ownedCurveHandlesRef.current = [];
     curveHandleRef.current = null;
@@ -867,10 +990,13 @@ export function KernelViewer() {
     booleanBaseMeshHandleRef.current = null;
     booleanToolMeshHandleRef.current = null;
     booleanResultMeshHandleRef.current = null;
+    surfaceProbeHandleRef.current = null;
+    surfaceProbeD1ScaleRef.current = 0.2;
+    surfaceProbeD2ScaleRef.current = 0.1;
     transformTargetsRef.current = [];
     setTransformTargetsUi([]);
     if (previewMeshHandleRef.current !== null) {
-      session.releaseObject(previewMeshHandleRef.current);
+      session.kernel.releaseObject(previewMeshHandleRef.current);
       previewMeshHandleRef.current = null;
     }
     if (liveIntersectionTimerRef.current !== null) {
@@ -924,7 +1050,7 @@ export function KernelViewer() {
         if (!presetToUse) {
           throw new Error("NURBS preset is not loaded");
         }
-        const handle = session.buildCurveFromPreset(presetToUse as CurvePresetInput);
+        const handle = session.curve.buildCurveFromPreset(presetToUse as CurvePresetInput);
         return asCurve(
           handle,
           [handle],
@@ -941,7 +1067,7 @@ export function KernelViewer() {
           start: { x: -7.8, y: -2.9, z: 1.6 },
           end: { x: 8.1, y: 3.4, z: -2.3 },
         };
-        const handle = session.createLine(line, tol);
+        const handle = session.curve.createLine(line, tol);
         return asCurve(handle, [handle], "Skew 3D Line Span", "Line (p=1)", 1, 320, [
             `Line start=(${line.start.x}, ${line.start.y}, ${line.start.z})`,
             `Line end=(${line.end.x}, ${line.end.y}, ${line.end.z})`,
@@ -960,7 +1086,7 @@ export function KernelViewer() {
           { x: 5.1, y: 1.7, z: -1.8 },
           { x: 7.4, y: -1.1, z: -0.5 },
         ];
-        const handle = session.createPolyline(points, false, tol);
+        const handle = session.curve.createPolyline(points, false, tol);
         return asCurve(
           handle,
           [handle],
@@ -984,7 +1110,7 @@ export function KernelViewer() {
           start_angle: -0.55,
           sweep_angle: 2.35,
         };
-        const handle = session.createArc(arc, tol);
+        const handle = session.curve.createArc(arc, tol);
         return asCurve(
           handle,
           [handle],
@@ -1006,7 +1132,7 @@ export function KernelViewer() {
           },
           radius: 3.6,
         };
-        const handle = session.createCircle(circle, tol);
+        const handle = session.curve.createCircle(circle, tol);
         return asCurve(
           handle,
           [handle],
@@ -1050,13 +1176,13 @@ export function KernelViewer() {
             radius: 4.8,
           };
 
-          const primaryHandle = session.createCircle(circlePrimary, tol);
+          const primaryHandle = session.curve.createCircle(circlePrimary, tol);
           builtHandles.push(primaryHandle);
-          const secondaryHandle = session.createCircle(circleSecondary, tol);
+          const secondaryHandle = session.curve.createCircle(circleSecondary, tol);
           builtHandles.push(secondaryHandle);
 
-          const secondarySamples = session.sampleCurvePolyline(secondaryHandle, 2400);
-          const hits = session.intersectCurveCurve(primaryHandle, secondaryHandle);
+          const secondarySamples = session.curve.sampleCurvePolyline(secondaryHandle, 2400);
+          const hits = session.intersection.intersectCurveCurve(primaryHandle, secondaryHandle);
           const hitLogs = hits.map(
             (point, idx) =>
               `Curve-curve hit ${idx + 1}: (${point.x.toFixed(4)}, ${point.y.toFixed(4)}, ${point.z.toFixed(4)})`,
@@ -1089,7 +1215,7 @@ export function KernelViewer() {
           );
         } catch (error) {
           for (const handle of builtHandles) {
-            session.releaseObject(handle);
+            session.kernel.releaseObject(handle);
           }
           throw error;
         }
@@ -1131,8 +1257,8 @@ export function KernelViewer() {
           points: fitPoints,
           tolerance: tol,
         };
-        const curveHandle = session.buildCurveFromPreset(curvePreset);
-        const hits = session.intersectCurvePlane(curveHandle, plane);
+        const curveHandle = session.curve.buildCurveFromPreset(curvePreset);
+        const hits = session.intersection.intersectCurvePlane(curveHandle, plane);
         const hitLogs = hits.map(
           (point, idx) =>
             `Curve-plane hit ${idx + 1}: (${point.x.toFixed(4)}, ${point.y.toFixed(4)}, ${point.z.toFixed(4)})`,
@@ -1158,14 +1284,14 @@ export function KernelViewer() {
       }
 
       if (example === "meshLarge") {
-        const mesh = session.createMeshTorus(
+        const mesh = session.mesh.createMeshTorus(
           { x: 0, y: 0, z: 0 },
           6.0,
           1.35,
           240,
           160,
         );
-        const buffers = session.meshToBuffers(mesh);
+        const buffers = session.mesh.meshToBuffers(mesh);
         return {
           kind: "mesh",
           curveHandle: null,
@@ -1192,8 +1318,8 @@ export function KernelViewer() {
           defaultTransformTargetKey: null,
           intersectionMs: 0,
           logs: [
-            `mesh vertices=${session.meshVertexCount(mesh)}`,
-            `mesh triangles=${session.meshTriangleCount(mesh)}`,
+            `mesh vertices=${session.mesh.meshVertexCount(mesh)}`,
+            `mesh triangles=${session.mesh.meshTriangleCount(mesh)}`,
           ],
         };
       }
@@ -1201,13 +1327,13 @@ export function KernelViewer() {
       if (example === "meshTransform") {
         const built: bigint[] = [];
         try {
-          const base = session.createMeshBox({ x: 0.0, y: 0.0, z: -1.0 }, { x: 7.2, y: 2.6, z: 1.2 });
+          const base = session.mesh.createMeshBox({ x: 0.0, y: 0.0, z: -1.0 }, { x: 7.2, y: 2.6, z: 1.2 });
           built.push(base);
-          const rotor = session.createMeshTorus({ x: 0, y: 0, z: 0 }, 2.0, 0.52, 108, 72);
+          const rotor = session.mesh.createMeshTorus({ x: 0, y: 0, z: 0 }, 2.0, 0.52, 108, 72);
           built.push(rotor);
 
-          const baseBuffers = session.meshToBuffers(base);
-          const rotorBuffers = session.meshToBuffers(rotor);
+          const baseBuffers = session.mesh.meshToBuffers(base);
+          const rotorBuffers = session.mesh.meshToBuffers(rotor);
           return {
             kind: "mesh",
             curveHandle: null,
@@ -1260,15 +1386,15 @@ export function KernelViewer() {
             defaultTransformTargetKey: "rotor",
             intersectionMs: 0,
             logs: [
-              `base triangles=${session.meshTriangleCount(base)}`,
-              `rotor triangles=${session.meshTriangleCount(rotor)}`,
+              `base triangles=${session.mesh.meshTriangleCount(base)}`,
+              `rotor triangles=${session.mesh.meshTriangleCount(rotor)}`,
               "Use target selector + gizmo mode to transform either fixture or rotor.",
               "Each drag commit updates the kernel mesh and refreshes geometry from kernel buffers.",
             ],
           };
         } catch (error) {
           for (const handle of built) {
-            session.releaseObject(handle);
+            session.kernel.releaseObject(handle);
           }
           throw error;
         }
@@ -1277,15 +1403,15 @@ export function KernelViewer() {
       if (example === "meshIntersectMeshMesh") {
         const built: bigint[] = [];
         try {
-          const sphere = session.createMeshUvSphere({ x: 0, y: 0, z: 0 }, 4.6, 56, 40);
+          const sphere = session.mesh.createMeshUvSphere({ x: 0, y: 0, z: 0 }, 4.6, 56, 40);
           built.push(sphere);
-          const torus = session.createMeshTorus({ x: 0.5, y: 0.2, z: 0.1 }, 4.2, 1.15, 92, 64);
+          const torus = session.mesh.createMeshTorus({ x: 0.5, y: 0.2, z: 0.1 }, 4.2, 1.15, 92, 64);
           built.push(torus);
           const intersectionStart = performance.now();
-          const hits = session.intersectMeshMesh(sphere, torus);
+          const hits = session.intersection.intersectMeshMesh(sphere, torus);
           const intersectionMs = performance.now() - intersectionStart;
-          const sphereBuffers = session.meshToBuffers(sphere);
-          const torusBuffers = session.meshToBuffers(torus);
+          const sphereBuffers = session.mesh.meshToBuffers(sphere);
+          const torusBuffers = session.mesh.meshToBuffers(torus);
           return {
             kind: "mesh",
             curveHandle: null,
@@ -1335,14 +1461,14 @@ export function KernelViewer() {
           };
         } catch (error) {
           for (const handle of built) {
-            session.releaseObject(handle);
+            session.kernel.releaseObject(handle);
           }
           throw error;
         }
       }
 
       if (example === "meshIntersectMeshPlane") {
-        const mesh = session.createMeshTorus({ x: 0.4, y: -0.2, z: 0.7 }, 5.1, 1.3, 128, 72);
+        const mesh = session.mesh.createMeshTorus({ x: 0.4, y: -0.2, z: 0.7 }, 5.1, 1.3, 128, 72);
         const planeNormal = new THREE.Vector3(0.42, -0.33, 0.84).normalize();
         let planeXAxis = new THREE.Vector3(0.9, 0.2, -0.32).normalize();
         planeXAxis = planeXAxis
@@ -1358,9 +1484,9 @@ export function KernelViewer() {
           z_axis: toPoint3(planeNormal),
         };
         const intersectionStart = performance.now();
-        const hits = session.intersectMeshPlane(mesh, plane);
+        const hits = session.intersection.intersectMeshPlane(mesh, plane);
         const intersectionMs = performance.now() - intersectionStart;
-        const meshBuffers = session.meshToBuffers(mesh);
+        const meshBuffers = session.mesh.meshToBuffers(mesh);
         return {
           kind: "mesh",
           curveHandle: null,
@@ -1394,7 +1520,7 @@ export function KernelViewer() {
           defaultTransformTargetKey: null,
           intersectionMs,
           logs: [
-            `mesh triangles=${session.meshTriangleCount(mesh)}`,
+            `mesh triangles=${session.mesh.meshTriangleCount(mesh)}`,
             `mesh-plane segment pairs=${Math.floor(hits.length / 2)}`,
             `intersection solve=${intersectionMs.toFixed(2)}ms`,
           ],
@@ -1404,15 +1530,15 @@ export function KernelViewer() {
       if (example === "meshBoolean") {
         const built: bigint[] = [];
         try {
-          const outer = session.createMeshBox({ x: 0, y: 0, z: 0 }, { x: 9.0, y: 9.0, z: 9.0 });
+          const outer = session.mesh.createMeshBox({ x: 0, y: 0, z: 0 }, { x: 9.0, y: 9.0, z: 9.0 });
           built.push(outer);
-          const inner = session.createMeshTorus({ x: 2.2, y: 0.0, z: 0.0 }, 2.8, 0.95, 72, 52);
+          const inner = session.mesh.createMeshTorus({ x: 2.2, y: 0.0, z: 0.0 }, 2.8, 0.95, 72, 52);
           built.push(inner);
-          const result = session.meshBoolean(outer, inner, 2);
+          const result = session.mesh.meshBoolean(outer, inner, 2);
           built.push(result);
-          const outerBuffers = session.meshToBuffers(outer);
-          const innerBuffers = session.meshToBuffers(inner);
-          const resultBuffers = session.meshToBuffers(result);
+          const outerBuffers = session.mesh.meshToBuffers(outer);
+          const innerBuffers = session.mesh.meshToBuffers(inner);
+          const resultBuffers = session.mesh.meshToBuffers(result);
           return {
             kind: "mesh",
             curveHandle: null,
@@ -1481,14 +1607,14 @@ export function KernelViewer() {
               "CSG difference: result = A - B (box minus torus)",
               "Choose target A/B in Controls -> Gizmo, then drag in viewport.",
               "Each drag commit recomputes boolean result from current source solids.",
-              `outer triangles=${session.meshTriangleCount(outer)}`,
-              `inner triangles=${session.meshTriangleCount(inner)}`,
-              `result triangles=${session.meshTriangleCount(result)}`,
+              `outer triangles=${session.mesh.meshTriangleCount(outer)}`,
+              `inner triangles=${session.mesh.meshTriangleCount(inner)}`,
+              `result triangles=${session.mesh.meshTriangleCount(result)}`,
             ],
           };
         } catch (error) {
           for (const handle of built) {
-            session.releaseObject(handle);
+            session.kernel.releaseObject(handle);
           }
           throw error;
         }
@@ -1498,7 +1624,7 @@ export function KernelViewer() {
         const built: bigint[] = [];
         try {
           const net = buildWarpedSurfaceNet(28, 24, 18, 14, 1.6);
-          const surface = session.createNurbsSurface(
+          const surface = session.surface.createNurbsSurface(
             net.desc,
             net.points,
             net.weights,
@@ -1507,33 +1633,22 @@ export function KernelViewer() {
             tol,
           );
           built.push(surface);
-          const face = session.createFaceFromSurface(surface);
-          built.push(face);
-          const outer = rectangleLoopUV(0.02, 0.98, 0.02, 0.98);
-          session.faceAddLoop(face, outer, true);
-          const hole: RgmUv2[] = [];
-          for (let i = 0; i < 20; i += 1) {
-            const t = (i / 20) * Math.PI * 2;
-            hole.push({ u: 0.5 + Math.cos(t) * 0.17, v: 0.52 + Math.sin(t) * 0.13 });
-          }
-          session.faceAddLoop(face, hole, false);
-          session.faceHeal(face);
-          const mesh = session.faceTessellateToMesh(face, {
-            min_u_segments: 220,
-            min_v_segments: 180,
-            max_u_segments: 220,
-            max_v_segments: 180,
+          const mesh = session.surface.surfaceTessellateToMesh(surface, {
+            min_u_segments: 72,
+            min_v_segments: 56,
+            max_u_segments: 96,
+            max_v_segments: 72,
             chord_tol: 1e-4,
             normal_tol_rad: 0.04,
           });
           built.push(mesh);
-          const buffers = session.meshToBuffers(mesh);
+          const buffers = session.mesh.meshToBuffers(mesh);
           return {
             kind: "mesh",
             curveHandle: null,
             ownedHandles: built,
-            name: "Large Trimmed NURBS Surface",
-            degreeLabel: "Surface + trim loops (kernel tessellation)",
+            name: "Large Untrimmed NURBS Surface",
+            degreeLabel: "Surface tessellation (kernel)",
             renderDegree: 0,
             renderSamples: 0,
             meshVisual: {
@@ -1542,7 +1657,7 @@ export function KernelViewer() {
               color: "#77addf",
               opacity: 0.92,
               wireframe: false,
-              name: "trimmed surface",
+              name: "surface",
             },
             overlayMeshes: [],
             overlayCurves: [],
@@ -1555,13 +1670,12 @@ export function KernelViewer() {
             intersectionMs: 0,
             logs: [
               `control net=${net.desc.control_u_count}x${net.desc.control_v_count}`,
-              `triangles=${session.meshTriangleCount(mesh)}`,
-              `face valid=${session.faceValidate(face)}`,
+              `triangles=${session.mesh.meshTriangleCount(mesh)}`,
             ],
           };
         } catch (error) {
           for (const handle of built) {
-            session.releaseObject(handle);
+            session.kernel.releaseObject(handle);
           }
           throw error;
         }
@@ -1571,7 +1685,7 @@ export function KernelViewer() {
         const built: bigint[] = [];
         try {
           const net = buildWarpedSurfaceNet(16, 14, 12, 10, 1.1);
-          const surface = session.createNurbsSurface(
+          const surface = session.surface.createNurbsSurface(
             net.desc,
             net.points,
             net.weights,
@@ -1580,26 +1694,26 @@ export function KernelViewer() {
             tol,
           );
           built.push(surface);
-          const moved = session.surfaceTranslate(surface, { x: 1.4, y: -0.7, z: 0.9 });
+          const moved = session.surface.surfaceTranslate(surface, { x: 1.4, y: -0.7, z: 0.9 });
           built.push(moved);
-          const rotated = session.surfaceRotate(
+          const rotated = session.surface.surfaceRotate(
             moved,
             { x: 0.4, y: 1.0, z: 0.2 },
             0.68,
             { x: 0, y: 0, z: 0 },
           );
           built.push(rotated);
-          const scaled = session.surfaceScale(
+          const scaled = session.surface.surfaceScale(
             rotated,
             { x: 1.15, y: 0.82, z: 1.3 },
             { x: 0.5, y: -0.2, z: 0.1 },
           );
           built.push(scaled);
-          const baseMesh = session.surfaceTessellateToMesh(surface);
-          const transformedMesh = session.surfaceTessellateToMesh(scaled);
+          const baseMesh = session.surface.surfaceTessellateToMesh(surface);
+          const transformedMesh = session.surface.surfaceTessellateToMesh(scaled);
           built.push(baseMesh, transformedMesh);
-          const baseBuffers = session.meshToBuffers(baseMesh);
-          const transformedBuffers = session.meshToBuffers(transformedMesh);
+          const baseBuffers = session.mesh.meshToBuffers(baseMesh);
+          const transformedBuffers = session.mesh.meshToBuffers(transformedMesh);
           return {
             kind: "mesh",
             curveHandle: null,
@@ -1635,14 +1749,121 @@ export function KernelViewer() {
             defaultTransformTargetKey: null,
             intersectionMs: 0,
             logs: [
-              `base triangles=${session.meshTriangleCount(baseMesh)}`,
-              `transformed triangles=${session.meshTriangleCount(transformedMesh)}`,
+              `base triangles=${session.mesh.meshTriangleCount(baseMesh)}`,
+              `transformed triangles=${session.mesh.meshTriangleCount(transformedMesh)}`,
               "Transform APIs used: surfaceTranslate, surfaceRotate, surfaceScale",
             ],
           };
         } catch (error) {
           for (const handle of built) {
-            session.releaseObject(handle);
+            session.kernel.releaseObject(handle);
+          }
+          throw error;
+        }
+      }
+
+      if (example === "surfaceUvEval") {
+        const built: bigint[] = [];
+        try {
+          const net = buildWarpedSurfaceNet(22, 19, 16, 14, 1.55);
+          const weights = net.weights.map((base, idx) =>
+            Math.max(0.22, base * (1 + 0.2 * Math.sin(idx * 0.37) + 0.08 * Math.cos(idx * 0.19))),
+          );
+          const surfaceBase = session.surface.createNurbsSurface(
+            net.desc,
+            net.points,
+            weights,
+            net.knotsU,
+            net.knotsV,
+            tol,
+          );
+          built.push(surfaceBase);
+
+          const surfaceRot = session.surface.surfaceRotate(
+            surfaceBase,
+            { x: 0.48, y: 1.0, z: 0.31 },
+            0.62,
+            { x: 0.3, y: -0.1, z: 0.2 },
+          );
+          built.push(surfaceRot);
+
+          const surface = session.surface.surfaceTranslate(surfaceRot, { x: 0.9, y: -0.6, z: 0.5 });
+          built.push(surface);
+
+          const tessOptions: RgmSurfaceTessellationOptions = {
+            min_u_segments: 30,
+            min_v_segments: 26,
+            max_u_segments: 54,
+            max_v_segments: 48,
+            chord_tol: 1.8e-4,
+            normal_tol_rad: 0.075,
+          };
+          const mesh = session.surface.surfaceTessellateToMesh(surface, tessOptions);
+          built.push(mesh);
+          const buffers = session.mesh.meshToBuffers(mesh);
+
+          let minX = Number.POSITIVE_INFINITY;
+          let minY = Number.POSITIVE_INFINITY;
+          let minZ = Number.POSITIVE_INFINITY;
+          let maxX = Number.NEGATIVE_INFINITY;
+          let maxY = Number.NEGATIVE_INFINITY;
+          let maxZ = Number.NEGATIVE_INFINITY;
+          for (const vertex of buffers.vertices) {
+            minX = Math.min(minX, vertex.x);
+            minY = Math.min(minY, vertex.y);
+            minZ = Math.min(minZ, vertex.z);
+            maxX = Math.max(maxX, vertex.x);
+            maxY = Math.max(maxY, vertex.y);
+            maxZ = Math.max(maxZ, vertex.z);
+          }
+          const span = Math.sqrt(
+            (maxX - minX) * (maxX - minX) +
+              (maxY - minY) * (maxY - minY) +
+              (maxZ - minZ) * (maxZ - minZ),
+          );
+          const d1Scale = Math.max(0.08, span * 0.02);
+          const d2Scale = d1Scale * 0.45;
+          const logs: string[] = [
+            `control net=${net.desc.control_u_count}x${net.desc.control_v_count} degree=(${net.desc.degree_u},${net.desc.degree_v})`,
+            `weights range=[${Math.min(...weights).toFixed(4)}, ${Math.max(...weights).toFixed(4)}]`,
+            `triangles=${session.mesh.meshTriangleCount(mesh)}`,
+            "Use the Surface Probe sliders to move a UV probe and inspect D0/D1 (+D2 when available).",
+            "Arrow colors: du=orange, dv=cyan, duu=peach, duv=violet, dvv=blue.",
+          ];
+
+          return {
+            kind: "mesh",
+            curveHandle: null,
+            ownedHandles: built,
+            name: "Surface UV Differential Evaluation",
+            degreeLabel: "D0/D1 and D2 (if available) at normalized UV samples",
+            renderDegree: 0,
+            renderSamples: 0,
+            meshVisual: {
+              vertices: buffers.vertices,
+              indices: buffers.indices,
+              color: "#7fb0d8",
+              opacity: 0.33,
+              wireframe: false,
+              name: "evaluation surface",
+            },
+            overlayMeshes: [],
+            overlayCurves: [],
+            segmentOverlays: [],
+            intersectionPoints: [],
+            planeVisual: null,
+            interactiveMeshHandle: null,
+            transformTargets: [],
+            defaultTransformTargetKey: null,
+            surfaceProbeHandle: surface,
+            surfaceProbeD1Scale: d1Scale,
+            surfaceProbeD2Scale: d2Scale,
+            intersectionMs: 0,
+            logs,
+          };
+        } catch (error) {
+          for (const handle of built) {
+            session.kernel.releaseObject(handle);
           }
           throw error;
         }
@@ -1653,48 +1874,53 @@ export function KernelViewer() {
         try {
           const a = buildWarpedSurfaceNet(16, 15, 12, 10, 1.0);
           const b = buildWarpedSurfaceNet(15, 16, 11, 11, 1.25);
-          const surfaceA = session.createNurbsSurface(a.desc, a.points, a.weights, a.knotsU, a.knotsV, tol);
-          const surfaceB0 = session.createNurbsSurface(b.desc, b.points, b.weights, b.knotsU, b.knotsV, tol);
+          const surfaceA = session.surface.createNurbsSurface(a.desc, a.points, a.weights, a.knotsU, a.knotsV, tol);
+          const surfaceB0 = session.surface.createNurbsSurface(b.desc, b.points, b.weights, b.knotsU, b.knotsV, tol);
           built.push(surfaceA, surfaceB0);
-          const surfaceB = session.surfaceRotate(
-            session.surfaceTranslate(surfaceB0, { x: 0.6, y: 0.3, z: -0.1 }),
+          const surfaceB = session.surface.surfaceRotate(
+            session.surface.surfaceTranslate(surfaceB0, { x: 0.6, y: 0.3, z: -0.1 }),
             { x: 0.3, y: 1.0, z: 0.2 },
             0.72,
             { x: 0, y: 0, z: 0 },
           );
           built.push(surfaceB);
-
-          const faceA = session.createFaceFromSurface(surfaceA);
-          const faceB = session.createFaceFromSurface(surfaceB);
-          built.push(faceA, faceB);
-          session.faceAddLoop(faceA, rectangleLoopUV(0.04, 0.96, 0.05, 0.95), true);
-          session.faceAddLoop(faceB, rectangleLoopUV(0.08, 0.95, 0.04, 0.9), true);
-          session.faceHeal(faceA);
-          session.faceHeal(faceB);
-
-          const meshA = session.faceTessellateToMesh(faceA);
-          const meshB = session.faceTessellateToMesh(faceB);
+          const meshA = session.surface.surfaceTessellateToMesh(surfaceA, {
+            min_u_segments: 18,
+            min_v_segments: 18,
+            max_u_segments: 42,
+            max_v_segments: 42,
+            chord_tol: 2.5e-4,
+            normal_tol_rad: 0.1,
+          });
+          const meshB = session.surface.surfaceTessellateToMesh(surfaceB, {
+            min_u_segments: 18,
+            min_v_segments: 18,
+            max_u_segments: 42,
+            max_v_segments: 42,
+            chord_tol: 2.5e-4,
+            normal_tol_rad: 0.1,
+          });
           built.push(meshA, meshB);
           const intersectionStart = performance.now();
-          const inter = session.intersectSurfaceSurface(faceA, faceB);
+          const inter = session.intersection.intersectSurfaceSurface(surfaceA, surfaceB);
           const intersectionMs = performance.now() - intersectionStart;
           built.push(inter);
 
-          const branchCount = session.intersectionBranchCount(inter);
+          const branchCount = session.intersection.intersectionBranchCount(inter);
           const segmentPts: RgmPoint3[] = [];
           for (let bi = 0; bi < branchCount; bi += 1) {
-            const branch = session.intersectionBranchPoints(inter, bi);
+            const branch = session.intersection.intersectionBranchPoints(inter, bi);
             for (let i = 1; i < branch.length; i += 1) {
               segmentPts.push(branch[i - 1], branch[i]);
             }
           }
-          const buffersA = session.meshToBuffers(meshA);
-          const buffersB = session.meshToBuffers(meshB);
+          const buffersA = session.mesh.meshToBuffers(meshA);
+          const buffersB = session.mesh.meshToBuffers(meshB);
           return {
             kind: "mesh",
             curveHandle: null,
             ownedHandles: built,
-            name: "Trimmed Surface vs Surface",
+            name: "Surface vs Surface",
             degreeLabel: "surface-surface intersection branches",
             renderDegree: 0,
             renderSamples: 0,
@@ -1739,7 +1965,7 @@ export function KernelViewer() {
           };
         } catch (error) {
           for (const handle of built) {
-            session.releaseObject(handle);
+            session.kernel.releaseObject(handle);
           }
           throw error;
         }
@@ -1749,7 +1975,7 @@ export function KernelViewer() {
         const built: bigint[] = [];
         try {
           const net = buildWarpedSurfaceNet(18, 16, 13, 11, 1.35);
-          const surface = session.createNurbsSurface(
+          const surface = session.surface.createNurbsSurface(
             net.desc,
             net.points,
             net.weights,
@@ -1758,13 +1984,14 @@ export function KernelViewer() {
             tol,
           );
           built.push(surface);
-          const face = session.createFaceFromSurface(surface);
-          built.push(face);
-          session.faceAddLoop(face, rectangleLoopUV(0.05, 0.97, 0.03, 0.95), true);
-          const hole = rectangleLoopUV(0.38, 0.62, 0.4, 0.62);
-          session.faceAddLoop(face, hole, false);
-          session.faceHeal(face);
-          const mesh = session.faceTessellateToMesh(face);
+          const mesh = session.surface.surfaceTessellateToMesh(surface, {
+            min_u_segments: 18,
+            min_v_segments: 18,
+            max_u_segments: 42,
+            max_v_segments: 42,
+            chord_tol: 2.5e-4,
+            normal_tol_rad: 0.1,
+          });
           built.push(mesh);
           const plane: RgmPlane = {
             origin: { x: 0.2, y: -0.4, z: 0.25 },
@@ -1773,23 +2000,23 @@ export function KernelViewer() {
             z_axis: { x: 0.12, y: -0.31, z: 0.94 },
           };
           const intersectionStart = performance.now();
-          const inter = session.intersectSurfacePlane(face, plane);
+          const inter = session.intersection.intersectSurfacePlane(surface, plane);
           const intersectionMs = performance.now() - intersectionStart;
           built.push(inter);
-          const branchCount = session.intersectionBranchCount(inter);
+          const branchCount = session.intersection.intersectionBranchCount(inter);
           const segments: RgmPoint3[] = [];
           for (let bi = 0; bi < branchCount; bi += 1) {
-            const branch = session.intersectionBranchPoints(inter, bi);
+            const branch = session.intersection.intersectionBranchPoints(inter, bi);
             for (let i = 1; i < branch.length; i += 1) {
               segments.push(branch[i - 1], branch[i]);
             }
           }
-          const buffers = session.meshToBuffers(mesh);
+          const buffers = session.mesh.meshToBuffers(mesh);
           return {
             kind: "mesh",
             curveHandle: null,
             ownedHandles: built,
-            name: "Trimmed Surface vs Plane",
+            name: "Surface vs Plane",
             degreeLabel: "surface-plane section branches",
             renderDegree: 0,
             renderSamples: 0,
@@ -1799,7 +2026,7 @@ export function KernelViewer() {
               color: "#79aed9",
               opacity: 0.35,
               wireframe: false,
-              name: "trimmed surface",
+              name: "surface",
             },
             overlayMeshes: [],
             overlayCurves: [],
@@ -1825,7 +2052,7 @@ export function KernelViewer() {
           };
         } catch (error) {
           for (const handle of built) {
-            session.releaseObject(handle);
+            session.kernel.releaseObject(handle);
           }
           throw error;
         }
@@ -1835,7 +2062,7 @@ export function KernelViewer() {
         const built: bigint[] = [];
         try {
           const net = buildWarpedSurfaceNet(16, 16, 12, 12, 1.2);
-          const surface = session.createNurbsSurface(
+          const surface = session.surface.createNurbsSurface(
             net.desc,
             net.points,
             net.weights,
@@ -1844,11 +2071,7 @@ export function KernelViewer() {
             tol,
           );
           built.push(surface);
-          const face = session.createFaceFromSurface(surface);
-          built.push(face);
-          session.faceAddLoop(face, rectangleLoopUV(0.04, 0.97, 0.05, 0.96), true);
-          session.faceHeal(face);
-          const curveHandle = session.buildCurveFromPreset({
+          const curveHandle = session.curve.buildCurveFromPreset({
             degree: 3,
             closed: false,
             points: [
@@ -1862,24 +2085,31 @@ export function KernelViewer() {
             tolerance: tol,
           });
           built.push(curveHandle);
-          const mesh = session.faceTessellateToMesh(face);
+          const mesh = session.surface.surfaceTessellateToMesh(surface, {
+            min_u_segments: 18,
+            min_v_segments: 18,
+            max_u_segments: 42,
+            max_v_segments: 42,
+            chord_tol: 2.5e-4,
+            normal_tol_rad: 0.1,
+          });
           built.push(mesh);
           const intersectionStart = performance.now();
-          const inter = session.intersectSurfaceCurve(face, curveHandle);
+          const inter = session.intersection.intersectSurfaceCurve(surface, curveHandle);
           const intersectionMs = performance.now() - intersectionStart;
           built.push(inter);
           const hits: RgmPoint3[] = [];
-          const branchCount = session.intersectionBranchCount(inter);
+          const branchCount = session.intersection.intersectionBranchCount(inter);
           for (let bi = 0; bi < branchCount; bi += 1) {
-            hits.push(...session.intersectionBranchPoints(inter, bi));
+            hits.push(...session.intersection.intersectionBranchPoints(inter, bi));
           }
-          const curveSamples = session.sampleCurvePolyline(curveHandle, 3600);
-          const buffers = session.meshToBuffers(mesh);
+          const curveSamples = session.curve.sampleCurvePolyline(curveHandle, 3600);
+          const buffers = session.mesh.meshToBuffers(mesh);
           return {
             kind: "mesh",
             curveHandle: null,
             ownedHandles: built,
-            name: "Trimmed Surface vs Curve",
+            name: "Surface vs Curve",
             degreeLabel: "surface-curve intersection points",
             renderDegree: 0,
             renderSamples: 0,
@@ -1915,7 +2145,7 @@ export function KernelViewer() {
           };
         } catch (error) {
           for (const handle of built) {
-            session.releaseObject(handle);
+            session.kernel.releaseObject(handle);
           }
           throw error;
         }
@@ -1925,7 +2155,7 @@ export function KernelViewer() {
         const built: bigint[] = [];
         try {
           const net = buildWarpedSurfaceNet(14, 12, 10, 9, 0.95);
-          const surface = session.createNurbsSurface(
+          const surface = session.surface.createNurbsSurface(
             net.desc,
             net.points,
             net.weights,
@@ -1934,17 +2164,17 @@ export function KernelViewer() {
             tol,
           );
           built.push(surface);
-          const face = session.createFaceFromSurface(surface);
+          const face = session.face.createFaceFromSurface(surface);
           built.push(face);
-          session.faceAddLoop(face, rectangleLoopUV(0.05, 0.95, 0.08, 0.92), true);
-          session.faceAddLoop(face, rectangleLoopUV(0.35, 0.65, 0.35, 0.65), false);
-          session.faceSplitTrimEdge(face, 0, 1, 0.42);
-          session.faceReverseLoop(face, 1);
-          session.faceHeal(face);
-          const valid = session.faceValidate(face);
-          const mesh = session.faceTessellateToMesh(face);
+          session.face.faceAddLoop(face, rectangleLoopUV(0.05, 0.95, 0.08, 0.92), true);
+          session.face.faceAddLoop(face, rectangleLoopUV(0.35, 0.65, 0.35, 0.65), false);
+          session.face.faceSplitTrimEdge(face, 0, 1, 0.42);
+          session.face.faceReverseLoop(face, 1);
+          session.face.faceHeal(face);
+          const valid = session.face.faceValidate(face);
+          const mesh = session.face.faceTessellateToMesh(face);
           built.push(mesh);
-          const buffers = session.meshToBuffers(mesh);
+          const buffers = session.mesh.meshToBuffers(mesh);
           return {
             kind: "mesh",
             curveHandle: null,
@@ -1970,11 +2200,11 @@ export function KernelViewer() {
             transformTargets: [],
             defaultTransformTargetKey: null,
             intersectionMs: 0,
-            logs: [`face valid=${valid}`, `triangles=${session.meshTriangleCount(mesh)}`],
+            logs: [`face valid=${valid}`, `triangles=${session.mesh.meshTriangleCount(mesh)}`],
           };
         } catch (error) {
           for (const handle of built) {
-            session.releaseObject(handle);
+            session.kernel.releaseObject(handle);
           }
           throw error;
         }
@@ -1984,7 +2214,7 @@ export function KernelViewer() {
         const built: bigint[] = [];
         try {
           const net = buildWarpedSurfaceNet(12, 10, 9, 8, 0.7);
-          const surface = session.createNurbsSurface(
+          const surface = session.surface.createNurbsSurface(
             net.desc,
             net.points,
             net.weights,
@@ -1993,16 +2223,16 @@ export function KernelViewer() {
             tol,
           );
           built.push(surface);
-          const face = session.createFaceFromSurface(surface);
+          const face = session.face.createFaceFromSurface(surface);
           built.push(face);
-          session.faceAddLoop(face, rectangleLoopUV(0.1, 0.92, 0.1, 0.9), true);
-          session.faceAddLoop(face, rectangleLoopUV(0.22, 0.48, 0.22, 0.48), true);
-          const before = session.faceValidate(face);
-          session.faceHeal(face);
-          const after = session.faceValidate(face);
-          const mesh = session.faceTessellateToMesh(face);
+          session.face.faceAddLoop(face, rectangleLoopUV(0.1, 0.92, 0.1, 0.9), true);
+          session.face.faceAddLoop(face, rectangleLoopUV(0.22, 0.48, 0.22, 0.48), true);
+          const before = session.face.faceValidate(face);
+          session.face.faceHeal(face);
+          const after = session.face.faceValidate(face);
+          const mesh = session.face.faceTessellateToMesh(face);
           built.push(mesh);
-          const buffers = session.meshToBuffers(mesh);
+          const buffers = session.mesh.meshToBuffers(mesh);
           return {
             kind: "mesh",
             curveHandle: null,
@@ -2036,7 +2266,7 @@ export function KernelViewer() {
           };
         } catch (error) {
           for (const handle of built) {
-            session.releaseObject(handle);
+            session.kernel.releaseObject(handle);
           }
           throw error;
         }
@@ -2079,13 +2309,13 @@ export function KernelViewer() {
 
       const builtHandles: bigint[] = [];
       try {
-        const hLineA = session.createLine(lineA, tol);
+        const hLineA = session.curve.createLine(lineA, tol);
         builtHandles.push(hLineA);
-        const hArcA = session.createArc(arcA, tol);
+        const hArcA = session.curve.createArc(arcA, tol);
         builtHandles.push(hArcA);
-        const hLineB = session.createLine(lineB, tol);
+        const hLineB = session.curve.createLine(lineB, tol);
         builtHandles.push(hLineB);
-        const hArcB = session.createArc(arcB, tol);
+        const hArcB = session.curve.createArc(arcB, tol);
         builtHandles.push(hArcB);
 
         const segments: RgmPolycurveSegment[] = [
@@ -2094,7 +2324,7 @@ export function KernelViewer() {
           { curve: hLineB, reversed: false },
           { curve: hArcB, reversed: false },
         ];
-        const poly = session.createPolycurve(segments, tol);
+        const poly = session.curve.createPolycurve(segments, tol);
         builtHandles.unshift(poly);
 
         return asCurve(
@@ -2108,7 +2338,7 @@ export function KernelViewer() {
         );
       } catch (error) {
         for (const handle of builtHandles) {
-          session.releaseObject(handle);
+          session.kernel.releaseObject(handle);
         }
         throw error;
       }
@@ -2130,6 +2360,9 @@ export function KernelViewer() {
       const built = buildExampleCurve(session, example, nurbsPresetOverride);
       curveHandleRef.current = built.curveHandle;
       ownedCurveHandlesRef.current = built.ownedHandles;
+      surfaceProbeHandleRef.current = example === "surfaceUvEval" ? (built.surfaceProbeHandle ?? null) : null;
+      surfaceProbeD1ScaleRef.current = built.surfaceProbeD1Scale ?? 0.2;
+      surfaceProbeD2ScaleRef.current = built.surfaceProbeD2Scale ?? 0.1;
 
       for (const line of built.logs) {
         appendLog("debug", line);
@@ -2138,11 +2371,11 @@ export function KernelViewer() {
       let curveSamples: RgmPoint3[] = [];
       let totalLength = 0;
       if (built.kind === "curve" && built.curveHandle !== null) {
-        curveSamples = session.sampleCurvePolyline(built.curveHandle, built.renderSamples);
-        totalLength = session.curveLength(built.curveHandle);
+        curveSamples = session.curve.sampleCurvePolyline(built.curveHandle, built.renderSamples);
+        totalLength = session.curve.curveLength(built.curveHandle);
         totalLengthRef.current = totalLength;
-        const evaluatedProbe = session.pointAt(built.curveHandle, probeTNormRef.current);
-        const probeLength = session.curveLengthAt(built.curveHandle, probeTNormRef.current);
+        const evaluatedProbe = session.curve.pointAt(built.curveHandle, probeTNormRef.current);
+        const probeLength = session.curve.curveLengthAt(built.curveHandle, probeTNormRef.current);
 
         probePointRef.current = evaluatedProbe;
         if (probeRef.current) {
@@ -2210,6 +2443,13 @@ export function KernelViewer() {
       );
       setMeshPlaneTarget("mesh");
       dragStartTransformRef.current = null;
+      if (example === "surfaceUvEval" && surfaceProbeHandleRef.current !== null) {
+        updateSurfaceProbeForUvRef.current(
+          surfaceProbeUvRef.current.u,
+          surfaceProbeUvRef.current.v,
+          false,
+        );
+      }
       const loadMs = performance.now() - loadStart;
       setPerfStats({ loadMs, intersectionMs: built.intersectionMs });
       const intersectionSummary =
@@ -2312,6 +2552,117 @@ export function KernelViewer() {
     controls.update();
   }, []);
 
+  const updateSurfaceProbeForUv = useCallback(
+    (nextU: number, nextV: number, logCommit: boolean): void => {
+      const u = Math.min(1, Math.max(0, nextU));
+      const v = Math.min(1, Math.max(0, nextV));
+      surfaceProbeUvRef.current = { u, v };
+
+      const liveSession = sessionRef.current;
+      const liveSurfaceHandle = surfaceProbeHandleRef.current;
+      if (!liveSession || liveSurfaceHandle === null) {
+        setSurfaceProbeUiState((previous) => ({ ...previous, u, v }));
+        return;
+      }
+
+      try {
+        const uv = { u, v };
+        const point = liveSession.surfacePointAt(liveSurfaceHandle, uv);
+        const frame = liveSession.surfaceFrameAt(liveSurfaceHandle, uv);
+        const du = frame.du;
+        const dv = frame.dv;
+        const normal = frame.normal;
+
+        let hasD2 = false;
+        let duu: RgmVec3 = { x: 0, y: 0, z: 0 };
+        let duv: RgmVec3 = { x: 0, y: 0, z: 0 };
+        let dvv: RgmVec3 = { x: 0, y: 0, z: 0 };
+        const d2At = (
+          liveSession as KernelSession & {
+            surfaceD2At?: (
+              surfaceHandle: bigint,
+              uvNorm: RgmUv2,
+            ) => { duu: RgmVec3; duv: RgmVec3; dvv: RgmVec3 };
+          }
+        ).surfaceD2At;
+        if (typeof d2At === "function") {
+          try {
+            const d2 = d2At.call(liveSession, liveSurfaceHandle, uv);
+            duu = d2.duu;
+            duv = d2.duv;
+            dvv = d2.dvv;
+            hasD2 = true;
+          } catch {
+            hasD2 = false;
+          }
+        }
+
+        const d1Scale = surfaceProbeD1ScaleRef.current;
+        const d2Scale = surfaceProbeD2ScaleRef.current;
+        const arrows: SegmentOverlayVisual[] = [];
+        const pushArrow = (
+          name: string,
+          color: string,
+          vector: RgmVec3,
+          scale: number,
+          opacity: number,
+          width: number,
+        ): void => {
+          const points = buildArrowSegments(point, vector, scale);
+          if (points.length >= 2) {
+            arrows.push({ name, color, opacity, width, points });
+          }
+        };
+
+        pushArrow("D1 du", "#ffb36c", du, d1Scale, 0.98, 2.5);
+        pushArrow("D1 dv", "#74dfff", dv, d1Scale, 0.98, 2.5);
+        if (hasD2) {
+          pushArrow("D2 duu", "#ffd8a0", duu, d2Scale, 0.92, 2.0);
+          pushArrow("D2 duv", "#da9fff", duv, d2Scale, 0.92, 2.0);
+          pushArrow("D2 dvv", "#9eb9ff", dvv, d2Scale, 0.92, 2.0);
+        }
+        setSegmentOverlays(arrows);
+        setIntersectionPoints([]);
+
+        probePointRef.current = point;
+        if (probeRef.current) {
+          probeRef.current.position.set(point.x, point.y, point.z);
+          probeRef.current.visible = true;
+        }
+
+        setSurfaceProbeUiState({
+          u,
+          v,
+          point,
+          du,
+          dv,
+          normal,
+          hasD2,
+          duu,
+          duv,
+          dvv,
+        });
+        setErrorMessage(null);
+
+        if (logCommit) {
+          appendLog(
+            "debug",
+            `Surface probe uv=(${u.toFixed(4)}, ${v.toFixed(4)}) D0=${formatPoint(point)} |du|=${magnitude(du).toFixed(4)} |dv|=${magnitude(dv).toFixed(4)}${
+              hasD2 ? ` |duu|=${magnitude(duu).toFixed(4)} |duv|=${magnitude(duv).toFixed(4)} |dvv|=${magnitude(dvv).toFixed(4)}` : " D2=n/a"
+            }`,
+          );
+        }
+      } catch (error) {
+        setErrorMessage(error instanceof Error ? error.message : String(error));
+      }
+    },
+    [appendLog],
+  );
+
+  useEffect(() => {
+    updateSurfaceProbeForUvRef.current = updateSurfaceProbeForUv;
+  }, [updateSurfaceProbeForUv]);
+
   const updateProbeForT = useCallback(
     (nextValue: number, logCommit: boolean): void => {
       const next = Math.min(1, Math.max(0, nextValue));
@@ -2378,12 +2729,12 @@ export function KernelViewer() {
         if (resultHandle === null) {
           return;
         }
-        const primaryBuffers = session.meshToBuffers(selected.handle);
-        const resultBuffers = session.meshToBuffers(resultHandle);
+        const primaryBuffers = session.mesh.meshToBuffers(selected.handle);
+        const resultBuffers = session.mesh.meshToBuffers(resultHandle);
         const overlays: MeshVisual[] = options
           .filter((target) => target.key !== nextKey)
           .map((target) => {
-            const buffers = session.meshToBuffers(target.handle);
+            const buffers = session.mesh.meshToBuffers(target.handle);
             return {
               vertices: buffers.vertices,
               indices: buffers.indices,
@@ -2422,11 +2773,11 @@ export function KernelViewer() {
         return;
       }
 
-      const primaryBuffers = session.meshToBuffers(selected.handle);
+      const primaryBuffers = session.mesh.meshToBuffers(selected.handle);
       const overlays = options
         .filter((target) => target.key !== nextKey)
         .map((target) => {
-          const buffers = session.meshToBuffers(target.handle);
+          const buffers = session.mesh.meshToBuffers(target.handle);
           return {
             vertices: buffers.vertices,
             indices: buffers.indices,
@@ -2471,9 +2822,9 @@ export function KernelViewer() {
       }
 
       const start = performance.now();
-      const hits = session.intersectMeshPlane(meshHandle, plane);
+      const hits = session.intersection.intersectMeshPlane(meshHandle, plane);
       const intersectionMs = performance.now() - start;
-      const triangleCount = session.meshTriangleCount(meshHandle);
+      const triangleCount = session.mesh.meshTriangleCount(meshHandle);
 
       setSegmentOverlays([
         {
@@ -2594,7 +2945,7 @@ export function KernelViewer() {
           }
           const livePlane = planeFromGroup(planeGroup);
           const start = performance.now();
-          const hits = session.intersectMeshPlane(meshHandle, livePlane);
+          const hits = session.intersection.intersectMeshPlane(meshHandle, livePlane);
           const intersectionMs = performance.now() - start;
           setSegmentOverlays([
             {
@@ -2620,21 +2971,21 @@ export function KernelViewer() {
         }
 
         if (previewMeshHandleRef.current !== null) {
-          session.releaseObject(previewMeshHandleRef.current);
+          session.kernel.releaseObject(previewMeshHandleRef.current);
           previewMeshHandleRef.current = null;
         }
         let previewHandle: bigint;
         if (delta.kind === "translate") {
-          previewHandle = session.meshTranslate(baseMeshHandle, delta.delta);
+          previewHandle = session.mesh.meshTranslate(baseMeshHandle, delta.delta);
         } else if (delta.kind === "rotate") {
-          previewHandle = session.meshRotate(baseMeshHandle, delta.axis, delta.angle, delta.pivot);
+          previewHandle = session.mesh.meshRotate(baseMeshHandle, delta.axis, delta.angle, delta.pivot);
         } else {
-          previewHandle = session.meshScale(baseMeshHandle, delta.scale, delta.pivot);
+          previewHandle = session.mesh.meshScale(baseMeshHandle, delta.scale, delta.pivot);
         }
         previewMeshHandleRef.current = previewHandle;
 
         const start = performance.now();
-        const hits = session.intersectMeshPlane(previewHandle, plane);
+        const hits = session.intersection.intersectMeshPlane(previewHandle, plane);
         const intersectionMs = performance.now() - start;
         setSegmentOverlays([
           {
@@ -2664,7 +3015,7 @@ export function KernelViewer() {
       liveIntersectionTimerRef.current = null;
     }
     if (previewMeshHandleRef.current !== null) {
-      session.releaseObject(previewMeshHandleRef.current);
+      session.kernel.releaseObject(previewMeshHandleRef.current);
       previewMeshHandleRef.current = null;
     }
 
@@ -2699,15 +3050,15 @@ export function KernelViewer() {
         return;
       }
       if (delta.kind === "translate") {
-        nextHandle = session.meshTranslate(meshHandle, delta.delta);
+        nextHandle = session.mesh.meshTranslate(meshHandle, delta.delta);
       } else if (delta.kind === "rotate") {
-        nextHandle = session.meshRotate(meshHandle, delta.axis, delta.angle, delta.pivot);
+        nextHandle = session.mesh.meshRotate(meshHandle, delta.axis, delta.angle, delta.pivot);
       } else {
-        nextHandle = session.meshScale(meshHandle, delta.scale, delta.pivot);
+        nextHandle = session.mesh.meshScale(meshHandle, delta.scale, delta.pivot);
       }
 
-      const triangleCount = session.meshTriangleCount(nextHandle);
-      session.releaseObject(meshHandle);
+      const triangleCount = session.mesh.meshTriangleCount(nextHandle);
+      session.kernel.releaseObject(meshHandle);
       interactiveMeshHandleRef.current = nextHandle;
       ownedCurveHandlesRef.current = ownedCurveHandlesRef.current.map((handle) =>
         handle === meshHandle ? nextHandle : handle,
@@ -2741,11 +3092,11 @@ export function KernelViewer() {
         }
 
         const csgStart = performance.now();
-        const nextResult = session.meshBoolean(baseHandle, toolHandle, 2);
+        const nextResult = session.mesh.meshBoolean(baseHandle, toolHandle, 2);
         const csgMs = performance.now() - csgStart;
-        const resultTriangles = session.meshTriangleCount(nextResult);
+        const resultTriangles = session.mesh.meshTriangleCount(nextResult);
 
-        session.releaseObject(previousResult);
+        session.kernel.releaseObject(previousResult);
         booleanResultMeshHandleRef.current = nextResult;
         ownedCurveHandlesRef.current = ownedCurveHandlesRef.current.map((handle) =>
           handle === previousResult ? nextResult : handle,
@@ -2765,7 +3116,7 @@ export function KernelViewer() {
         return;
       } else if (activeExample === "meshIntersectMeshPlane") {
         meshPlaneMeshHandleRef.current = nextHandle;
-        const buffers = session.meshToBuffers(nextHandle);
+        const buffers = session.mesh.meshToBuffers(nextHandle);
         setMeshVisual((previous) =>
           previous
             ? {
@@ -3480,6 +3831,7 @@ export function KernelViewer() {
         overlay.points,
         overlay.color,
         overlay.opacity,
+        overlay.width ?? 3.2,
         viewportRef.current,
       );
       if (!lineSegments) {
@@ -3628,6 +3980,7 @@ export function KernelViewer() {
 
   const canExportIges = useMemo(() => capabilities.igesExport, [capabilities.igesExport]);
   const canImportIges = useMemo(() => capabilities.igesImport, [capabilities.igesImport]);
+  const showSurfaceProbeControls = useMemo(() => activeExample === "surfaceUvEval", [activeExample]);
   const showProbeControls = useMemo(() => shouldShowProbeForExample(activeExample), [activeExample]);
   const showGizmoControls = useMemo(
     () =>
@@ -4081,7 +4434,87 @@ export function KernelViewer() {
             </section>
           ) : null}
 
-          {showProbeControls ? (
+          {showSurfaceProbeControls ? (
+            <section className="inspector-section" aria-label="Surface probe controls">
+              <h2>Surface Probe</h2>
+              <label className="inspector-field">
+                <span>u</span>
+                <input
+                  type="range"
+                  min={0}
+                  max={1}
+                  step={0.001}
+                  value={surfaceProbeUiState.u}
+                  onChange={(event) => {
+                    updateSurfaceProbeForUv(Number(event.currentTarget.value), surfaceProbeUiState.v, false);
+                  }}
+                  onPointerUp={(event) => {
+                    updateSurfaceProbeForUv(Number(event.currentTarget.value), surfaceProbeUiState.v, true);
+                  }}
+                  onTouchEnd={(event) => {
+                    updateSurfaceProbeForUv(Number(event.currentTarget.value), surfaceProbeUiState.v, true);
+                  }}
+                />
+              </label>
+              <label className="inspector-field">
+                <span>v</span>
+                <input
+                  type="range"
+                  min={0}
+                  max={1}
+                  step={0.001}
+                  value={surfaceProbeUiState.v}
+                  onChange={(event) => {
+                    updateSurfaceProbeForUv(surfaceProbeUiState.u, Number(event.currentTarget.value), false);
+                  }}
+                  onPointerUp={(event) => {
+                    updateSurfaceProbeForUv(surfaceProbeUiState.u, Number(event.currentTarget.value), true);
+                  }}
+                  onTouchEnd={(event) => {
+                    updateSurfaceProbeForUv(surfaceProbeUiState.u, Number(event.currentTarget.value), true);
+                  }}
+                />
+              </label>
+              <div className="inspector-readout">
+                <span>uv</span>
+                <output>{`(${surfaceProbeUiState.u.toFixed(4)}, ${surfaceProbeUiState.v.toFixed(4)})`}</output>
+              </div>
+              <div className="inspector-readout">
+                <span>D0 point</span>
+                <output>{formatPoint(surfaceProbeUiState.point)}</output>
+              </div>
+              <div className="inspector-readout">
+                <span>D1 du</span>
+                <output>{`${formatVec(surfaceProbeUiState.du)} |du|=${magnitude(surfaceProbeUiState.du).toFixed(4)}`}</output>
+              </div>
+              <div className="inspector-readout">
+                <span>D1 dv</span>
+                <output>{`${formatVec(surfaceProbeUiState.dv)} |dv|=${magnitude(surfaceProbeUiState.dv).toFixed(4)}`}</output>
+              </div>
+              <div className="inspector-readout">
+                <span>normal</span>
+                <output>{formatVec(surfaceProbeUiState.normal)}</output>
+              </div>
+              {surfaceProbeUiState.hasD2 ? (
+                <>
+                  <div className="inspector-readout">
+                    <span>D2 duu</span>
+                    <output>{`${formatVec(surfaceProbeUiState.duu)} |duu|=${magnitude(surfaceProbeUiState.duu).toFixed(4)}`}</output>
+                  </div>
+                  <div className="inspector-readout">
+                    <span>D2 duv</span>
+                    <output>{`${formatVec(surfaceProbeUiState.duv)} |duv|=${magnitude(surfaceProbeUiState.duv).toFixed(4)}`}</output>
+                  </div>
+                  <div className="inspector-readout">
+                    <span>D2 dvv</span>
+                    <output>{`${formatVec(surfaceProbeUiState.dvv)} |dvv|=${magnitude(surfaceProbeUiState.dvv).toFixed(4)}`}</output>
+                  </div>
+                </>
+              ) : (
+                <p className="inspector-note">D2 is unavailable in the currently loaded runtime build.</p>
+              )}
+            </section>
+          ) : showProbeControls ? (
             <section className="inspector-section" aria-label="Probe controls">
               <h2>Probe</h2>
               <label className="inspector-field">
