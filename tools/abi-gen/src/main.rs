@@ -885,7 +885,6 @@ fn extract_out_param(params: &[AbiParam]) -> Result<&AbiParam> {
         .ok_or_else(|| anyhow!("expected out parameter in generated public method"))
 }
 
-
 fn check_outputs(outputs: &[OutputFile]) -> Result<()> {
     let mut mismatches = Vec::new();
 
@@ -998,10 +997,7 @@ fn find_by_c_name<'a>(manifest: &'a AbiManifest, c_name: &str) -> Result<&'a Abi
 #[derive(Debug, Clone)]
 enum KernelInputParam {
     Scalar(AbiParam),
-    Array {
-        ptr: AbiParam,
-        inner: String,
-    },
+    Array { ptr: AbiParam, inner: String },
 }
 
 fn kernel_public_input_params(params: &[AbiParam]) -> Vec<KernelInputParam> {

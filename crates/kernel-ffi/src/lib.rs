@@ -1,6 +1,9 @@
 mod math;
 
-use boolmesh::{compute_boolean, prelude::{Manifold, OpType as BoolOpType}};
+use boolmesh::{
+    compute_boolean,
+    prelude::{Manifold, OpType as BoolOpType},
+};
 use kernel_abi_meta::{rgm_export, rgm_ffi_type};
 use math::arc_length::{build_arc_length_cache, length_from_u, u_from_length, ArcLengthCache};
 use math::frame::{
@@ -200,6 +203,7 @@ enum GeometryObject {
 #[derive(Default)]
 struct SessionState {
     objects: HashMap<u64, GeometryObject>,
+    mesh_accels: HashMap<u64, MeshAccelCache>,
     last_error_code: RgmStatus,
     last_error_message: String,
 }
@@ -448,10 +452,8 @@ fn matrix_mul(a: [[f64; 4]; 4], b: [[f64; 4]; 4]) -> [[f64; 4]; 4] {
     let mut result = [[0.0; 4]; 4];
     for r in 0..4 {
         for c in 0..4 {
-            result[r][c] = a[r][0] * b[0][c]
-                + a[r][1] * b[1][c]
-                + a[r][2] * b[2][c]
-                + a[r][3] * b[3][c];
+            result[r][c] =
+                a[r][0] * b[0][c] + a[r][1] * b[1][c] + a[r][2] * b[2][c] + a[r][3] * b[3][c];
         }
     }
     result
@@ -1417,7 +1419,10 @@ fn find_curve<'a>(
     }
 }
 
-fn find_mesh<'a>(state: &'a SessionState, object: RgmObjectHandle) -> Result<&'a MeshData, RgmStatus> {
+fn find_mesh<'a>(
+    state: &'a SessionState,
+    object: RgmObjectHandle,
+) -> Result<&'a MeshData, RgmStatus> {
     match state.objects.get(&object.0) {
         Some(GeometryObject::Mesh(mesh)) => Ok(mesh),
         Some(_) => Err(RgmStatus::InvalidInput),
@@ -1641,6 +1646,25 @@ fn mesh_world_vertices(mesh: &MeshData) -> Vec<RgmPoint3> {
         .collect()
 }
 
+fn ensure_mesh_accel(state: &mut SessionState, handle: RgmObjectHandle) -> Result<(), RgmStatus> {
+    if state.mesh_accels.contains_key(&handle.0) {
+        return Ok(());
+    }
+
+    let mesh = find_mesh(state, handle)?.clone();
+    let world_vertices = mesh_world_vertices(&mesh);
+    let triangles = mesh
+        .triangles
+        .iter()
+        .map(|tri| TriangleRecord::from_mesh(&world_vertices, *tri))
+        .collect::<Vec<_>>();
+    let bvh = MeshBvh::build(&triangles);
+    state
+        .mesh_accels
+        .insert(handle.0, MeshAccelCache { triangles, bvh });
+    Ok(())
+}
+
 fn build_mesh_from_indexed(
     vertices: &[RgmPoint3],
     flat_indices: &[u32],
@@ -1722,8 +1746,8 @@ fn build_box_mesh(center: RgmPoint3, size: RgmVec3) -> Result<MeshData, RgmStatu
         },
     ];
     let flat_indices: [u32; 36] = [
-        0, 2, 1, 0, 3, 2, 4, 5, 6, 4, 6, 7, 0, 1, 5, 0, 5, 4, 1, 2, 6, 1, 6, 5, 2, 3, 7, 2, 7,
-        6, 3, 0, 4, 3, 4, 7,
+        0, 2, 1, 0, 3, 2, 4, 5, 6, 4, 6, 7, 0, 1, 5, 0, 5, 4, 1, 2, 6, 1, 6, 5, 2, 3, 7, 2, 7, 6,
+        3, 0, 4, 3, 4, 7,
     ];
     build_mesh_from_indexed(&vertices, &flat_indices)
 }
@@ -1812,7 +1836,9 @@ fn build_torus_mesh(
         }
     }
 
-    let idx = |i: usize, j: usize| -> u32 { ((i % major_steps) * minor_steps + (j % minor_steps)) as u32 };
+    let idx = |i: usize, j: usize| -> u32 {
+        ((i % major_steps) * minor_steps + (j % minor_steps)) as u32
+    };
     let mut indices = Vec::with_capacity(major_steps * minor_steps * 6);
     for i in 0..major_steps {
         for j in 0..minor_steps {
@@ -1874,7 +1900,10 @@ fn plane_unit_normal(plane: RgmPlane) -> Option<RgmVec3> {
 }
 
 fn push_unique_point(points: &mut Vec<RgmPoint3>, candidate: RgmPoint3, tol: f64) {
-    if points.iter().any(|point| distance(*point, candidate) <= tol) {
+    if points
+        .iter()
+        .any(|point| distance(*point, candidate) <= tol)
+    {
         return;
     }
     points.push(candidate);
@@ -1970,118 +1999,215 @@ impl TriangleRecord {
     }
 }
 
-struct TriangleGrid {
-    min: RgmPoint3,
-    inv_cell: RgmVec3,
-    dims: [i32; 3],
-    cells: HashMap<(i32, i32, i32), Vec<usize>>,
+struct MeshAccelCache {
+    triangles: Vec<TriangleRecord>,
+    bvh: Option<MeshBvh>,
 }
 
-impl TriangleGrid {
+#[derive(Clone, Copy)]
+struct BvhNode {
+    min: RgmPoint3,
+    max: RgmPoint3,
+    left: Option<usize>,
+    right: Option<usize>,
+    start: usize,
+    count: usize,
+}
+
+impl BvhNode {
+    fn leaf(min: RgmPoint3, max: RgmPoint3, start: usize, count: usize) -> Self {
+        Self {
+            min,
+            max,
+            left: None,
+            right: None,
+            start,
+            count,
+        }
+    }
+
+    fn branch(min: RgmPoint3, max: RgmPoint3, left: usize, right: usize) -> Self {
+        Self {
+            min,
+            max,
+            left: Some(left),
+            right: Some(right),
+            start: 0,
+            count: 0,
+        }
+    }
+
+    fn is_leaf(&self) -> bool {
+        self.left.is_none() && self.right.is_none()
+    }
+}
+
+struct MeshBvh {
+    root: usize,
+    nodes: Vec<BvhNode>,
+    tri_indices: Vec<usize>,
+}
+
+impl MeshBvh {
     fn build(records: &[TriangleRecord]) -> Option<Self> {
         if records.is_empty() {
             return None;
         }
 
-        let mut grid_min = records[0].min;
-        let mut grid_max = records[0].max;
-        for record in records.iter().skip(1) {
-            grid_min.x = grid_min.x.min(record.min.x);
-            grid_min.y = grid_min.y.min(record.min.y);
-            grid_min.z = grid_min.z.min(record.min.z);
-            grid_max.x = grid_max.x.max(record.max.x);
-            grid_max.y = grid_max.y.max(record.max.y);
-            grid_max.z = grid_max.z.max(record.max.z);
-        }
-
-        let extent = [
-            (grid_max.x - grid_min.x).max(1e-9),
-            (grid_max.y - grid_min.y).max(1e-9),
-            (grid_max.z - grid_min.z).max(1e-9),
-        ];
-        let max_extent = extent[0].max(extent[1]).max(extent[2]).max(1e-9);
-        let base_res = ((records.len() as f64).cbrt().round() as i32).clamp(6, 48);
-        let dims = [
-            ((extent[0] / max_extent * base_res as f64).round() as i32).clamp(1, base_res * 2),
-            ((extent[1] / max_extent * base_res as f64).round() as i32).clamp(1, base_res * 2),
-            ((extent[2] / max_extent * base_res as f64).round() as i32).clamp(1, base_res * 2),
-        ];
-        let inv_cell = RgmVec3 {
-            x: dims[0] as f64 / extent[0],
-            y: dims[1] as f64 / extent[1],
-            z: dims[2] as f64 / extent[2],
-        };
-
-        let mut cells: HashMap<(i32, i32, i32), Vec<usize>> = HashMap::new();
-        for (tri_idx, record) in records.iter().enumerate() {
-            let min_idx = Self::coord(record.min, grid_min, inv_cell, dims);
-            let max_idx = Self::coord(record.max, grid_min, inv_cell, dims);
-            for ix in min_idx[0]..=max_idx[0] {
-                for iy in min_idx[1]..=max_idx[1] {
-                    for iz in min_idx[2]..=max_idx[2] {
-                        cells.entry((ix, iy, iz)).or_default().push(tri_idx);
-                    }
-                }
-            }
-        }
-
+        let mut tri_indices = (0..records.len()).collect::<Vec<_>>();
+        let tri_count = tri_indices.len();
+        let mut nodes = Vec::new();
+        let root = Self::build_node(records, &mut tri_indices, &mut nodes, 0, tri_count);
         Some(Self {
-            min: grid_min,
-            inv_cell,
-            dims,
-            cells,
+            root,
+            nodes,
+            tri_indices,
         })
     }
 
-    fn coord(point: RgmPoint3, min: RgmPoint3, inv_cell: RgmVec3, dims: [i32; 3]) -> [i32; 3] {
-        let x = ((point.x - min.x) * inv_cell.x).floor() as i32;
-        let y = ((point.y - min.y) * inv_cell.y).floor() as i32;
-        let z = ((point.z - min.z) * inv_cell.z).floor() as i32;
-        [
-            x.clamp(0, dims[0] - 1),
-            y.clamp(0, dims[1] - 1),
-            z.clamp(0, dims[2] - 1),
-        ]
+    fn build_node(
+        records: &[TriangleRecord],
+        tri_indices: &mut Vec<usize>,
+        nodes: &mut Vec<BvhNode>,
+        start: usize,
+        end: usize,
+    ) -> usize {
+        let node_idx = nodes.len();
+        nodes.push(BvhNode::leaf(
+            RgmPoint3 {
+                x: 0.0,
+                y: 0.0,
+                z: 0.0,
+            },
+            RgmPoint3 {
+                x: 0.0,
+                y: 0.0,
+                z: 0.0,
+            },
+            start,
+            end.saturating_sub(start),
+        ));
+
+        let (min, max) = Self::range_bounds(records, &tri_indices[start..end]);
+        let count = end.saturating_sub(start);
+        const LEAF_TRIANGLES: usize = 8;
+        if count <= LEAF_TRIANGLES {
+            nodes[node_idx] = BvhNode::leaf(min, max, start, count);
+            return node_idx;
+        }
+
+        let axis = Self::split_axis(records, &tri_indices[start..end]);
+        tri_indices[start..end].sort_by(|a, b| {
+            let ca = Self::triangle_centroid_axis(records[*a], axis);
+            let cb = Self::triangle_centroid_axis(records[*b], axis);
+            ca.partial_cmp(&cb).unwrap_or(std::cmp::Ordering::Equal)
+        });
+
+        let mid = start + count / 2;
+        if mid == start || mid == end {
+            nodes[node_idx] = BvhNode::leaf(min, max, start, count);
+            return node_idx;
+        }
+
+        let left = Self::build_node(records, tri_indices, nodes, start, mid);
+        let right = Self::build_node(records, tri_indices, nodes, mid, end);
+        nodes[node_idx] = BvhNode::branch(min, max, left, right);
+        node_idx
     }
 
-    fn collect_candidates(
-        &self,
-        min: RgmPoint3,
-        max: RgmPoint3,
-        marks: &mut [u32],
-        stamp: &mut u32,
-        out: &mut Vec<usize>,
-    ) {
-        out.clear();
-        if *stamp == u32::MAX {
-            marks.fill(0);
-            *stamp = 1;
+    fn range_bounds(records: &[TriangleRecord], indices: &[usize]) -> (RgmPoint3, RgmPoint3) {
+        let mut min = records[indices[0]].min;
+        let mut max = records[indices[0]].max;
+        for &idx in indices.iter().skip(1) {
+            let tri = records[idx];
+            min.x = min.x.min(tri.min.x);
+            min.y = min.y.min(tri.min.y);
+            min.z = min.z.min(tri.min.z);
+            max.x = max.x.max(tri.max.x);
+            max.y = max.y.max(tri.max.y);
+            max.z = max.z.max(tri.max.z);
         }
-        *stamp += 1;
-        let marker = *stamp;
+        (min, max)
+    }
 
-        let min_idx = Self::coord(min, self.min, self.inv_cell, self.dims);
-        let max_idx = Self::coord(max, self.min, self.inv_cell, self.dims);
-        for ix in min_idx[0]..=max_idx[0] {
-            for iy in min_idx[1]..=max_idx[1] {
-                for iz in min_idx[2]..=max_idx[2] {
-                    let Some(triangles) = self.cells.get(&(ix, iy, iz)) else {
-                        continue;
-                    };
-                    for &tri_idx in triangles {
-                        if marks[tri_idx] == marker {
-                            continue;
-                        }
-                        marks[tri_idx] = marker;
-                        out.push(tri_idx);
-                    }
-                }
-            }
+    fn split_axis(records: &[TriangleRecord], indices: &[usize]) -> usize {
+        let mut cmin = Self::triangle_centroid(records[indices[0]]);
+        let mut cmax = cmin;
+        for &idx in indices.iter().skip(1) {
+            let c = Self::triangle_centroid(records[idx]);
+            cmin.x = cmin.x.min(c.x);
+            cmin.y = cmin.y.min(c.y);
+            cmin.z = cmin.z.min(c.z);
+            cmax.x = cmax.x.max(c.x);
+            cmax.y = cmax.y.max(c.y);
+            cmax.z = cmax.z.max(c.z);
+        }
+        let ex = cmax.x - cmin.x;
+        let ey = cmax.y - cmin.y;
+        let ez = cmax.z - cmin.z;
+        if ex >= ey && ex >= ez {
+            0
+        } else if ey >= ez {
+            1
+        } else {
+            2
+        }
+    }
+
+    fn triangle_centroid(record: TriangleRecord) -> RgmPoint3 {
+        RgmPoint3 {
+            x: (record.min.x + record.max.x) * 0.5,
+            y: (record.min.y + record.max.y) * 0.5,
+            z: (record.min.z + record.max.z) * 0.5,
+        }
+    }
+
+    fn triangle_centroid_axis(record: TriangleRecord, axis: usize) -> f64 {
+        match axis {
+            0 => (record.min.x + record.max.x) * 0.5,
+            1 => (record.min.y + record.max.y) * 0.5,
+            _ => (record.min.z + record.max.z) * 0.5,
         }
     }
 }
 
-fn aabb_overlap(a_min: RgmPoint3, a_max: RgmPoint3, b_min: RgmPoint3, b_max: RgmPoint3, tol: f64) -> bool {
+fn aabb_node_plane_overlap(
+    min: RgmPoint3,
+    max: RgmPoint3,
+    plane_origin: RgmPoint3,
+    plane_normal: RgmVec3,
+    tol: f64,
+) -> bool {
+    let center = RgmPoint3 {
+        x: (min.x + max.x) * 0.5,
+        y: (min.y + max.y) * 0.5,
+        z: (min.z + max.z) * 0.5,
+    };
+    let half = RgmVec3 {
+        x: (max.x - min.x) * 0.5,
+        y: (max.y - min.y) * 0.5,
+        z: (max.z - min.z) * 0.5,
+    };
+    let dist = vec_dot(point_sub(center, plane_origin), plane_normal);
+    let radius = half.x * plane_normal.x.abs()
+        + half.y * plane_normal.y.abs()
+        + half.z * plane_normal.z.abs();
+    dist.abs() <= radius + tol
+}
+
+fn node_span(node: BvhNode) -> f64 {
+    (node.max.x - node.min.x).abs()
+        + (node.max.y - node.min.y).abs()
+        + (node.max.z - node.min.z).abs()
+}
+
+fn aabb_overlap(
+    a_min: RgmPoint3,
+    a_max: RgmPoint3,
+    b_min: RgmPoint3,
+    b_max: RgmPoint3,
+    tol: f64,
+) -> bool {
     !(a_max.x < b_min.x - tol
         || b_max.x < a_min.x - tol
         || a_max.y < b_min.y - tol
@@ -2424,8 +2550,10 @@ fn rgm_mesh_boolean_impl(
                 b_indices.push(tri[2] as usize);
             }
 
-            let manifold_a = Manifold::new(&a_pos, &a_indices).map_err(|_| RgmStatus::DegenerateGeometry)?;
-            let manifold_b = Manifold::new(&b_pos, &b_indices).map_err(|_| RgmStatus::DegenerateGeometry)?;
+            let manifold_a =
+                Manifold::new(&a_pos, &a_indices).map_err(|_| RgmStatus::DegenerateGeometry)?;
+            let manifold_b =
+                Manifold::new(&b_pos, &b_indices).map_err(|_| RgmStatus::DegenerateGeometry)?;
             let op = match op {
                 0 => BoolOpType::Add,
                 1 => BoolOpType::Intersect,
@@ -2755,6 +2883,7 @@ pub extern "C" fn rgm_object_release(
 ) -> RgmStatus {
     let result = with_session_mut(session, |state| {
         if state.objects.remove(&object.0).is_some() {
+            state.mesh_accels.remove(&object.0);
             Ok(())
         } else {
             Err(RgmStatus::NotFound)
@@ -2832,10 +2961,7 @@ pub extern "C" fn rgm_last_error_message(
     RgmStatus::Ok
 }
 
-#[rgm_export(
-    ts = "interpolateNurbsFitPoints",
-    receiver = "kernel"
-)]
+#[rgm_export(ts = "interpolateNurbsFitPoints", receiver = "kernel")]
 #[no_mangle]
 #[cfg(not(target_arch = "wasm32"))]
 pub extern "C" fn rgm_nurbs_interpolate_fit_points(
@@ -3054,10 +3180,7 @@ pub extern "C" fn rgm_curve_create_arc_ptr_tol(
     rgm_curve_create_arc_impl(session, arc, tol, out_object)
 }
 
-#[rgm_export(
-    ts = "createArcByAngles",
-    receiver = "kernel"
-)]
+#[rgm_export(ts = "createArcByAngles", receiver = "kernel")]
 #[no_mangle]
 #[cfg(not(target_arch = "wasm32"))]
 pub extern "C" fn rgm_curve_create_arc_by_angles(
@@ -3134,10 +3257,7 @@ pub extern "C" fn rgm_curve_create_arc_by_angles_ptr_tol(
     )
 }
 
-#[rgm_export(
-    ts = "createArcBy3Points",
-    receiver = "kernel"
-)]
+#[rgm_export(ts = "createArcBy3Points", receiver = "kernel")]
 #[no_mangle]
 #[cfg(not(target_arch = "wasm32"))]
 pub extern "C" fn rgm_curve_create_arc_by_3_points(
@@ -3239,10 +3359,7 @@ pub extern "C" fn rgm_curve_create_polyline_ptr_tol(
     rgm_curve_create_polyline_impl(session, points, point_count, closed, tol, out_object)
 }
 
-#[rgm_export(
-    ts = "createPolycurve",
-    receiver = "kernel"
-)]
+#[rgm_export(ts = "createPolycurve", receiver = "kernel")]
 #[no_mangle]
 #[cfg(not(target_arch = "wasm32"))]
 pub extern "C" fn rgm_curve_create_polycurve(
@@ -3510,7 +3627,13 @@ pub extern "C" fn rgm_mesh_translate(
     out_mesh: *mut RgmObjectHandle,
 ) -> RgmStatus {
     let transform = matrix_translation(delta);
-    rgm_mesh_transform_impl(session, mesh, transform, out_mesh, "Mesh translation failed")
+    rgm_mesh_transform_impl(
+        session,
+        mesh,
+        transform,
+        out_mesh,
+        "Mesh translation failed",
+    )
 }
 
 #[cfg(target_arch = "wasm32")]
@@ -3530,7 +3653,13 @@ pub extern "C" fn rgm_mesh_translate(
     }
     // SAFETY: pointer validated above.
     let transform = matrix_translation(unsafe { *delta });
-    rgm_mesh_transform_impl(session, mesh, transform, out_mesh, "Mesh translation failed")
+    rgm_mesh_transform_impl(
+        session,
+        mesh,
+        transform,
+        out_mesh,
+        "Mesh translation failed",
+    )
 }
 
 #[rgm_export]
@@ -3550,7 +3679,13 @@ pub extern "C" fn rgm_mesh_translate_ptr(
     }
     // SAFETY: pointer validated above.
     let transform = matrix_translation(unsafe { *delta });
-    rgm_mesh_transform_impl(session, mesh, transform, out_mesh, "Mesh translation failed")
+    rgm_mesh_transform_impl(
+        session,
+        mesh,
+        transform,
+        out_mesh,
+        "Mesh translation failed",
+    )
 }
 
 #[rgm_export]
@@ -3644,7 +3779,8 @@ pub extern "C" fn rgm_mesh_scale(
     }
     // SAFETY: pointers validated above.
     let scale_value = unsafe { *scale };
-    if scale_value.x.abs() <= 1e-12 || scale_value.y.abs() <= 1e-12 || scale_value.z.abs() <= 1e-12 {
+    if scale_value.x.abs() <= 1e-12 || scale_value.y.abs() <= 1e-12 || scale_value.z.abs() <= 1e-12
+    {
         return map_err_with_session(session, RgmStatus::DegenerateGeometry, "Zero mesh scale");
     }
     let transform = matrix_about_pivot(matrix_scale(scale_value), unsafe { *pivot });
@@ -3665,7 +3801,8 @@ pub extern "C" fn rgm_mesh_scale_ptr(
     }
     // SAFETY: pointers validated above.
     let scale_value = unsafe { *scale };
-    if scale_value.x.abs() <= 1e-12 || scale_value.y.abs() <= 1e-12 || scale_value.z.abs() <= 1e-12 {
+    if scale_value.x.abs() <= 1e-12 || scale_value.y.abs() <= 1e-12 || scale_value.z.abs() <= 1e-12
+    {
         return map_err_with_session(session, RgmStatus::DegenerateGeometry, "Zero mesh scale");
     }
     let transform = matrix_about_pivot(matrix_scale(scale_value), unsafe { *pivot });
@@ -3691,7 +3828,10 @@ pub extern "C" fn rgm_mesh_vertex_count(
 ) -> RgmStatus {
     let result = with_session_mut(session, |state| {
         let mesh = find_mesh(state, mesh)?;
-        write_u32(out_count, mesh.vertices.len().try_into().unwrap_or(u32::MAX))
+        write_u32(
+            out_count,
+            mesh.vertices.len().try_into().unwrap_or(u32::MAX),
+        )
     });
     match result {
         Ok(()) => {
@@ -3711,7 +3851,10 @@ pub extern "C" fn rgm_mesh_triangle_count(
 ) -> RgmStatus {
     let result = with_session_mut(session, |state| {
         let mesh = find_mesh(state, mesh)?;
-        write_u32(out_count, mesh.triangles.len().try_into().unwrap_or(u32::MAX))
+        write_u32(
+            out_count,
+            mesh.triangles.len().try_into().unwrap_or(u32::MAX),
+        )
     });
     match result {
         Ok(()) => {
@@ -3789,19 +3932,57 @@ pub extern "C" fn rgm_intersect_mesh_plane(
     };
 
     let result = with_session_mut(session, |state| {
-        let mesh = find_mesh(state, mesh)?;
-        let vertices = mesh_world_vertices(mesh);
+        ensure_mesh_accel(state, mesh)?;
+        let accel = state
+            .mesh_accels
+            .get(&mesh.0)
+            .ok_or(RgmStatus::InternalError)?;
         let mut segments = Vec::new();
         let tol = 1e-7;
-        for tri in &mesh.triangles {
-            let a = vertices[tri[0] as usize];
-            let b = vertices[tri[1] as usize];
-            let c = vertices[tri[2] as usize];
-            if let Some((p0, p1)) =
-                intersect_triangle_plane_segment(a, b, c, plane.origin, normal, tol)
-            {
-                segments.push(p0);
-                segments.push(p1);
+        if let Some(bvh) = &accel.bvh {
+            let mut stack = vec![bvh.root];
+            while let Some(node_idx) = stack.pop() {
+                let node = bvh.nodes[node_idx];
+                if !aabb_node_plane_overlap(node.min, node.max, plane.origin, normal, tol) {
+                    continue;
+                }
+                if node.is_leaf() {
+                    for &tri_idx in &bvh.tri_indices[node.start..(node.start + node.count)] {
+                        let tri = accel.triangles[tri_idx];
+                        if let Some((p0, p1)) = intersect_triangle_plane_segment(
+                            tri.points[0],
+                            tri.points[1],
+                            tri.points[2],
+                            plane.origin,
+                            normal,
+                            tol,
+                        ) {
+                            segments.push(p0);
+                            segments.push(p1);
+                        }
+                    }
+                } else {
+                    if let Some(left) = node.left {
+                        stack.push(left);
+                    }
+                    if let Some(right) = node.right {
+                        stack.push(right);
+                    }
+                }
+            }
+        } else {
+            for tri in &accel.triangles {
+                if let Some((p0, p1)) = intersect_triangle_plane_segment(
+                    tri.points[0],
+                    tri.points[1],
+                    tri.points[2],
+                    plane.origin,
+                    normal,
+                    tol,
+                ) {
+                    segments.push(p0);
+                    segments.push(p1);
+                }
             }
         }
         write_intersection_points(out_points, point_capacity, &segments, out_count)
@@ -3830,48 +4011,111 @@ pub extern "C" fn rgm_intersect_mesh_mesh(
         return map_err_with_session(session, RgmStatus::InvalidInput, "Null out_count pointer");
     }
     let result = with_session_mut(session, |state| {
-        let mesh_a = find_mesh(state, mesh_a)?;
-        let mesh_b = find_mesh(state, mesh_b)?;
-        let vertices_a = mesh_world_vertices(mesh_a);
-        let vertices_b = mesh_world_vertices(mesh_b);
+        ensure_mesh_accel(state, mesh_a)?;
+        ensure_mesh_accel(state, mesh_b)?;
+        let accel_a = state
+            .mesh_accels
+            .get(&mesh_a.0)
+            .ok_or(RgmStatus::InternalError)?;
+        let accel_b = state
+            .mesh_accels
+            .get(&mesh_b.0)
+            .ok_or(RgmStatus::InternalError)?;
         let tol = 1e-7;
         let mut segments = Vec::new();
-        let triangles_a = mesh_a
-            .triangles
-            .iter()
-            .map(|tri| TriangleRecord::from_mesh(&vertices_a, *tri))
-            .collect::<Vec<_>>();
-        let triangles_b = mesh_b
-            .triangles
-            .iter()
-            .map(|tri| TriangleRecord::from_mesh(&vertices_b, *tri))
-            .collect::<Vec<_>>();
 
-        let Some(grid) = TriangleGrid::build(&triangles_b) else {
-            return write_intersection_points(out_points, point_capacity, &segments, out_count);
-        };
-        let mut marks = vec![0_u32; triangles_b.len()];
-        let mut stamp = 0_u32;
-        let mut candidates = Vec::<usize>::new();
-
-        for tri_a in &triangles_a {
-            grid.collect_candidates(tri_a.min, tri_a.max, &mut marks, &mut stamp, &mut candidates);
-            for &candidate in &candidates {
-                let tri_b = triangles_b[candidate];
-                if !aabb_overlap(tri_a.min, tri_a.max, tri_b.min, tri_b.max, tol) {
+        if let (Some(bvh_a), Some(bvh_b)) = (&accel_a.bvh, &accel_b.bvh) {
+            let mut stack = vec![(bvh_a.root, bvh_b.root)];
+            while let Some((node_a_idx, node_b_idx)) = stack.pop() {
+                let node_a = bvh_a.nodes[node_a_idx];
+                let node_b = bvh_b.nodes[node_b_idx];
+                if !aabb_overlap(node_a.min, node_a.max, node_b.min, node_b.max, tol) {
                     continue;
                 }
-                if let Some((p0, p1)) = tri_tri_intersection_segment(
-                    tri_a.points[0],
-                    tri_a.points[1],
-                    tri_a.points[2],
-                    tri_b.points[0],
-                    tri_b.points[1],
-                    tri_b.points[2],
-                    tol,
-                ) {
-                    segments.push(p0);
-                    segments.push(p1);
+
+                if node_a.is_leaf() && node_b.is_leaf() {
+                    for &tri_a_idx in
+                        &bvh_a.tri_indices[node_a.start..(node_a.start + node_a.count)]
+                    {
+                        let tri_a = accel_a.triangles[tri_a_idx];
+                        for &tri_b_idx in
+                            &bvh_b.tri_indices[node_b.start..(node_b.start + node_b.count)]
+                        {
+                            let tri_b = accel_b.triangles[tri_b_idx];
+                            if !aabb_overlap(tri_a.min, tri_a.max, tri_b.min, tri_b.max, tol) {
+                                continue;
+                            }
+                            if let Some((p0, p1)) = tri_tri_intersection_segment(
+                                tri_a.points[0],
+                                tri_a.points[1],
+                                tri_a.points[2],
+                                tri_b.points[0],
+                                tri_b.points[1],
+                                tri_b.points[2],
+                                tol,
+                            ) {
+                                segments.push(p0);
+                                segments.push(p1);
+                            }
+                        }
+                    }
+                    continue;
+                }
+
+                if node_a.is_leaf() {
+                    if let Some(left) = node_b.left {
+                        stack.push((node_a_idx, left));
+                    }
+                    if let Some(right) = node_b.right {
+                        stack.push((node_a_idx, right));
+                    }
+                    continue;
+                }
+
+                if node_b.is_leaf() {
+                    if let Some(left) = node_a.left {
+                        stack.push((left, node_b_idx));
+                    }
+                    if let Some(right) = node_a.right {
+                        stack.push((right, node_b_idx));
+                    }
+                    continue;
+                }
+
+                if node_span(node_a) >= node_span(node_b) {
+                    if let Some(left) = node_a.left {
+                        stack.push((left, node_b_idx));
+                    }
+                    if let Some(right) = node_a.right {
+                        stack.push((right, node_b_idx));
+                    }
+                } else {
+                    if let Some(left) = node_b.left {
+                        stack.push((node_a_idx, left));
+                    }
+                    if let Some(right) = node_b.right {
+                        stack.push((node_a_idx, right));
+                    }
+                }
+            }
+        } else {
+            for tri_a in &accel_a.triangles {
+                for tri_b in &accel_b.triangles {
+                    if !aabb_overlap(tri_a.min, tri_a.max, tri_b.min, tri_b.max, tol) {
+                        continue;
+                    }
+                    if let Some((p0, p1)) = tri_tri_intersection_segment(
+                        tri_a.points[0],
+                        tri_a.points[1],
+                        tri_a.points[2],
+                        tri_b.points[0],
+                        tri_b.points[1],
+                        tri_b.points[2],
+                        tol,
+                    ) {
+                        segments.push(p0);
+                        segments.push(p1);
+                    }
                 }
             }
         }
@@ -4394,10 +4638,7 @@ pub extern "C" fn rgm_curve_plane_at_length(
     }
 }
 
-#[rgm_export(
-    ts = "convertPointCoordinateSystem",
-    receiver = "kernel"
-)]
+#[rgm_export(ts = "convertPointCoordinateSystem", receiver = "kernel")]
 #[no_mangle]
 pub extern "C" fn rgm_point_convert_coordinate_system(
     session: RgmKernelHandle,
@@ -5970,14 +6211,16 @@ mod tests {
             RgmStatus::Ok
         );
         assert_eq!(count, 1);
-        assert!(distance(
-            points[0],
-            RgmPoint3 {
-                x: 0.0,
-                y: 0.0,
-                z: 0.0
-            }
-        ) < 1e-8);
+        assert!(
+            distance(
+                points[0],
+                RgmPoint3 {
+                    x: 0.0,
+                    y: 0.0,
+                    z: 0.0
+                }
+            ) < 1e-8
+        );
 
         let mut line_parallel = RgmObjectHandle(0);
         assert_eq!(
@@ -6212,14 +6455,16 @@ mod tests {
             RgmStatus::Ok
         );
         assert_eq!(count, 1);
-        assert!(distance(
-            points[0],
-            RgmPoint3 {
-                x: 0.0,
-                y: 0.0,
-                z: 0.0
-            }
-        ) < 1e-8);
+        assert!(
+            distance(
+                points[0],
+                RgmPoint3 {
+                    x: 0.0,
+                    y: 0.0,
+                    z: 0.0
+                }
+            ) < 1e-8
+        );
 
         assert_eq!(
             rgm_intersect_curve_curve(

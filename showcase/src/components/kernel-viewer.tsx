@@ -92,7 +92,24 @@ const EXAMPLE_OPTIONS: Record<string, ExampleKey> = {
   "Mesh (transform chain)": "meshTransform",
   "Mesh (mesh-mesh intersection)": "meshIntersectMeshMesh",
   "Mesh (mesh-plane section)": "meshIntersectMeshPlane",
-  "Mesh (boolean CSG)": "meshBoolean",
+  "Mesh (CSG difference: box - torus)": "meshBoolean",
+};
+
+const EXAMPLE_SUMMARIES: Record<ExampleKey, string> = {
+  nurbs: "Interpolates a smooth NURBS curve from fit points.",
+  line: "Shows a single 3D line segment sampled by the kernel.",
+  polyline: "Builds a piecewise linear spatial polyline.",
+  polycurve: "Combines line and arc segments into one chained polycurve.",
+  arc: "Creates a planar arc in a tilted frame.",
+  circle: "Creates a full circle in a tilted frame.",
+  intersectCurveCurve: "Finds intersection points between two curves.",
+  intersectCurvePlane: "Finds where a 3D curve crosses an oblique plane.",
+  meshLarge: "Displays a dense torus mesh to inspect mesh rendering scale.",
+  meshTransform: "Applies translate/rotate/scale transforms and rebuilds in kernel.",
+  meshIntersectMeshMesh: "Computes raw segment pairs from mesh-mesh intersection.",
+  meshIntersectMeshPlane: "Cuts a mesh with a plane and shows section segments.",
+  meshBoolean:
+    "Constructive solid geometry difference: keeps the box (A) and subtracts the torus (B).",
 };
 
 interface OverlayCurveVisual {
@@ -572,6 +589,31 @@ function planeVisualSize(points: RgmPoint3[]): number {
   return Math.max(10, diagonal * 1.6);
 }
 
+function fitViewToPoints(
+  camera: THREE.PerspectiveCamera,
+  controls: OrbitControls,
+  points: RgmPoint3[],
+): void {
+  if (points.length === 0) {
+    return;
+  }
+
+  const bounds = new THREE.Box3();
+  points.forEach((point) => {
+    bounds.expandByPoint(new THREE.Vector3(point.x, point.y, point.z));
+  });
+
+  const sphere = bounds.getBoundingSphere(new THREE.Sphere());
+  const distance = Math.max(4, sphere.radius * 2.8);
+  camera.position.set(
+    sphere.center.x + distance,
+    sphere.center.y + distance * 0.55,
+    sphere.center.z + distance,
+  );
+  controls.target.copy(sphere.center);
+  controls.update();
+}
+
 export function KernelViewer() {
   const viewportRef = useRef<HTMLDivElement | null>(null);
   const logBodyRef = useRef<HTMLDivElement | null>(null);
@@ -613,6 +655,9 @@ export function KernelViewer() {
   const meshPlaneMeshHandleRef = useRef<bigint | null>(null);
   const meshPlanePlaneRef = useRef<RgmPlane | null>(null);
   const planeGroupRef = useRef<THREE.Group | null>(null);
+  const liveIntersectionTimerRef = useRef<number | null>(null);
+  const previewMeshHandleRef = useRef<bigint | null>(null);
+  const suppressAutoFitRef = useRef(false);
   const intersectionMarkerRefs = useRef<
     THREE.Mesh<THREE.SphereGeometry, THREE.MeshStandardMaterial>[]
   >([]);
@@ -709,6 +754,14 @@ export function KernelViewer() {
     meshPlanePlaneRef.current = null;
     transformTargetsRef.current = [];
     setTransformTargetsUi([]);
+    if (previewMeshHandleRef.current !== null) {
+      session.releaseObject(previewMeshHandleRef.current);
+      previewMeshHandleRef.current = null;
+    }
+    if (liveIntersectionTimerRef.current !== null) {
+      window.clearTimeout(liveIntersectionTimerRef.current);
+      liveIntersectionTimerRef.current = null;
+    }
   }, []);
 
   const buildExampleCurve = useCallback(
@@ -1249,7 +1302,7 @@ export function KernelViewer() {
             curveHandle: null,
             ownedHandles: built,
             name: "Boolean Difference (Box - Torus)",
-            degreeLabel: "Mesh boolean (full CSG backend)",
+            degreeLabel: "Constructive solid geometry (difference A - B)",
             renderDegree: 0,
             renderSamples: 0,
             meshVisual: {
@@ -1267,7 +1320,7 @@ export function KernelViewer() {
                 color: "#8aa2ba",
                 opacity: 0.18,
                 wireframe: false,
-                name: "host box",
+                name: "base solid (A): box",
               },
               {
                 vertices: innerBuffers.vertices,
@@ -1275,7 +1328,7 @@ export function KernelViewer() {
                 color: "#f7ba74",
                 opacity: 0.18,
                 wireframe: false,
-                name: "cut torus",
+                name: "subtracted solid (B): torus",
               },
             ],
             overlayCurves: [],
@@ -1287,7 +1340,7 @@ export function KernelViewer() {
             defaultTransformTargetKey: null,
             intersectionMs: 0,
             logs: [
-              "boolean op: difference (A-B)",
+              "CSG difference: result = A - B (box minus torus)",
               `outer triangles=${session.meshTriangleCount(outer)}`,
               `inner triangles=${session.meshTriangleCount(inner)}`,
               `result triangles=${session.meshTriangleCount(result)}`,
@@ -1485,6 +1538,23 @@ export function KernelViewer() {
         }`,
       );
       setErrorMessage(null);
+      if (!suppressAutoFitRef.current) {
+        window.requestAnimationFrame(() => {
+          const camera = cameraRef.current;
+          const controls = controlsRef.current;
+          if (!camera || !controls) {
+            return;
+          }
+          const points =
+            curveSamples.length > 0
+              ? curveSamples
+              : [
+                  ...(built.meshVisual?.vertices ?? []),
+                  ...built.overlayMeshes.flatMap((visual) => visual.vertices),
+                ];
+          fitViewToPoints(camera, controls, points);
+        });
+      }
       appendLog(
         "info",
         `Built handles=${built.ownedHandles.length} intersections=${built.intersectionPoints.length} kind=${built.kind} load=${loadMs.toFixed(2)}ms`,
@@ -1532,24 +1602,7 @@ export function KernelViewer() {
             ...(meshVisual?.vertices ?? []),
             ...overlayMeshes.flatMap((visual) => visual.vertices),
           ];
-    if (allPoints.length === 0) {
-      return;
-    }
-
-    const bounds = new THREE.Box3();
-    allPoints.forEach((point) => {
-      bounds.expandByPoint(new THREE.Vector3(point.x, point.y, point.z));
-    });
-
-    const sphere = bounds.getBoundingSphere(new THREE.Sphere());
-    const distance = Math.max(4, sphere.radius * 2.8);
-    camera.position.set(
-      sphere.center.x + distance,
-      sphere.center.y + distance * 0.55,
-      sphere.center.z + distance,
-    );
-    controls.target.copy(sphere.center);
-    controls.update();
+    fitViewToPoints(camera, controls, allPoints);
   }, [meshVisual, overlayMeshes, sampledPoints]);
 
   const resetCamera = useCallback((): void => {
@@ -1712,6 +1765,149 @@ export function KernelViewer() {
     };
   }, []);
 
+  const computeGizmoDelta = useCallback(
+    (
+      object: THREE.Object3D,
+      dragStart: { position: THREE.Vector3; quaternion: THREE.Quaternion; scale: THREE.Vector3 },
+    ):
+      | { kind: "none" }
+      | { kind: "translate"; delta: RgmPoint3 }
+      | { kind: "rotate"; axis: RgmPoint3; angle: number; pivot: RgmPoint3 }
+      | { kind: "scale"; scale: RgmPoint3; pivot: RgmPoint3 } => {
+      const pivot = toPoint3(dragStart.position);
+      if (gizmoMode === "translate") {
+        const delta = object.position.clone().sub(dragStart.position);
+        if (delta.lengthSq() <= 1e-12) {
+          return { kind: "none" };
+        }
+        return { kind: "translate", delta: toPoint3(delta) };
+      }
+
+      if (gizmoMode === "rotate") {
+        const deltaQuaternion = object.quaternion
+          .clone()
+          .multiply(dragStart.quaternion.clone().invert());
+        const clampedW = Math.min(1, Math.max(-1, deltaQuaternion.w));
+        let angle = 2 * Math.acos(clampedW);
+        const sinHalf = Math.sqrt(Math.max(0, 1 - clampedW * clampedW));
+        const axis =
+          sinHalf > 1e-8
+            ? new THREE.Vector3(
+                deltaQuaternion.x / sinHalf,
+                deltaQuaternion.y / sinHalf,
+                deltaQuaternion.z / sinHalf,
+              )
+            : new THREE.Vector3(1, 0, 0);
+        if (angle > Math.PI) {
+          angle = 2 * Math.PI - angle;
+          axis.multiplyScalar(-1);
+        }
+        if (!Number.isFinite(angle) || angle <= 1e-7) {
+          return { kind: "none" };
+        }
+        return { kind: "rotate", axis: toPoint3(axis.normalize()), angle, pivot };
+      }
+
+      const scale = {
+        x: object.scale.x / dragStart.scale.x,
+        y: object.scale.y / dragStart.scale.y,
+        z: object.scale.z / dragStart.scale.z,
+      };
+      const delta = Math.max(
+        Math.abs(scale.x - 1),
+        Math.abs(scale.y - 1),
+        Math.abs(scale.z - 1),
+      );
+      if (delta <= 1e-6) {
+        return { kind: "none" };
+      }
+      return { kind: "scale", scale, pivot };
+    },
+    [gizmoMode],
+  );
+
+  const scheduleLiveMeshPlanePreview = useCallback((): void => {
+    if (activeExample !== "meshIntersectMeshPlane") {
+      return;
+    }
+    if (liveIntersectionTimerRef.current !== null) {
+      return;
+    }
+
+    liveIntersectionTimerRef.current = window.setTimeout(() => {
+      liveIntersectionTimerRef.current = null;
+      const session = sessionRef.current;
+      const dragStart = dragStartTransformRef.current;
+      if (!session || !dragStart) {
+        return;
+      }
+
+      try {
+        if (meshPlaneTarget === "plane") {
+          const planeGroup = planeGroupRef.current;
+          const meshHandle = meshPlaneMeshHandleRef.current;
+          if (!planeGroup || meshHandle === null) {
+            return;
+          }
+          const livePlane = planeFromGroup(planeGroup);
+          const start = performance.now();
+          const hits = session.intersectMeshPlane(meshHandle, livePlane);
+          const intersectionMs = performance.now() - start;
+          setSegmentOverlays([
+            {
+              points: hits,
+              color: "#ffef7f",
+              opacity: 0.99,
+              name: "mesh-plane-hit",
+            },
+          ]);
+          setPerfStats((previous) => ({ ...previous, intersectionMs }));
+          return;
+        }
+
+        const baseMeshHandle = meshPlaneMeshHandleRef.current;
+        const mesh = meshRef.current;
+        const plane = meshPlanePlaneRef.current;
+        if (baseMeshHandle === null || !mesh || !plane) {
+          return;
+        }
+        const delta = computeGizmoDelta(mesh, dragStart);
+        if (delta.kind === "none") {
+          return;
+        }
+
+        if (previewMeshHandleRef.current !== null) {
+          session.releaseObject(previewMeshHandleRef.current);
+          previewMeshHandleRef.current = null;
+        }
+        let previewHandle: bigint;
+        if (delta.kind === "translate") {
+          previewHandle = session.meshTranslate(baseMeshHandle, delta.delta);
+        } else if (delta.kind === "rotate") {
+          previewHandle = session.meshRotate(baseMeshHandle, delta.axis, delta.angle, delta.pivot);
+        } else {
+          previewHandle = session.meshScale(baseMeshHandle, delta.scale, delta.pivot);
+        }
+        previewMeshHandleRef.current = previewHandle;
+
+        const start = performance.now();
+        const hits = session.intersectMeshPlane(previewHandle, plane);
+        const intersectionMs = performance.now() - start;
+        setSegmentOverlays([
+          {
+            points: hits,
+            color: "#ffef7f",
+            opacity: 0.99,
+            name: "mesh-plane-hit",
+          },
+        ]);
+        setPerfStats((previous) => ({ ...previous, intersectionMs }));
+      } catch {
+        // Keep gizmo interaction smooth even if a preview solve fails transiently.
+      }
+    }, 40);
+  }, [activeExample, computeGizmoDelta, meshPlaneTarget, planeFromGroup]);
+
   const commitInteractiveMeshTransform = useCallback((): void => {
     const session = sessionRef.current;
     const dragStart = dragStartTransformRef.current;
@@ -1720,6 +1916,14 @@ export function KernelViewer() {
     }
 
     const mode = gizmoMode;
+    if (liveIntersectionTimerRef.current !== null) {
+      window.clearTimeout(liveIntersectionTimerRef.current);
+      liveIntersectionTimerRef.current = null;
+    }
+    if (previewMeshHandleRef.current !== null) {
+      session.releaseObject(previewMeshHandleRef.current);
+      previewMeshHandleRef.current = null;
+    }
 
     try {
       if (activeExample === "meshIntersectMeshPlane" && meshPlaneTarget === "plane") {
@@ -1746,56 +1950,17 @@ export function KernelViewer() {
       if (!mesh || meshHandle === null) {
         return;
       }
-      const pivot = toPoint3(dragStart.position);
       let nextHandle = meshHandle;
-      let changed = false;
-
-      if (mode === "translate") {
-        const delta = mesh.position.clone().sub(dragStart.position);
-        if (delta.lengthSq() > 1e-12) {
-          nextHandle = session.meshTranslate(meshHandle, { x: delta.x, y: delta.y, z: delta.z });
-          changed = true;
-        }
-      } else if (mode === "rotate") {
-        const deltaQuaternion = mesh.quaternion.clone().multiply(dragStart.quaternion.clone().invert());
-        const clampedW = Math.min(1, Math.max(-1, deltaQuaternion.w));
-        let angle = 2 * Math.acos(clampedW);
-        const sinHalf = Math.sqrt(Math.max(0, 1 - clampedW * clampedW));
-        const axis =
-          sinHalf > 1e-8
-            ? new THREE.Vector3(
-                deltaQuaternion.x / sinHalf,
-                deltaQuaternion.y / sinHalf,
-                deltaQuaternion.z / sinHalf,
-              )
-            : new THREE.Vector3(1, 0, 0);
-        if (angle > Math.PI) {
-          angle = 2 * Math.PI - angle;
-          axis.multiplyScalar(-1);
-        }
-        if (Number.isFinite(angle) && angle > 1e-7) {
-          nextHandle = session.meshRotate(meshHandle, toPoint3(axis.normalize()), angle, pivot);
-          changed = true;
-        }
-      } else {
-        const scale = {
-          x: mesh.scale.x / dragStart.scale.x,
-          y: mesh.scale.y / dragStart.scale.y,
-          z: mesh.scale.z / dragStart.scale.z,
-        };
-        const delta = Math.max(
-          Math.abs(scale.x - 1),
-          Math.abs(scale.y - 1),
-          Math.abs(scale.z - 1),
-        );
-        if (delta > 1e-6) {
-          nextHandle = session.meshScale(meshHandle, scale, pivot);
-          changed = true;
-        }
-      }
-
-      if (!changed) {
+      const delta = computeGizmoDelta(mesh, dragStart);
+      if (delta.kind === "none") {
         return;
+      }
+      if (delta.kind === "translate") {
+        nextHandle = session.meshTranslate(meshHandle, delta.delta);
+      } else if (delta.kind === "rotate") {
+        nextHandle = session.meshRotate(meshHandle, delta.axis, delta.angle, delta.pivot);
+      } else {
+        nextHandle = session.meshScale(meshHandle, delta.scale, delta.pivot);
       }
 
       const triangleCount = session.meshTriangleCount(nextHandle);
@@ -1858,6 +2023,7 @@ export function KernelViewer() {
     activeExample,
     appendLog,
     applyTransformTargetSelection,
+    computeGizmoDelta,
     gizmoMode,
     meshPlaneTarget,
     planeFromGroup,
@@ -1887,6 +2053,7 @@ export function KernelViewer() {
 
   const applySession = useCallback(
     (sessionFile: ViewerSessionFile): void => {
+      suppressAutoFitRef.current = true;
       updateCurveForExample("nurbs", "Session loaded", sessionFile.preset);
       setShowGrid(sessionFile.view.showGrid);
       setShowAxes(sessionFile.view.showAxes);
@@ -1902,6 +2069,7 @@ export function KernelViewer() {
         controls.target.copy(fromPoint3(sessionFile.view.camera.target));
         controls.update();
       }
+      suppressAutoFitRef.current = false;
     },
     [updateCurveForExample],
   );
@@ -2351,6 +2519,17 @@ export function KernelViewer() {
     transform.attach(targetObject);
 
     const onMouseDown = (): void => {
+      if (liveIntersectionTimerRef.current !== null) {
+        window.clearTimeout(liveIntersectionTimerRef.current);
+        liveIntersectionTimerRef.current = null;
+      }
+      if (previewMeshHandleRef.current !== null) {
+        const liveSession = sessionRef.current;
+        if (liveSession) {
+          liveSession.releaseObject(previewMeshHandleRef.current);
+        }
+        previewMeshHandleRef.current = null;
+      }
       dragStartTransformRef.current = {
         position: targetObject.position.clone(),
         quaternion: targetObject.quaternion.clone(),
@@ -2366,10 +2545,20 @@ export function KernelViewer() {
       isTransformDraggingRef.current = Boolean(event.value);
       orbit.enabled = orbitEnabled && !isTransformDraggingRef.current;
     };
+    const onObjectChange = (): void => {
+      if (
+        activeExample === "meshIntersectMeshPlane" &&
+        isTransformDraggingRef.current &&
+        dragStartTransformRef.current
+      ) {
+        scheduleLiveMeshPlanePreview();
+      }
+    };
 
     transform.addEventListener("mouseDown", onMouseDown);
     transform.addEventListener("mouseUp", onMouseUp);
     transform.addEventListener("dragging-changed", onDraggingChanged);
+    transform.addEventListener("objectChange", onObjectChange);
     const helper = transform.getHelper();
     scene.add(helper);
     transformControlsRef.current = transform;
@@ -2379,6 +2568,7 @@ export function KernelViewer() {
       transform.removeEventListener("mouseDown", onMouseDown);
       transform.removeEventListener("mouseUp", onMouseUp);
       transform.removeEventListener("dragging-changed", onDraggingChanged);
+      transform.removeEventListener("objectChange", onObjectChange);
       scene.remove(helper);
       transform.detach();
       transform.dispose();
@@ -2400,6 +2590,7 @@ export function KernelViewer() {
     meshPlaneTarget,
     meshVisual,
     orbitEnabled,
+    scheduleLiveMeshPlanePreview,
   ]);
 
   useEffect(() => {
@@ -2645,12 +2836,6 @@ export function KernelViewer() {
       controlsRef.current.enabled = orbitEnabled && !isTransformDraggingRef.current;
     }
   }, [orbitEnabled]);
-
-  useEffect(() => {
-    if (sampledPoints.length > 0 || meshVisual || overlayMeshes.length > 0) {
-      zoomExtents();
-    }
-  }, [meshVisual, overlayMeshes, sampledPoints, zoomExtents]);
 
   const canExportIges = useMemo(() => capabilities.igesExport, [capabilities.igesExport]);
   const canImportIges = useMemo(() => capabilities.igesImport, [capabilities.igesImport]);
@@ -3023,6 +3208,7 @@ export function KernelViewer() {
               <span>Type</span>
               <output>{activeDegreeLabel}</output>
             </div>
+            <p className="inspector-note">{EXAMPLE_SUMMARIES[activeExample]}</p>
           </section>
 
           <section className="inspector-section" aria-label="Performance metrics">

@@ -17,6 +17,12 @@ pnpm --dir showcase dev
 - Presets are external JSON data files in `showcase/public/showcases/`.
 - Session save/load serializes preset + camera/view state.
 
+## Example Notes
+
+- `Mesh (CSG difference: box - torus)` demonstrates constructive solid geometry.
+- CSG operation shown: `result = A - B`, where `A` is a box and `B` is a torus.
+- The translucent overlays are the source solids; the highlighted wireframe mesh is the boolean result.
+
 ## IGES Status
 
 IGES toolbar actions are visible but disabled in v1.

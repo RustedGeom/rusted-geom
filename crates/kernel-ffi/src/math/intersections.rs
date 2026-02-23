@@ -171,15 +171,7 @@ where
                 let point = eval_point(t)?;
                 Ok(signed_distance(point, plane.origin, normal))
             };
-            let root = refine_plane_root(
-                &mut eval_distance,
-                t0,
-                t1,
-                v0,
-                v1,
-                dist_tol,
-                param_tol,
-            )?;
+            let root = refine_plane_root(&mut eval_distance, t0, t1, v0, v1, dist_tol, param_tol)?;
             raw_hits.push(root);
         }
     }
