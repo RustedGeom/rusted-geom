@@ -1,5 +1,5 @@
 import { execSync } from "node:child_process";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { beforeAll, describe, expect, it } from "vitest";
@@ -23,11 +23,13 @@ const wasmPath = path.join(
 );
 
 beforeAll(() => {
-  execSync("cargo build -p kernel-ffi --target wasm32-unknown-unknown", {
-    cwd: repoRoot,
-    stdio: "inherit",
-  });
-});
+  if (!existsSync(wasmPath)) {
+    execSync("cargo build -p kernel-ffi --target wasm32-unknown-unknown", {
+      cwd: repoRoot,
+      stdio: "inherit",
+    });
+  }
+}, 120_000);
 
 const preset: CurvePresetInput = {
   degree: 2,
