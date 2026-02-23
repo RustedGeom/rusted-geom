@@ -18,6 +18,14 @@ import type {
 } from "../../generated/types";
 import { RgmStatus } from "../../generated/types";
 import { KernelRuntimeError, statusToName } from "../errors";
+import type {
+  CurveHandle,
+  FaceHandle,
+  IntersectionHandle,
+  MeshHandle,
+  ObjectHandle,
+  SurfaceHandle,
+} from "./handles";
 import { KERNEL_LAYOUT, KernelMemory } from "../memory";
 import { sampleCurvePolyline } from "../scene-sampler";
 import { loadKernelWasm, type WasmSource } from "../wasm-loader";
@@ -48,37 +56,37 @@ export interface RgmSurfaceSecondDerivatives {
 
 export interface KernelSession {
   readonly handle: bigint;
-  buildCurveFromPreset(preset: CurvePresetInput): bigint;
-  createLine(line: RgmLine3, tolerance: RgmToleranceContext): bigint;
-  createArc(arc: RgmArc3, tolerance: RgmToleranceContext): bigint;
-  createCircle(circle: RgmCircle3, tolerance: RgmToleranceContext): bigint;
-  createPolyline(points: RgmPoint3[], closed: boolean, tolerance: RgmToleranceContext): bigint;
-  createPolycurve(segments: RgmPolycurveSegment[], tolerance: RgmToleranceContext): bigint;
-  sampleCurvePolyline(curveHandle: bigint, sampleCount: number): RgmPoint3[];
-  pointAt(curveHandle: bigint, tNorm: number): RgmPoint3;
-  curveLength(curveHandle: bigint): number;
-  curveLengthAt(curveHandle: bigint, tNorm: number): number;
-  intersectCurvePlane(curveHandle: bigint, plane: RgmPlane): RgmPoint3[];
-  intersectCurveCurve(curveA: bigint, curveB: bigint): RgmPoint3[];
-  createMeshBox(center: RgmPoint3, size: RgmVec3): bigint;
-  createMeshUvSphere(center: RgmPoint3, radius: number, uSteps: number, vSteps: number): bigint;
+  buildCurveFromPreset(preset: CurvePresetInput): CurveHandle;
+  createLine(line: RgmLine3, tolerance: RgmToleranceContext): CurveHandle;
+  createArc(arc: RgmArc3, tolerance: RgmToleranceContext): CurveHandle;
+  createCircle(circle: RgmCircle3, tolerance: RgmToleranceContext): CurveHandle;
+  createPolyline(points: RgmPoint3[], closed: boolean, tolerance: RgmToleranceContext): CurveHandle;
+  createPolycurve(segments: RgmPolycurveSegment[], tolerance: RgmToleranceContext): CurveHandle;
+  sampleCurvePolyline(curveHandle: CurveHandle, sampleCount: number): RgmPoint3[];
+  curvePointAt(curveHandle: CurveHandle, tNorm: number): RgmPoint3;
+  curveLength(curveHandle: CurveHandle): number;
+  curveLengthAt(curveHandle: CurveHandle, tNorm: number): number;
+  intersectCurvePlane(curveHandle: CurveHandle, plane: RgmPlane): RgmPoint3[];
+  intersectCurveCurve(curveA: CurveHandle, curveB: CurveHandle): RgmPoint3[];
+  createMeshBox(center: RgmPoint3, size: RgmVec3): MeshHandle;
+  createMeshUvSphere(center: RgmPoint3, radius: number, uSteps: number, vSteps: number): MeshHandle;
   createMeshTorus(
     center: RgmPoint3,
     majorRadius: number,
     minorRadius: number,
     majorSteps: number,
     minorSteps: number,
-  ): bigint;
-  meshTranslate(meshHandle: bigint, delta: RgmVec3): bigint;
-  meshRotate(meshHandle: bigint, axis: RgmVec3, angleRad: number, pivot: RgmPoint3): bigint;
-  meshScale(meshHandle: bigint, scale: RgmVec3, pivot: RgmPoint3): bigint;
-  meshBakeTransform(meshHandle: bigint): bigint;
-  meshBoolean(meshA: bigint, meshB: bigint, op: 0 | 1 | 2): bigint;
-  intersectMeshPlane(meshHandle: bigint, plane: RgmPlane): RgmPoint3[];
-  intersectMeshMesh(meshA: bigint, meshB: bigint): RgmPoint3[];
-  meshVertexCount(meshHandle: bigint): number;
-  meshTriangleCount(meshHandle: bigint): number;
-  meshToBuffers(meshHandle: bigint): { vertices: RgmPoint3[]; indices: number[] };
+  ): MeshHandle;
+  meshTranslate(meshHandle: MeshHandle, delta: RgmVec3): MeshHandle;
+  meshRotate(meshHandle: MeshHandle, axis: RgmVec3, angleRad: number, pivot: RgmPoint3): MeshHandle;
+  meshScale(meshHandle: MeshHandle, scale: RgmVec3, pivot: RgmPoint3): MeshHandle;
+  meshBakeTransform(meshHandle: MeshHandle): MeshHandle;
+  meshBoolean(meshA: MeshHandle, meshB: MeshHandle, op: 0 | 1 | 2): MeshHandle;
+  intersectMeshPlane(meshHandle: MeshHandle, plane: RgmPlane): RgmPoint3[];
+  intersectMeshMesh(meshA: MeshHandle, meshB: MeshHandle): RgmPoint3[];
+  meshVertexCount(meshHandle: MeshHandle): number;
+  meshTriangleCount(meshHandle: MeshHandle): number;
+  meshToBuffers(meshHandle: MeshHandle): { vertices: RgmPoint3[]; indices: number[] };
   createNurbsSurface(
     desc: RgmNurbsSurfaceDesc,
     controlPoints: RgmPoint3[],
@@ -86,48 +94,48 @@ export interface KernelSession {
     knotsU: number[],
     knotsV: number[],
     tolerance: RgmToleranceContext,
-  ): bigint;
-  surfacePointAt(surfaceHandle: bigint, uvNorm: RgmUv2): RgmPoint3;
-  surfaceD1At(surfaceHandle: bigint, uvNorm: RgmUv2): RgmSurfaceFirstDerivatives;
-  surfaceD2At(surfaceHandle: bigint, uvNorm: RgmUv2): RgmSurfaceSecondDerivatives;
-  surfaceFrameAt(surfaceHandle: bigint, uvNorm: RgmUv2): RgmSurfaceEvalFrame;
-  surfaceTranslate(surfaceHandle: bigint, delta: RgmVec3): bigint;
-  surfaceRotate(surfaceHandle: bigint, axis: RgmVec3, angleRad: number, pivot: RgmPoint3): bigint;
-  surfaceScale(surfaceHandle: bigint, scale: RgmVec3, pivot: RgmPoint3): bigint;
-  surfaceBakeTransform(surfaceHandle: bigint): bigint;
+  ): SurfaceHandle;
+  surfacePointAt(surfaceHandle: SurfaceHandle, uvNorm: RgmUv2): RgmPoint3;
+  surfaceD1At(surfaceHandle: SurfaceHandle, uvNorm: RgmUv2): RgmSurfaceFirstDerivatives;
+  surfaceD2At(surfaceHandle: SurfaceHandle, uvNorm: RgmUv2): RgmSurfaceSecondDerivatives;
+  surfaceFrameAt(surfaceHandle: SurfaceHandle, uvNorm: RgmUv2): RgmSurfaceEvalFrame;
+  surfaceTranslate(surfaceHandle: SurfaceHandle, delta: RgmVec3): SurfaceHandle;
+  surfaceRotate(surfaceHandle: SurfaceHandle, axis: RgmVec3, angleRad: number, pivot: RgmPoint3): SurfaceHandle;
+  surfaceScale(surfaceHandle: SurfaceHandle, scale: RgmVec3, pivot: RgmPoint3): SurfaceHandle;
+  surfaceBakeTransform(surfaceHandle: SurfaceHandle): SurfaceHandle;
   surfaceTessellateToMesh(
-    surfaceHandle: bigint,
+    surfaceHandle: SurfaceHandle,
     options?: RgmSurfaceTessellationOptions,
-  ): bigint;
-  createFaceFromSurface(surfaceHandle: bigint): bigint;
-  faceAddLoop(faceHandle: bigint, points: RgmUv2[], isOuter: boolean): void;
-  faceAddLoopEdges(faceHandle: bigint, loopInput: RgmTrimLoopInput, edges: RgmTrimEdgeInput[]): void;
-  faceRemoveLoop(faceHandle: bigint, loopIndex: number): void;
+  ): MeshHandle;
+  createFaceFromSurface(surfaceHandle: SurfaceHandle): FaceHandle;
+  faceAddLoop(faceHandle: FaceHandle, points: RgmUv2[], isOuter: boolean): void;
+  faceAddLoopEdges(faceHandle: FaceHandle, loopInput: RgmTrimLoopInput, edges: RgmTrimEdgeInput[]): void;
+  faceRemoveLoop(faceHandle: FaceHandle, loopIndex: number): void;
   faceSplitTrimEdge(
-    faceHandle: bigint,
+    faceHandle: FaceHandle,
     loopIndex: number,
     edgeIndex: number,
     splitT: number,
   ): void;
-  faceReverseLoop(faceHandle: bigint, loopIndex: number): void;
-  faceValidate(faceHandle: bigint): boolean;
-  faceHeal(faceHandle: bigint): void;
-  faceTessellateToMesh(faceHandle: bigint, options?: RgmSurfaceTessellationOptions): bigint;
-  intersectSurfaceSurface(surfaceA: bigint, surfaceB: bigint): bigint;
-  intersectSurfacePlane(surface: bigint, plane: RgmPlane): bigint;
-  intersectSurfaceCurve(surface: bigint, curve: bigint): bigint;
-  intersectionBranchCount(intersection: bigint): number;
-  intersectionBranchSummary(intersection: bigint, branchIndex: number): RgmIntersectionBranchSummary;
-  intersectionBranchPoints(intersection: bigint, branchIndex: number): RgmPoint3[];
-  intersectionBranchUvA(intersection: bigint, branchIndex: number): RgmUv2[];
-  intersectionBranchUvB(intersection: bigint, branchIndex: number): RgmUv2[];
-  intersectionBranchCurveT(intersection: bigint, branchIndex: number): number[];
+  faceReverseLoop(faceHandle: FaceHandle, loopIndex: number): void;
+  faceValidate(faceHandle: FaceHandle): boolean;
+  faceHeal(faceHandle: FaceHandle): void;
+  faceTessellateToMesh(faceHandle: FaceHandle, options?: RgmSurfaceTessellationOptions): MeshHandle;
+  intersectSurfaceSurface(surfaceA: SurfaceHandle, surfaceB: SurfaceHandle): IntersectionHandle;
+  intersectSurfacePlane(surface: SurfaceHandle, plane: RgmPlane): IntersectionHandle;
+  intersectSurfaceCurve(surface: SurfaceHandle, curve: CurveHandle): IntersectionHandle;
+  intersectionBranchCount(intersection: IntersectionHandle): number;
+  intersectionBranchSummary(intersection: IntersectionHandle, branchIndex: number): RgmIntersectionBranchSummary;
+  intersectionBranchPoints(intersection: IntersectionHandle, branchIndex: number): RgmPoint3[];
+  intersectionBranchUvA(intersection: IntersectionHandle, branchIndex: number): RgmUv2[];
+  intersectionBranchUvB(intersection: IntersectionHandle, branchIndex: number): RgmUv2[];
+  intersectionBranchCurveT(intersection: IntersectionHandle, branchIndex: number): number[];
   intersectionBranchToNurbs(
-    intersection: bigint,
+    intersection: IntersectionHandle,
     branchIndex: number,
     tolerance: RgmToleranceContext,
-  ): bigint;
-  releaseObject(objectHandle: bigint): void;
+  ): CurveHandle;
+  releaseObject(objectHandle: ObjectHandle): void;
   lastError(): { code: number; message: string };
   destroy(): void;
 }
@@ -148,7 +156,7 @@ class KernelSessionImpl extends KernelSessionBase implements KernelSession {
     knotsU: number[],
     knotsV: number[],
     tolerance: RgmToleranceContext,
-  ): bigint {
+  ): SurfaceHandle {
     this.ensureAlive();
     if (
       controlPoints.length === 0 ||
@@ -188,7 +196,7 @@ class KernelSessionImpl extends KernelSessionBase implements KernelSession {
         outPtr,
       ) as RgmStatus;
       this.assertOk(status, "Surface construction failed");
-      return this.memory.readU64(outPtr);
+      return this.memory.readU64(outPtr) as SurfaceHandle;
     } finally {
       this.memory.free(descPtr, KERNEL_LAYOUT.NURBS_SURFACE_DESC_BYTES, 8);
       this.memory.free(ctrlPtr, controlPoints.length * KERNEL_LAYOUT.POINT3_BYTES, 8);
@@ -200,7 +208,7 @@ class KernelSessionImpl extends KernelSessionBase implements KernelSession {
     }
   }
 
-  surfacePointAt(surfaceHandle: bigint, uvNorm: RgmUv2): RgmPoint3 {
+  surfacePointAt(surfaceHandle: SurfaceHandle, uvNorm: RgmUv2): RgmPoint3 {
     this.ensureAlive();
     const uvPtr = this.memory.alloc(KERNEL_LAYOUT.UV2_BYTES, 8);
     const outPtr = this.memory.alloc(KERNEL_LAYOUT.POINT3_BYTES, 8);
@@ -215,7 +223,7 @@ class KernelSessionImpl extends KernelSessionBase implements KernelSession {
     }
   }
 
-  surfaceD1At(surfaceHandle: bigint, uvNorm: RgmUv2): RgmSurfaceFirstDerivatives {
+  surfaceD1At(surfaceHandle: SurfaceHandle, uvNorm: RgmUv2): RgmSurfaceFirstDerivatives {
     this.ensureAlive();
     const uvPtr = this.memory.alloc(KERNEL_LAYOUT.UV2_BYTES, 8);
     const outDuPtr = this.memory.alloc(KERNEL_LAYOUT.VEC3_BYTES, 8);
@@ -241,7 +249,7 @@ class KernelSessionImpl extends KernelSessionBase implements KernelSession {
     }
   }
 
-  surfaceD2At(surfaceHandle: bigint, uvNorm: RgmUv2): RgmSurfaceSecondDerivatives {
+  surfaceD2At(surfaceHandle: SurfaceHandle, uvNorm: RgmUv2): RgmSurfaceSecondDerivatives {
     this.ensureAlive();
     const uvPtr = this.memory.alloc(KERNEL_LAYOUT.UV2_BYTES, 8);
     const outDuuPtr = this.memory.alloc(KERNEL_LAYOUT.VEC3_BYTES, 8);
@@ -271,7 +279,7 @@ class KernelSessionImpl extends KernelSessionBase implements KernelSession {
     }
   }
 
-  surfaceFrameAt(surfaceHandle: bigint, uvNorm: RgmUv2): RgmSurfaceEvalFrame {
+  surfaceFrameAt(surfaceHandle: SurfaceHandle, uvNorm: RgmUv2): RgmSurfaceEvalFrame {
     this.ensureAlive();
     const uvPtr = this.memory.alloc(KERNEL_LAYOUT.UV2_BYTES, 8);
     const outPtr = this.memory.alloc(KERNEL_LAYOUT.SURFACE_EVAL_FRAME_BYTES, 8);
@@ -286,7 +294,7 @@ class KernelSessionImpl extends KernelSessionBase implements KernelSession {
     }
   }
 
-  surfaceTranslate(surfaceHandle: bigint, delta: RgmVec3): bigint {
+  surfaceTranslate(surfaceHandle: SurfaceHandle, delta: RgmVec3): SurfaceHandle {
     this.ensureAlive();
     const deltaPtr = this.memory.alloc(KERNEL_LAYOUT.VEC3_BYTES, 8);
     const outPtr = this.memory.alloc(KERNEL_LAYOUT.U64_BYTES, 8);
@@ -299,14 +307,14 @@ class KernelSessionImpl extends KernelSessionBase implements KernelSession {
         outPtr,
       ) as RgmStatus;
       this.assertOk(status, "Surface translation failed");
-      return this.memory.readU64(outPtr);
+      return this.memory.readU64(outPtr) as SurfaceHandle;
     } finally {
       this.memory.free(deltaPtr, KERNEL_LAYOUT.VEC3_BYTES, 8);
       this.memory.free(outPtr, KERNEL_LAYOUT.U64_BYTES, 8);
     }
   }
 
-  surfaceRotate(surfaceHandle: bigint, axis: RgmVec3, angleRad: number, pivot: RgmPoint3): bigint {
+  surfaceRotate(surfaceHandle: SurfaceHandle, axis: RgmVec3, angleRad: number, pivot: RgmPoint3): SurfaceHandle {
     this.ensureAlive();
     const axisPtr = this.memory.alloc(KERNEL_LAYOUT.VEC3_BYTES, 8);
     const pivotPtr = this.memory.alloc(KERNEL_LAYOUT.POINT3_BYTES, 8);
@@ -323,7 +331,7 @@ class KernelSessionImpl extends KernelSessionBase implements KernelSession {
         outPtr,
       ) as RgmStatus;
       this.assertOk(status, "Surface rotation failed");
-      return this.memory.readU64(outPtr);
+      return this.memory.readU64(outPtr) as SurfaceHandle;
     } finally {
       this.memory.free(axisPtr, KERNEL_LAYOUT.VEC3_BYTES, 8);
       this.memory.free(pivotPtr, KERNEL_LAYOUT.POINT3_BYTES, 8);
@@ -331,7 +339,7 @@ class KernelSessionImpl extends KernelSessionBase implements KernelSession {
     }
   }
 
-  surfaceScale(surfaceHandle: bigint, scale: RgmVec3, pivot: RgmPoint3): bigint {
+  surfaceScale(surfaceHandle: SurfaceHandle, scale: RgmVec3, pivot: RgmPoint3): SurfaceHandle {
     this.ensureAlive();
     const scalePtr = this.memory.alloc(KERNEL_LAYOUT.VEC3_BYTES, 8);
     const pivotPtr = this.memory.alloc(KERNEL_LAYOUT.POINT3_BYTES, 8);
@@ -347,7 +355,7 @@ class KernelSessionImpl extends KernelSessionBase implements KernelSession {
         outPtr,
       ) as RgmStatus;
       this.assertOk(status, "Surface scale failed");
-      return this.memory.readU64(outPtr);
+      return this.memory.readU64(outPtr) as SurfaceHandle;
     } finally {
       this.memory.free(scalePtr, KERNEL_LAYOUT.VEC3_BYTES, 8);
       this.memory.free(pivotPtr, KERNEL_LAYOUT.POINT3_BYTES, 8);
@@ -355,19 +363,19 @@ class KernelSessionImpl extends KernelSessionBase implements KernelSession {
     }
   }
 
-  surfaceBakeTransform(surfaceHandle: bigint): bigint {
+  surfaceBakeTransform(surfaceHandle: SurfaceHandle): SurfaceHandle {
     this.ensureAlive();
     const outPtr = this.memory.alloc(KERNEL_LAYOUT.U64_BYTES, 8);
     try {
       const status = this.api.rgm_surface_bake_transform(this.handle, surfaceHandle, outPtr) as RgmStatus;
       this.assertOk(status, "Surface bake failed");
-      return this.memory.readU64(outPtr);
+      return this.memory.readU64(outPtr) as SurfaceHandle;
     } finally {
       this.memory.free(outPtr, KERNEL_LAYOUT.U64_BYTES, 8);
     }
   }
 
-  surfaceTessellateToMesh(surfaceHandle: bigint, options?: RgmSurfaceTessellationOptions): bigint {
+  surfaceTessellateToMesh(surfaceHandle: SurfaceHandle, options?: RgmSurfaceTessellationOptions): MeshHandle {
     this.ensureAlive();
     const outPtr = this.memory.alloc(KERNEL_LAYOUT.U64_BYTES, 8);
     const optionsPtr = options
@@ -384,7 +392,7 @@ class KernelSessionImpl extends KernelSessionBase implements KernelSession {
         outPtr,
       ) as RgmStatus;
       this.assertOk(status, "Surface tessellation failed");
-      return this.memory.readU64(outPtr);
+      return this.memory.readU64(outPtr) as MeshHandle;
     } finally {
       if (optionsPtr !== 0) {
         this.memory.free(optionsPtr, KERNEL_LAYOUT.SURFACE_TESSELLATION_OPTIONS_BYTES, 8);
@@ -393,19 +401,19 @@ class KernelSessionImpl extends KernelSessionBase implements KernelSession {
     }
   }
 
-  createFaceFromSurface(surfaceHandle: bigint): bigint {
+  createFaceFromSurface(surfaceHandle: SurfaceHandle): FaceHandle {
     this.ensureAlive();
     const outPtr = this.memory.alloc(KERNEL_LAYOUT.U64_BYTES, 8);
     try {
       const status = this.api.rgm_face_create_from_surface(this.handle, surfaceHandle, outPtr) as RgmStatus;
       this.assertOk(status, "Face creation failed");
-      return this.memory.readU64(outPtr);
+      return this.memory.readU64(outPtr) as FaceHandle;
     } finally {
       this.memory.free(outPtr, KERNEL_LAYOUT.U64_BYTES, 8);
     }
   }
 
-  faceAddLoop(faceHandle: bigint, points: RgmUv2[], isOuter: boolean): void {
+  faceAddLoop(faceHandle: FaceHandle, points: RgmUv2[], isOuter: boolean): void {
     this.ensureAlive();
     const pointsPtr = this.memory.alloc(points.length * KERNEL_LAYOUT.UV2_BYTES, 8);
     try {
@@ -425,7 +433,7 @@ class KernelSessionImpl extends KernelSessionBase implements KernelSession {
     }
   }
 
-  faceAddLoopEdges(faceHandle: bigint, loopInput: RgmTrimLoopInput, edges: RgmTrimEdgeInput[]): void {
+  faceAddLoopEdges(faceHandle: FaceHandle, loopInput: RgmTrimLoopInput, edges: RgmTrimEdgeInput[]): void {
     this.ensureAlive();
     if (edges.length === 0) {
       throw new Error("Face edge loop requires at least one edge");
@@ -450,13 +458,13 @@ class KernelSessionImpl extends KernelSessionBase implements KernelSession {
     }
   }
 
-  faceRemoveLoop(faceHandle: bigint, loopIndex: number): void {
+  faceRemoveLoop(faceHandle: FaceHandle, loopIndex: number): void {
     this.ensureAlive();
     const status = this.api.rgm_face_remove_loop(this.handle, faceHandle, loopIndex) as RgmStatus;
     this.assertOk(status, "Face remove loop failed");
   }
 
-  faceSplitTrimEdge(faceHandle: bigint, loopIndex: number, edgeIndex: number, splitT: number): void {
+  faceSplitTrimEdge(faceHandle: FaceHandle, loopIndex: number, edgeIndex: number, splitT: number): void {
     this.ensureAlive();
     const status = this.api.rgm_face_split_trim_edge(
       this.handle,
@@ -468,13 +476,13 @@ class KernelSessionImpl extends KernelSessionBase implements KernelSession {
     this.assertOk(status, "Face split trim edge failed");
   }
 
-  faceReverseLoop(faceHandle: bigint, loopIndex: number): void {
+  faceReverseLoop(faceHandle: FaceHandle, loopIndex: number): void {
     this.ensureAlive();
     const status = this.api.rgm_face_reverse_loop(this.handle, faceHandle, loopIndex) as RgmStatus;
     this.assertOk(status, "Face reverse loop failed");
   }
 
-  faceValidate(faceHandle: bigint): boolean {
+  faceValidate(faceHandle: FaceHandle): boolean {
     this.ensureAlive();
     const validPtr = this.memory.alloc(1, 1);
     try {
@@ -486,13 +494,13 @@ class KernelSessionImpl extends KernelSessionBase implements KernelSession {
     }
   }
 
-  faceHeal(faceHandle: bigint): void {
+  faceHeal(faceHandle: FaceHandle): void {
     this.ensureAlive();
     const status = this.api.rgm_face_heal(this.handle, faceHandle) as RgmStatus;
     this.assertOk(status, "Face heal failed");
   }
 
-  faceTessellateToMesh(faceHandle: bigint, options?: RgmSurfaceTessellationOptions): bigint {
+  faceTessellateToMesh(faceHandle: FaceHandle, options?: RgmSurfaceTessellationOptions): MeshHandle {
     this.ensureAlive();
     const outPtr = this.memory.alloc(KERNEL_LAYOUT.U64_BYTES, 8);
     const optionsPtr = options
@@ -509,7 +517,7 @@ class KernelSessionImpl extends KernelSessionBase implements KernelSession {
         outPtr,
       ) as RgmStatus;
       this.assertOk(status, "Face tessellation failed");
-      return this.memory.readU64(outPtr);
+      return this.memory.readU64(outPtr) as MeshHandle;
     } finally {
       if (optionsPtr !== 0) {
         this.memory.free(optionsPtr, KERNEL_LAYOUT.SURFACE_TESSELLATION_OPTIONS_BYTES, 8);
@@ -518,7 +526,7 @@ class KernelSessionImpl extends KernelSessionBase implements KernelSession {
     }
   }
 
-  intersectSurfaceSurface(surfaceA: bigint, surfaceB: bigint): bigint {
+  intersectSurfaceSurface(surfaceA: SurfaceHandle, surfaceB: SurfaceHandle): IntersectionHandle {
     this.ensureAlive();
     const outPtr = this.memory.alloc(KERNEL_LAYOUT.U64_BYTES, 8);
     try {
@@ -529,13 +537,13 @@ class KernelSessionImpl extends KernelSessionBase implements KernelSession {
         outPtr,
       ) as RgmStatus;
       this.assertOk(status, "Surface-surface intersection failed");
-      return this.memory.readU64(outPtr);
+      return this.memory.readU64(outPtr) as IntersectionHandle;
     } finally {
       this.memory.free(outPtr, KERNEL_LAYOUT.U64_BYTES, 8);
     }
   }
 
-  intersectSurfacePlane(surface: bigint, plane: RgmPlane): bigint {
+  intersectSurfacePlane(surface: SurfaceHandle, plane: RgmPlane): IntersectionHandle {
     this.ensureAlive();
     const planePtr = this.memory.alloc(KERNEL_LAYOUT.PLANE_BYTES, 8);
     const outPtr = this.memory.alloc(KERNEL_LAYOUT.U64_BYTES, 8);
@@ -543,26 +551,26 @@ class KernelSessionImpl extends KernelSessionBase implements KernelSession {
       this.memory.writePlane(planePtr, plane);
       const status = this.api.rgm_intersect_surface_plane(this.handle, surface, planePtr, outPtr) as RgmStatus;
       this.assertOk(status, "Surface-plane intersection failed");
-      return this.memory.readU64(outPtr);
+      return this.memory.readU64(outPtr) as IntersectionHandle;
     } finally {
       this.memory.free(planePtr, KERNEL_LAYOUT.PLANE_BYTES, 8);
       this.memory.free(outPtr, KERNEL_LAYOUT.U64_BYTES, 8);
     }
   }
 
-  intersectSurfaceCurve(surface: bigint, curve: bigint): bigint {
+  intersectSurfaceCurve(surface: SurfaceHandle, curve: CurveHandle): IntersectionHandle {
     this.ensureAlive();
     const outPtr = this.memory.alloc(KERNEL_LAYOUT.U64_BYTES, 8);
     try {
       const status = this.api.rgm_intersect_surface_curve(this.handle, surface, curve, outPtr) as RgmStatus;
       this.assertOk(status, "Surface-curve intersection failed");
-      return this.memory.readU64(outPtr);
+      return this.memory.readU64(outPtr) as IntersectionHandle;
     } finally {
       this.memory.free(outPtr, KERNEL_LAYOUT.U64_BYTES, 8);
     }
   }
 
-  intersectionBranchCount(intersection: bigint): number {
+  intersectionBranchCount(intersection: IntersectionHandle): number {
     this.ensureAlive();
     const countPtr = this.memory.alloc(KERNEL_LAYOUT.I32_BYTES, 4);
     try {
@@ -574,7 +582,7 @@ class KernelSessionImpl extends KernelSessionBase implements KernelSession {
     }
   }
 
-  intersectionBranchSummary(intersection: bigint, branchIndex: number): RgmIntersectionBranchSummary {
+  intersectionBranchSummary(intersection: IntersectionHandle, branchIndex: number): RgmIntersectionBranchSummary {
     this.ensureAlive();
     const ptr = this.memory.alloc(KERNEL_LAYOUT.INTERSECTION_BRANCH_SUMMARY_BYTES, 8);
     try {
@@ -591,7 +599,7 @@ class KernelSessionImpl extends KernelSessionBase implements KernelSession {
     }
   }
 
-  intersectionBranchPoints(intersection: bigint, branchIndex: number): RgmPoint3[] {
+  intersectionBranchPoints(intersection: IntersectionHandle, branchIndex: number): RgmPoint3[] {
     this.ensureAlive();
     const countPtr = this.memory.alloc(KERNEL_LAYOUT.I32_BYTES, 4);
     try {
@@ -631,7 +639,7 @@ class KernelSessionImpl extends KernelSessionBase implements KernelSession {
     }
   }
 
-  intersectionBranchUvA(intersection: bigint, branchIndex: number): RgmUv2[] {
+  intersectionBranchUvA(intersection: IntersectionHandle, branchIndex: number): RgmUv2[] {
     return this.copyIntersectionUv(intersection, branchIndex, "a");
   }
 
@@ -639,7 +647,7 @@ class KernelSessionImpl extends KernelSessionBase implements KernelSession {
     return this.copyIntersectionUv(intersection, branchIndex, "b");
   }
 
-  intersectionBranchCurveT(intersection: bigint, branchIndex: number): number[] {
+  intersectionBranchCurveT(intersection: IntersectionHandle, branchIndex: number): number[] {
     this.ensureAlive();
     const countPtr = this.memory.alloc(KERNEL_LAYOUT.I32_BYTES, 4);
     try {
@@ -680,10 +688,10 @@ class KernelSessionImpl extends KernelSessionBase implements KernelSession {
   }
 
   intersectionBranchToNurbs(
-    intersection: bigint,
+    intersection: IntersectionHandle,
     branchIndex: number,
     tolerance: RgmToleranceContext,
-  ): bigint {
+  ): CurveHandle {
     this.ensureAlive();
     const tolPtr = this.memory.alloc(KERNEL_LAYOUT.TOLERANCE_BYTES, 8);
     const outPtr = this.memory.alloc(KERNEL_LAYOUT.U64_BYTES, 8);
@@ -697,14 +705,14 @@ class KernelSessionImpl extends KernelSessionBase implements KernelSession {
         outPtr,
       ) as RgmStatus;
       this.assertOk(status, "Intersection branch to nurbs failed");
-      return this.memory.readU64(outPtr);
+      return this.memory.readU64(outPtr) as CurveHandle;
     } finally {
       this.memory.free(tolPtr, KERNEL_LAYOUT.TOLERANCE_BYTES, 8);
       this.memory.free(outPtr, KERNEL_LAYOUT.U64_BYTES, 8);
     }
   }
 
-  releaseObject(objectHandle: bigint): void {
+  releaseObject(objectHandle: ObjectHandle): void {
     this.ensureAlive();
     const status = this.api.rgm_object_release(this.handle, objectHandle) as RgmStatus;
     if (status !== RgmStatus.Ok && status !== RgmStatus.NotFound) {

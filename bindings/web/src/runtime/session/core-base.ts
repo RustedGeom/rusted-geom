@@ -11,6 +11,7 @@ import type {
 } from "../../generated/types";
 import { RgmStatus } from "../../generated/types";
 import { KernelRuntimeError, statusToName } from "../errors";
+import type { CurveHandle, MeshHandle } from "./handles";
 import { KERNEL_LAYOUT, KernelMemory } from "../memory";
 import { sampleCurvePolyline } from "../scene-sampler";
 import type { CurvePresetInput } from "./core";
@@ -27,7 +28,7 @@ export abstract class KernelSessionBase {
   ) {}
 
   protected abstract lastError(): { code: number; message: string };
-  buildCurveFromPreset(preset: CurvePresetInput): bigint {
+  buildCurveFromPreset(preset: CurvePresetInput): CurveHandle {
     this.ensureAlive();
     if (!preset.points.length) {
       throw new Error("Curve preset must contain at least one point");
@@ -52,7 +53,7 @@ export abstract class KernelSessionBase {
       ) as RgmStatus;
 
       this.assertOk(status, "Curve construction failed");
-      return this.memory.readU64(outObjectPtr);
+      return this.memory.readU64(outObjectPtr) as CurveHandle;
     } finally {
       this.memory.free(pointsPtr, pointsBytes, 8);
       this.memory.free(tolerancePtr, KERNEL_LAYOUT.TOLERANCE_BYTES, 8);
@@ -60,7 +61,7 @@ export abstract class KernelSessionBase {
     }
   }
 
-  createLine(line: RgmLine3, tolerance: RgmToleranceContext): bigint {
+  createLine(line: RgmLine3, tolerance: RgmToleranceContext): CurveHandle {
     this.ensureAlive();
 
     const linePtr = this.memory.alloc(KERNEL_LAYOUT.LINE3_BYTES, 8);
@@ -77,7 +78,7 @@ export abstract class KernelSessionBase {
         outObjectPtr,
       ) as RgmStatus;
       this.assertOk(status, "Line construction failed");
-      return this.memory.readU64(outObjectPtr);
+      return this.memory.readU64(outObjectPtr) as CurveHandle;
     } finally {
       this.memory.free(linePtr, KERNEL_LAYOUT.LINE3_BYTES, 8);
       this.memory.free(tolerancePtr, KERNEL_LAYOUT.TOLERANCE_BYTES, 8);
@@ -85,7 +86,7 @@ export abstract class KernelSessionBase {
     }
   }
 
-  createArc(arc: RgmArc3, tolerance: RgmToleranceContext): bigint {
+  createArc(arc: RgmArc3, tolerance: RgmToleranceContext): CurveHandle {
     this.ensureAlive();
 
     const arcPtr = this.memory.alloc(KERNEL_LAYOUT.ARC3_BYTES, 8);
@@ -102,7 +103,7 @@ export abstract class KernelSessionBase {
         outObjectPtr,
       ) as RgmStatus;
       this.assertOk(status, "Arc construction failed");
-      return this.memory.readU64(outObjectPtr);
+      return this.memory.readU64(outObjectPtr) as CurveHandle;
     } finally {
       this.memory.free(arcPtr, KERNEL_LAYOUT.ARC3_BYTES, 8);
       this.memory.free(tolerancePtr, KERNEL_LAYOUT.TOLERANCE_BYTES, 8);
@@ -110,7 +111,7 @@ export abstract class KernelSessionBase {
     }
   }
 
-  createCircle(circle: RgmCircle3, tolerance: RgmToleranceContext): bigint {
+  createCircle(circle: RgmCircle3, tolerance: RgmToleranceContext): CurveHandle {
     this.ensureAlive();
 
     const circlePtr = this.memory.alloc(KERNEL_LAYOUT.CIRCLE3_BYTES, 8);
@@ -127,7 +128,7 @@ export abstract class KernelSessionBase {
         outObjectPtr,
       ) as RgmStatus;
       this.assertOk(status, "Circle construction failed");
-      return this.memory.readU64(outObjectPtr);
+      return this.memory.readU64(outObjectPtr) as CurveHandle;
     } finally {
       this.memory.free(circlePtr, KERNEL_LAYOUT.CIRCLE3_BYTES, 8);
       this.memory.free(tolerancePtr, KERNEL_LAYOUT.TOLERANCE_BYTES, 8);
@@ -135,7 +136,7 @@ export abstract class KernelSessionBase {
     }
   }
 
-  createPolyline(points: RgmPoint3[], closed: boolean, tolerance: RgmToleranceContext): bigint {
+  createPolyline(points: RgmPoint3[], closed: boolean, tolerance: RgmToleranceContext): CurveHandle {
     this.ensureAlive();
     if (points.length < 2) {
       throw new Error("Polyline requires at least two points");
@@ -158,7 +159,7 @@ export abstract class KernelSessionBase {
         outObjectPtr,
       ) as RgmStatus;
       this.assertOk(status, "Polyline construction failed");
-      return this.memory.readU64(outObjectPtr);
+      return this.memory.readU64(outObjectPtr) as CurveHandle;
     } finally {
       this.memory.free(pointsPtr, pointsBytes, 8);
       this.memory.free(tolerancePtr, KERNEL_LAYOUT.TOLERANCE_BYTES, 8);
@@ -166,7 +167,7 @@ export abstract class KernelSessionBase {
     }
   }
 
-  createPolycurve(segments: RgmPolycurveSegment[], tolerance: RgmToleranceContext): bigint {
+  createPolycurve(segments: RgmPolycurveSegment[], tolerance: RgmToleranceContext): CurveHandle {
     this.ensureAlive();
     if (segments.length === 0) {
       throw new Error("Polycurve requires at least one segment");
@@ -188,7 +189,7 @@ export abstract class KernelSessionBase {
         outObjectPtr,
       ) as RgmStatus;
       this.assertOk(status, "Polycurve construction failed");
-      return this.memory.readU64(outObjectPtr);
+      return this.memory.readU64(outObjectPtr) as CurveHandle;
     } finally {
       this.memory.free(segmentsPtr, segmentsBytes, 8);
       this.memory.free(tolerancePtr, KERNEL_LAYOUT.TOLERANCE_BYTES, 8);
@@ -196,7 +197,7 @@ export abstract class KernelSessionBase {
     }
   }
 
-  createMeshBox(center: RgmPoint3, size: RgmVec3): bigint {
+  createMeshBox(center: RgmPoint3, size: RgmVec3): MeshHandle {
     this.ensureAlive();
     const centerPtr = this.memory.alloc(KERNEL_LAYOUT.POINT3_BYTES, 8);
     const sizePtr = this.memory.alloc(KERNEL_LAYOUT.VEC3_BYTES, 8);
@@ -211,7 +212,7 @@ export abstract class KernelSessionBase {
         outObjectPtr,
       ) as RgmStatus;
       this.assertOk(status, "Mesh box construction failed");
-      return this.memory.readU64(outObjectPtr);
+      return this.memory.readU64(outObjectPtr) as MeshHandle;
     } finally {
       this.memory.free(centerPtr, KERNEL_LAYOUT.POINT3_BYTES, 8);
       this.memory.free(sizePtr, KERNEL_LAYOUT.VEC3_BYTES, 8);
@@ -219,7 +220,7 @@ export abstract class KernelSessionBase {
     }
   }
 
-  createMeshUvSphere(center: RgmPoint3, radius: number, uSteps: number, vSteps: number): bigint {
+  createMeshUvSphere(center: RgmPoint3, radius: number, uSteps: number, vSteps: number): MeshHandle {
     this.ensureAlive();
     const centerPtr = this.memory.alloc(KERNEL_LAYOUT.POINT3_BYTES, 8);
     const outObjectPtr = this.memory.alloc(KERNEL_LAYOUT.U64_BYTES, 8);
@@ -234,7 +235,7 @@ export abstract class KernelSessionBase {
         outObjectPtr,
       ) as RgmStatus;
       this.assertOk(status, "Mesh UV sphere construction failed");
-      return this.memory.readU64(outObjectPtr);
+      return this.memory.readU64(outObjectPtr) as MeshHandle;
     } finally {
       this.memory.free(centerPtr, KERNEL_LAYOUT.POINT3_BYTES, 8);
       this.memory.free(outObjectPtr, KERNEL_LAYOUT.U64_BYTES, 8);
@@ -247,7 +248,7 @@ export abstract class KernelSessionBase {
     minorRadius: number,
     majorSteps: number,
     minorSteps: number,
-  ): bigint {
+  ): MeshHandle {
     this.ensureAlive();
     const centerPtr = this.memory.alloc(KERNEL_LAYOUT.POINT3_BYTES, 8);
     const outObjectPtr = this.memory.alloc(KERNEL_LAYOUT.U64_BYTES, 8);
@@ -263,14 +264,14 @@ export abstract class KernelSessionBase {
         outObjectPtr,
       ) as RgmStatus;
       this.assertOk(status, "Mesh torus construction failed");
-      return this.memory.readU64(outObjectPtr);
+      return this.memory.readU64(outObjectPtr) as MeshHandle;
     } finally {
       this.memory.free(centerPtr, KERNEL_LAYOUT.POINT3_BYTES, 8);
       this.memory.free(outObjectPtr, KERNEL_LAYOUT.U64_BYTES, 8);
     }
   }
 
-  meshTranslate(meshHandle: bigint, delta: RgmVec3): bigint {
+  meshTranslate(meshHandle: MeshHandle, delta: RgmVec3): MeshHandle {
     this.ensureAlive();
     const deltaPtr = this.memory.alloc(KERNEL_LAYOUT.VEC3_BYTES, 8);
     const outObjectPtr = this.memory.alloc(KERNEL_LAYOUT.U64_BYTES, 8);
@@ -283,14 +284,14 @@ export abstract class KernelSessionBase {
         outObjectPtr,
       ) as RgmStatus;
       this.assertOk(status, "Mesh translate failed");
-      return this.memory.readU64(outObjectPtr);
+      return this.memory.readU64(outObjectPtr) as MeshHandle;
     } finally {
       this.memory.free(deltaPtr, KERNEL_LAYOUT.VEC3_BYTES, 8);
       this.memory.free(outObjectPtr, KERNEL_LAYOUT.U64_BYTES, 8);
     }
   }
 
-  meshRotate(meshHandle: bigint, axis: RgmVec3, angleRad: number, pivot: RgmPoint3): bigint {
+  meshRotate(meshHandle: MeshHandle, axis: RgmVec3, angleRad: number, pivot: RgmPoint3): MeshHandle {
     this.ensureAlive();
     const axisPtr = this.memory.alloc(KERNEL_LAYOUT.VEC3_BYTES, 8);
     const pivotPtr = this.memory.alloc(KERNEL_LAYOUT.POINT3_BYTES, 8);
@@ -307,7 +308,7 @@ export abstract class KernelSessionBase {
         outObjectPtr,
       ) as RgmStatus;
       this.assertOk(status, "Mesh rotation failed");
-      return this.memory.readU64(outObjectPtr);
+      return this.memory.readU64(outObjectPtr) as MeshHandle;
     } finally {
       this.memory.free(axisPtr, KERNEL_LAYOUT.VEC3_BYTES, 8);
       this.memory.free(pivotPtr, KERNEL_LAYOUT.POINT3_BYTES, 8);
@@ -315,7 +316,7 @@ export abstract class KernelSessionBase {
     }
   }
 
-  meshScale(meshHandle: bigint, scale: RgmVec3, pivot: RgmPoint3): bigint {
+  meshScale(meshHandle: MeshHandle, scale: RgmVec3, pivot: RgmPoint3): MeshHandle {
     this.ensureAlive();
     const scalePtr = this.memory.alloc(KERNEL_LAYOUT.VEC3_BYTES, 8);
     const pivotPtr = this.memory.alloc(KERNEL_LAYOUT.POINT3_BYTES, 8);
@@ -331,7 +332,7 @@ export abstract class KernelSessionBase {
         outObjectPtr,
       ) as RgmStatus;
       this.assertOk(status, "Mesh scale failed");
-      return this.memory.readU64(outObjectPtr);
+      return this.memory.readU64(outObjectPtr) as MeshHandle;
     } finally {
       this.memory.free(scalePtr, KERNEL_LAYOUT.VEC3_BYTES, 8);
       this.memory.free(pivotPtr, KERNEL_LAYOUT.POINT3_BYTES, 8);
@@ -339,7 +340,7 @@ export abstract class KernelSessionBase {
     }
   }
 
-  meshBakeTransform(meshHandle: bigint): bigint {
+  meshBakeTransform(meshHandle: MeshHandle): MeshHandle {
     this.ensureAlive();
     const outObjectPtr = this.memory.alloc(KERNEL_LAYOUT.U64_BYTES, 8);
     try {
@@ -349,25 +350,25 @@ export abstract class KernelSessionBase {
         outObjectPtr,
       ) as RgmStatus;
       this.assertOk(status, "Mesh bake transform failed");
-      return this.memory.readU64(outObjectPtr);
+      return this.memory.readU64(outObjectPtr) as MeshHandle;
     } finally {
       this.memory.free(outObjectPtr, KERNEL_LAYOUT.U64_BYTES, 8);
     }
   }
 
-  meshBoolean(meshA: bigint, meshB: bigint, op: 0 | 1 | 2): bigint {
+  meshBoolean(meshA: MeshHandle, meshB: MeshHandle, op: 0 | 1 | 2): MeshHandle {
     this.ensureAlive();
     const outObjectPtr = this.memory.alloc(KERNEL_LAYOUT.U64_BYTES, 8);
     try {
       const status = this.api.rgm_mesh_boolean(this.handle, meshA, meshB, op, outObjectPtr) as RgmStatus;
       this.assertOk(status, "Mesh boolean failed");
-      return this.memory.readU64(outObjectPtr);
+      return this.memory.readU64(outObjectPtr) as MeshHandle;
     } finally {
       this.memory.free(outObjectPtr, KERNEL_LAYOUT.U64_BYTES, 8);
     }
   }
 
-  intersectMeshPlane(meshHandle: bigint, plane: RgmPlane): RgmPoint3[] {
+  intersectMeshPlane(meshHandle: MeshHandle, plane: RgmPlane): RgmPoint3[] {
     this.ensureAlive();
     const planePtr = this.memory.alloc(KERNEL_LAYOUT.PLANE_BYTES, 8);
     const countPtr = this.memory.alloc(KERNEL_LAYOUT.I32_BYTES, 4);
@@ -412,7 +413,7 @@ export abstract class KernelSessionBase {
     }
   }
 
-  intersectMeshMesh(meshA: bigint, meshB: bigint): RgmPoint3[] {
+  intersectMeshMesh(meshA: MeshHandle, meshB: MeshHandle): RgmPoint3[] {
     this.ensureAlive();
     const countPtr = this.memory.alloc(KERNEL_LAYOUT.I32_BYTES, 4);
     try {
@@ -454,7 +455,7 @@ export abstract class KernelSessionBase {
     }
   }
 
-  meshVertexCount(meshHandle: bigint): number {
+  meshVertexCount(meshHandle: MeshHandle): number {
     this.ensureAlive();
     const outCountPtr = this.memory.alloc(KERNEL_LAYOUT.I32_BYTES, 4);
     try {
@@ -466,7 +467,7 @@ export abstract class KernelSessionBase {
     }
   }
 
-  meshTriangleCount(meshHandle: bigint): number {
+  meshTriangleCount(meshHandle: MeshHandle): number {
     this.ensureAlive();
     const outCountPtr = this.memory.alloc(KERNEL_LAYOUT.I32_BYTES, 4);
     try {
@@ -478,7 +479,7 @@ export abstract class KernelSessionBase {
     }
   }
 
-  meshToBuffers(meshHandle: bigint): { vertices: RgmPoint3[]; indices: number[] } {
+  meshToBuffers(meshHandle: MeshHandle): { vertices: RgmPoint3[]; indices: number[] } {
     this.ensureAlive();
 
     const vertexCountPtr = this.memory.alloc(KERNEL_LAYOUT.I32_BYTES, 4);
@@ -539,7 +540,7 @@ export abstract class KernelSessionBase {
     }
   }
 
-  sampleCurvePolyline(curveHandle: bigint, sampleCount: number): RgmPoint3[] {
+  sampleCurvePolyline(curveHandle: CurveHandle, sampleCount: number): RgmPoint3[] {
     this.ensureAlive();
     return sampleCurvePolyline(
       {
@@ -553,7 +554,7 @@ export abstract class KernelSessionBase {
     );
   }
 
-  pointAt(curveHandle: bigint, tNorm: number): RgmPoint3 {
+  curvePointAt(curveHandle: CurveHandle, tNorm: number): RgmPoint3 {
     this.ensureAlive();
     if (tNorm < 0 || tNorm > 1) {
       throw new Error("tNorm must be within [0, 1]");
@@ -574,7 +575,7 @@ export abstract class KernelSessionBase {
     }
   }
 
-  curveLength(curveHandle: bigint): number {
+  curveLength(curveHandle: CurveHandle): number {
     this.ensureAlive();
 
     const outLengthPtr = this.memory.alloc(KERNEL_LAYOUT.F64_BYTES, 8);
@@ -591,7 +592,7 @@ export abstract class KernelSessionBase {
     }
   }
 
-  curveLengthAt(curveHandle: bigint, tNorm: number): number {
+  curveLengthAt(curveHandle: CurveHandle, tNorm: number): number {
     this.ensureAlive();
     if (tNorm < 0 || tNorm > 1) {
       throw new Error("tNorm must be within [0, 1]");
@@ -612,7 +613,7 @@ export abstract class KernelSessionBase {
     }
   }
 
-  intersectCurvePlane(curveHandle: bigint, plane: RgmPlane): RgmPoint3[] {
+  intersectCurvePlane(curveHandle: CurveHandle, plane: RgmPlane): RgmPoint3[] {
     this.ensureAlive();
 
     const planePtr = this.memory.alloc(KERNEL_LAYOUT.PLANE_BYTES, 8);
@@ -661,7 +662,7 @@ export abstract class KernelSessionBase {
     }
   }
 
-  intersectCurveCurve(curveA: bigint, curveB: bigint): RgmPoint3[] {
+  intersectCurveCurve(curveA: CurveHandle, curveB: CurveHandle): RgmPoint3[] {
     this.ensureAlive();
 
     const countPtr = this.memory.alloc(KERNEL_LAYOUT.I32_BYTES, 4);

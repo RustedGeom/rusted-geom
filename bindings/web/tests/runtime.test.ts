@@ -67,7 +67,7 @@ describe("kernel runtime", () => {
 
     const handle = session.curve.buildCurveFromPreset(preset);
     const samples = session.curve.sampleCurvePolyline(handle, 32);
-    const point = session.curve.pointAt(handle, 0.37);
+    const point = session.curve.curvePointAt(handle, 0.37);
     const totalLength = session.curve.curveLength(handle);
     const lengthAtPoint = session.curve.curveLengthAt(handle, 0.37);
 
@@ -95,7 +95,7 @@ describe("kernel runtime", () => {
       preset.tolerance,
     );
     for (const t of [0, 0.11, 0.3, 0.5, 0.77, 1]) {
-      const p = session.curve.pointAt(circleHandle, t);
+      const p = session.curve.curvePointAt(circleHandle, t);
       const dx = p.x - 1.25;
       const dy = p.y + 0.8;
       const dz = p.z - 0.4;

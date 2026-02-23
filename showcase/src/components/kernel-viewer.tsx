@@ -2,9 +2,13 @@
 
 import {
   createKernelRuntime,
+  type CurveHandle,
   type CurvePresetInput,
   type KernelRuntime,
   type KernelSession,
+  type MeshHandle,
+  type ObjectHandle,
+  type SurfaceHandle,
 } from "@rusted-geom/bindings-web";
 import type {
   RgmArc3,
@@ -19,7 +23,7 @@ import type {
   RgmUv2,
   RgmVec3,
 } from "@rusted-geom/bindings-web";
-import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { TransformControls } from "three/examples/jsm/controls/TransformControls.js";
@@ -35,6 +39,28 @@ import {
   type CurvePreset,
   type ViewerSessionFile,
 } from "@/lib/preset-schema";
+import { parseExampleSelection } from "@/lib/examples";
+import { useTheme } from "@/lib/use-theme";
+import { useKeyboardShortcuts } from "@/lib/use-keyboard-shortcut";
+import type {
+  CameraSnapshot,
+  ExampleKey,
+  GizmoMode,
+  KernelStatus,
+  LogEntry,
+  LogLevel,
+  MeshVisual,
+  OverlayCurveVisual,
+  ProbeUiState,
+  SegmentOverlayVisual,
+  SurfaceProbeUiState,
+  TransformTarget,
+  ViewerPerformance,
+} from "@/lib/viewer-types";
+import { ViewerToolbar } from "./viewer/toolbar/ViewerToolbar";
+import { InspectorPanel } from "./viewer/inspector/InspectorPanel";
+import { KernelConsole } from "./viewer/console/KernelConsole";
+import { ExampleBrowser } from "./viewer/ExampleBrowser";
 
 const DEFAULT_CAMERA_POSITION = new THREE.Vector3(10, 8, 11);
 const DEFAULT_CAMERA_TARGET = new THREE.Vector3(0, 0, 0);
@@ -42,161 +68,11 @@ const MIN_RENDER_SAMPLES = 2048;
 const MAX_RENDER_SAMPLES = 12000;
 const MOBILE_MEDIA_QUERY = "(max-width: 880px)";
 
-interface CameraSnapshot {
-  position: RgmPoint3;
-  target: RgmPoint3;
-  up: RgmPoint3;
-  fov: number;
-}
-
-type LogLevel = "info" | "debug" | "error";
-type GizmoMode = "translate" | "rotate" | "scale";
-
-interface LogEntry {
-  id: number;
-  level: LogLevel;
-  time: string;
-  message: string;
-}
-
-interface ProbeUiState {
-  tNorm: number;
-  x: number;
-  y: number;
-  z: number;
-  probeLength: number;
-  totalLength: number;
-}
-
-interface SurfaceProbeUiState {
-  u: number;
-  v: number;
-  point: RgmPoint3;
-  du: RgmVec3;
-  dv: RgmVec3;
-  normal: RgmVec3;
-  hasD2: boolean;
-  duu: RgmVec3;
-  duv: RgmVec3;
-  dvv: RgmVec3;
-}
-
-type ExampleKey =
-  | "nurbs"
-  | "line"
-  | "polyline"
-  | "polycurve"
-  | "arc"
-  | "circle"
-  | "intersectCurveCurve"
-  | "intersectCurvePlane"
-  | "meshLarge"
-  | "meshTransform"
-  | "meshIntersectMeshMesh"
-  | "meshIntersectMeshPlane"
-  | "meshBoolean"
-  | "surfaceLarge"
-  | "surfaceTransform"
-  | "surfaceUvEval"
-  | "surfaceIntersectSurface"
-  | "surfaceIntersectPlane"
-  | "surfaceIntersectCurve"
-  | "trimEditWorkflow"
-  | "trimValidationFailures";
-
-const EXAMPLE_OPTIONS: Record<string, ExampleKey> = {
-  "NURBS (fit points)": "nurbs",
-  "Line (3D skew)": "line",
-  "Polyline (spatial)": "polyline",
-  "Polycurve (mixed)": "polycurve",
-  "Arc (tilted)": "arc",
-  "Circle (tilted)": "circle",
-  "Intersection (curve-curve)": "intersectCurveCurve",
-  "Intersection (curve-plane)": "intersectCurvePlane",
-  "Mesh (large torus)": "meshLarge",
-  "Mesh (transform chain)": "meshTransform",
-  "Mesh (mesh-mesh intersection)": "meshIntersectMeshMesh",
-  "Mesh (mesh-plane section)": "meshIntersectMeshPlane",
-  "Mesh (CSG difference: box - torus)": "meshBoolean",
-  "Surface (large untrimmed)": "surfaceLarge",
-  "Surface (transform chain)": "surfaceTransform",
-  "Surface (UV evaluate D0/D1/D2)": "surfaceUvEval",
-  "Surface (surface-surface intersection)": "surfaceIntersectSurface",
-  "Surface (surface-plane intersection)": "surfaceIntersectPlane",
-  "Surface (surface-curve intersection)": "surfaceIntersectCurve",
-  "Trim (edit workflow)": "trimEditWorkflow",
-  "Trim (validation failures)": "trimValidationFailures",
-};
-
-const EXAMPLE_SUMMARIES: Record<ExampleKey, string> = {
-  nurbs: "Interpolates a smooth NURBS curve from fit points.",
-  line: "Shows a single 3D line segment sampled by the kernel.",
-  polyline: "Builds a piecewise linear spatial polyline.",
-  polycurve: "Combines line and arc segments into one chained polycurve.",
-  arc: "Creates a planar arc in a tilted frame.",
-  circle: "Creates a full circle in a tilted frame.",
-  intersectCurveCurve: "Finds intersection points between two curves.",
-  intersectCurvePlane: "Finds where a 3D curve crosses an oblique plane.",
-  meshLarge: "Displays a dense torus mesh to inspect mesh rendering scale.",
-  meshTransform: "Applies translate/rotate/scale transforms and rebuilds in kernel.",
-  meshIntersectMeshMesh: "Computes raw segment pairs from mesh-mesh intersection.",
-  meshIntersectMeshPlane: "Cuts a mesh with a plane and shows section segments.",
-  meshBoolean:
-    "Select A or B, move it with the gizmo, and recompute the CSG difference (A - B) on every drag commit.",
-  surfaceLarge: "Builds a high-density untrimmed NURBS surface and tessellates it in-kernel.",
-  surfaceTransform: "Applies translation, rotation, and scaling to a surface in-kernel.",
-  surfaceUvEval:
-    "Evaluates a non-trivial rational NURBS surface at normalized UV points and reports D0/D1 plus D2 when available.",
-  surfaceIntersectSurface: "Computes untrimmed surface-surface intersection branches in-kernel.",
-  surfaceIntersectPlane: "Computes untrimmed surface-plane section branches in-kernel.",
-  surfaceIntersectCurve: "Computes surface-curve intersections with UV and curve-parameter traces.",
-  trimEditWorkflow: "Demonstrates trim loop edit operations and retessellation in-kernel.",
-  trimValidationFailures: "Creates an intentionally invalid trim topology and reports validation/heal behavior.",
-};
-
-interface OverlayCurveVisual {
-  points: RgmPoint3[];
-  color: string;
-  width: number;
-  opacity: number;
-  name: string;
-}
-
-interface SegmentOverlayVisual {
-  points: RgmPoint3[];
-  color: string;
-  opacity: number;
-  width?: number;
-  name: string;
-}
-
-interface TransformTarget {
-  key: string;
-  label: string;
-  handle: bigint;
-  color: string;
-  opacity: number;
-  wireframe: boolean;
-}
-
-interface ViewerPerformance {
-  loadMs: number;
-  intersectionMs: number;
-}
-
-interface MeshVisual {
-  vertices: RgmPoint3[];
-  indices: number[];
-  color: string;
-  opacity: number;
-  wireframe?: boolean;
-  name: string;
-}
 
 interface BuiltExample {
   kind: "curve" | "mesh";
-  curveHandle: bigint | null;
-  ownedHandles: bigint[];
+  curveHandle: CurveHandle | null;
+  ownedHandles: ObjectHandle[];
   name: string;
   degreeLabel: string;
   renderDegree: number;
@@ -207,54 +83,23 @@ interface BuiltExample {
   segmentOverlays: SegmentOverlayVisual[];
   intersectionPoints: RgmPoint3[];
   planeVisual: RgmPlane | null;
-  interactiveMeshHandle: bigint | null;
+  interactiveMeshHandle: MeshHandle | null;
   transformTargets: TransformTarget[];
   defaultTransformTargetKey: string | null;
-  surfaceProbeHandle?: bigint | null;
+  surfaceProbeHandle?: SurfaceHandle | null;
   surfaceProbeD1Scale?: number;
   surfaceProbeD2Scale?: number;
   booleanState?:
     | {
-        baseHandle: bigint;
-        toolHandle: bigint;
-        resultHandle: bigint;
+        baseHandle: MeshHandle;
+        toolHandle: MeshHandle;
+        resultHandle: MeshHandle;
       }
     | null;
   intersectionMs: number;
   logs: string[];
 }
 
-function parseExampleSelection(value: unknown): ExampleKey | null {
-  const raw = String(value);
-  if (
-    raw === "nurbs" ||
-    raw === "line" ||
-    raw === "polyline" ||
-    raw === "polycurve" ||
-    raw === "arc" ||
-    raw === "circle" ||
-    raw === "intersectCurveCurve" ||
-    raw === "intersectCurvePlane" ||
-    raw === "meshLarge" ||
-    raw === "meshTransform" ||
-    raw === "meshIntersectMeshMesh" ||
-    raw === "meshIntersectMeshPlane" ||
-    raw === "meshBoolean" ||
-    raw === "surfaceLarge" ||
-    raw === "surfaceTransform" ||
-    raw === "surfaceUvEval" ||
-    raw === "surfaceIntersectSurface" ||
-    raw === "surfaceIntersectPlane" ||
-    raw === "surfaceIntersectCurve" ||
-    raw === "trimEditWorkflow" ||
-    raw === "trimValidationFailures"
-  ) {
-    return raw;
-  }
-
-  const mapped = EXAMPLE_OPTIONS[raw];
-  return mapped ?? null;
-}
 
 function toPoint3(vector: THREE.Vector3): RgmPoint3 {
   return { x: vector.x, y: vector.y, z: vector.z };
@@ -323,20 +168,6 @@ function formatLogsAsText(entries: LogEntry[]): string {
     .join("\n")}\n`;
 }
 
-function ToolIcon({ children }: { children: ReactNode }) {
-  return (
-    <svg
-      className="tool-icon"
-      viewBox="0 0 16 16"
-      width="14"
-      height="14"
-      aria-hidden="true"
-      focusable="false"
-    >
-      {children}
-    </svg>
-  );
-}
 
 function dist(a: RgmPoint3, b: RgmPoint3): number {
   const dx = a.x - b.x;
@@ -829,13 +660,12 @@ function fitViewToPoints(
 
 export function KernelViewer() {
   const viewportRef = useRef<HTMLDivElement | null>(null);
-  const logBodyRef = useRef<HTMLDivElement | null>(null);
   const sessionFileInputRef = useRef<HTMLInputElement | null>(null);
 
   const runtimeRef = useRef<KernelRuntime | null>(null);
   const sessionRef = useRef<KernelSession | null>(null);
-  const curveHandleRef = useRef<bigint | null>(null);
-  const ownedCurveHandlesRef = useRef<bigint[]>([]);
+  const curveHandleRef = useRef<CurveHandle | null>(null);
+  const ownedCurveHandlesRef = useRef<ObjectHandle[]>([]);
   const nurbsPresetRef = useRef<CurvePreset | null>(null);
 
   const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
@@ -863,16 +693,16 @@ export function KernelViewer() {
     quaternion: THREE.Quaternion;
     scale: THREE.Vector3;
   } | null>(null);
-  const interactiveMeshHandleRef = useRef<bigint | null>(null);
+  const interactiveMeshHandleRef = useRef<MeshHandle | null>(null);
   const transformTargetsRef = useRef<TransformTarget[]>([]);
-  const meshPlaneMeshHandleRef = useRef<bigint | null>(null);
+  const meshPlaneMeshHandleRef = useRef<MeshHandle | null>(null);
   const meshPlanePlaneRef = useRef<RgmPlane | null>(null);
-  const booleanBaseMeshHandleRef = useRef<bigint | null>(null);
-  const booleanToolMeshHandleRef = useRef<bigint | null>(null);
-  const booleanResultMeshHandleRef = useRef<bigint | null>(null);
+  const booleanBaseMeshHandleRef = useRef<MeshHandle | null>(null);
+  const booleanToolMeshHandleRef = useRef<MeshHandle | null>(null);
+  const booleanResultMeshHandleRef = useRef<MeshHandle | null>(null);
   const planeGroupRef = useRef<THREE.Group | null>(null);
   const liveIntersectionTimerRef = useRef<number | null>(null);
-  const previewMeshHandleRef = useRef<bigint | null>(null);
+  const previewMeshHandleRef = useRef<MeshHandle | null>(null);
   const suppressAutoFitRef = useRef(false);
   const intersectionMarkerRefs = useRef<
     THREE.Mesh<THREE.SphereGeometry, THREE.MeshStandardMaterial>[]
@@ -892,7 +722,7 @@ export function KernelViewer() {
   const probeTNormRef = useRef(0.35);
   const probePointRef = useRef<RgmPoint3 | null>(null);
   const totalLengthRef = useRef(0);
-  const surfaceProbeHandleRef = useRef<bigint | null>(null);
+  const surfaceProbeHandleRef = useRef<SurfaceHandle | null>(null);
   const surfaceProbeD1ScaleRef = useRef(0.2);
   const surfaceProbeD2ScaleRef = useRef(0.1);
   const surfaceProbeUvRef = useRef<RgmUv2>({ u: 0.47, v: 0.63 });
@@ -950,6 +780,12 @@ export function KernelViewer() {
   const [isInspectorOpen, setIsInspectorOpen] = useState(true);
   const [isConsoleOpen, setIsConsoleOpen] = useState(true);
   const [isMobileLayout, setIsMobileLayout] = useState(false);
+  const [kernelStatus, setKernelStatus] = useState<KernelStatus>("booting");
+  const [isExampleBrowserOpen, setIsExampleBrowserOpen] = useState(false);
+  const [consoleFilter, setConsoleFilter] = useState<LogLevel | "all">("all");
+
+  const { isDarkMode, toggleDarkMode } = useTheme();
+  const isDarkModeRef = useRef(isDarkMode);
 
   const appendLog = useCallback((level: LogLevel, message: string): void => {
     setLogs((previous) => {
@@ -1013,8 +849,8 @@ export function KernelViewer() {
     ): BuiltExample => {
       const tol = nurbsPresetOverride?.tolerance ?? nurbsPresetRef.current?.tolerance ?? fallbackTolerance();
       const asCurve = (
-        curveHandle: bigint,
-        ownedHandles: bigint[],
+        curveHandle: CurveHandle,
+        ownedHandles: ObjectHandle[],
         name: string,
         degreeLabel: string,
         renderDegree: number,
@@ -1145,7 +981,7 @@ export function KernelViewer() {
       }
 
       if (example === "intersectCurveCurve") {
-        const builtHandles: bigint[] = [];
+        const builtHandles: ObjectHandle[] = [];
         try {
           const transform = new THREE.Matrix4().makeRotationFromEuler(
             new THREE.Euler(0.68, -0.41, 0.52, "XYZ"),
@@ -1325,7 +1161,7 @@ export function KernelViewer() {
       }
 
       if (example === "meshTransform") {
-        const built: bigint[] = [];
+        const built: ObjectHandle[] = [];
         try {
           const base = session.mesh.createMeshBox({ x: 0.0, y: 0.0, z: -1.0 }, { x: 7.2, y: 2.6, z: 1.2 });
           built.push(base);
@@ -1401,7 +1237,7 @@ export function KernelViewer() {
       }
 
       if (example === "meshIntersectMeshMesh") {
-        const built: bigint[] = [];
+        const built: ObjectHandle[] = [];
         try {
           const sphere = session.mesh.createMeshUvSphere({ x: 0, y: 0, z: 0 }, 4.6, 56, 40);
           built.push(sphere);
@@ -1528,7 +1364,7 @@ export function KernelViewer() {
       }
 
       if (example === "meshBoolean") {
-        const built: bigint[] = [];
+        const built: ObjectHandle[] = [];
         try {
           const outer = session.mesh.createMeshBox({ x: 0, y: 0, z: 0 }, { x: 9.0, y: 9.0, z: 9.0 });
           built.push(outer);
@@ -1621,7 +1457,7 @@ export function KernelViewer() {
       }
 
       if (example === "surfaceLarge") {
-        const built: bigint[] = [];
+        const built: ObjectHandle[] = [];
         try {
           const net = buildWarpedSurfaceNet(28, 24, 18, 14, 1.6);
           const surface = session.surface.createNurbsSurface(
@@ -1682,7 +1518,7 @@ export function KernelViewer() {
       }
 
       if (example === "surfaceTransform") {
-        const built: bigint[] = [];
+        const built: ObjectHandle[] = [];
         try {
           const net = buildWarpedSurfaceNet(16, 14, 12, 10, 1.1);
           const surface = session.surface.createNurbsSurface(
@@ -1763,7 +1599,7 @@ export function KernelViewer() {
       }
 
       if (example === "surfaceUvEval") {
-        const built: bigint[] = [];
+        const built: ObjectHandle[] = [];
         try {
           const net = buildWarpedSurfaceNet(22, 19, 16, 14, 1.55);
           const weights = net.weights.map((base, idx) =>
@@ -1870,7 +1706,7 @@ export function KernelViewer() {
       }
 
       if (example === "surfaceIntersectSurface") {
-        const built: bigint[] = [];
+        const built: ObjectHandle[] = [];
         try {
           const a = buildWarpedSurfaceNet(16, 15, 12, 10, 1.0);
           const b = buildWarpedSurfaceNet(15, 16, 11, 11, 1.25);
@@ -1972,7 +1808,7 @@ export function KernelViewer() {
       }
 
       if (example === "surfaceIntersectPlane") {
-        const built: bigint[] = [];
+        const built: ObjectHandle[] = [];
         try {
           const net = buildWarpedSurfaceNet(18, 16, 13, 11, 1.35);
           const surface = session.surface.createNurbsSurface(
@@ -2059,7 +1895,7 @@ export function KernelViewer() {
       }
 
       if (example === "surfaceIntersectCurve") {
-        const built: bigint[] = [];
+        const built: ObjectHandle[] = [];
         try {
           const net = buildWarpedSurfaceNet(16, 16, 12, 12, 1.2);
           const surface = session.surface.createNurbsSurface(
@@ -2152,7 +1988,7 @@ export function KernelViewer() {
       }
 
       if (example === "trimEditWorkflow") {
-        const built: bigint[] = [];
+        const built: ObjectHandle[] = [];
         try {
           const net = buildWarpedSurfaceNet(14, 12, 10, 9, 0.95);
           const surface = session.surface.createNurbsSurface(
@@ -2211,7 +2047,7 @@ export function KernelViewer() {
       }
 
       if (example === "trimValidationFailures") {
-        const built: bigint[] = [];
+        const built: ObjectHandle[] = [];
         try {
           const net = buildWarpedSurfaceNet(12, 10, 9, 8, 0.7);
           const surface = session.surface.createNurbsSurface(
@@ -2307,7 +2143,7 @@ export function KernelViewer() {
         sweep_angle: -1.2,
       };
 
-      const builtHandles: bigint[] = [];
+      const builtHandles: ObjectHandle[] = [];
       try {
         const hLineA = session.curve.createLine(lineA, tol);
         builtHandles.push(hLineA);
@@ -2374,7 +2210,7 @@ export function KernelViewer() {
         curveSamples = session.curve.sampleCurvePolyline(built.curveHandle, built.renderSamples);
         totalLength = session.curve.curveLength(built.curveHandle);
         totalLengthRef.current = totalLength;
-        const evaluatedProbe = session.curve.pointAt(built.curveHandle, probeTNormRef.current);
+        const evaluatedProbe = session.curve.curvePointAt(built.curveHandle, probeTNormRef.current);
         const probeLength = session.curve.curveLengthAt(built.curveHandle, probeTNormRef.current);
 
         probePointRef.current = evaluatedProbe;
@@ -2567,8 +2403,8 @@ export function KernelViewer() {
 
       try {
         const uv = { u, v };
-        const point = liveSession.surfacePointAt(liveSurfaceHandle, uv);
-        const frame = liveSession.surfaceFrameAt(liveSurfaceHandle, uv);
+        const point = liveSession.surface.surfacePointAt(liveSurfaceHandle, uv);
+        const frame = liveSession.surface.surfaceFrameAt(liveSurfaceHandle, uv);
         const du = frame.du;
         const dv = frame.dv;
         const normal = frame.normal;
@@ -2676,8 +2512,8 @@ export function KernelViewer() {
       }
 
       try {
-        const point = liveSession.pointAt(liveCurveHandle, next);
-        const probeLength = liveSession.curveLengthAt(liveCurveHandle, next);
+        const point = liveSession.curve.curvePointAt(liveCurveHandle, next);
+        const probeLength = liveSession.curve.curveLengthAt(liveCurveHandle, next);
         const totalLength = totalLengthRef.current;
 
         probePointRef.current = point;
@@ -2974,7 +2810,7 @@ export function KernelViewer() {
           session.kernel.releaseObject(previewMeshHandleRef.current);
           previewMeshHandleRef.current = null;
         }
-        let previewHandle: bigint;
+        let previewHandle: MeshHandle;
         if (delta.kind === "translate") {
           previewHandle = session.mesh.meshTranslate(baseMeshHandle, delta.delta);
         } else if (delta.kind === "rotate") {
@@ -3221,7 +3057,7 @@ export function KernelViewer() {
         appendLog("info", "Loading kernel WASM runtime");
         const runtime = await createKernelRuntime("/wasm/rusted_geom.wasm");
         const session = runtime.createSession();
-        appendLog("info", `Kernel session created: ${session.handle.toString()}`);
+        appendLog("info", `Kernel session created: ${session.kernel.handle.toString()}`);
         const loadedPreset = await loadDefaultPreset();
         if (disposed) {
           session.destroy();
@@ -3238,9 +3074,11 @@ export function KernelViewer() {
         nurbsPresetRef.current = loadedPreset;
         setPreset(loadedPreset);
         updateCurveForExample("nurbs", "Default example loaded", loadedPreset);
+        setKernelStatus("ready");
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
         setErrorMessage(message);
+        setKernelStatus("error");
         appendLog("error", `Startup failed: ${message}`);
       }
     })();
@@ -3279,13 +3117,55 @@ export function KernelViewer() {
     };
   }, []);
 
+  // Sync isDarkModeRef for use inside Three.js loop
   useEffect(() => {
-    const container = logBodyRef.current;
-    if (!container) {
-      return;
+    isDarkModeRef.current = isDarkMode;
+  }, [isDarkMode]);
+
+  // Update Three.js scene colors when dark mode changes
+  useEffect(() => {
+    const scene = sceneRef.current;
+    if (!scene) return;
+    const bg = getComputedStyle(document.documentElement).getPropertyValue("--viewport-bg").trim() || "#edf1f7";
+    scene.background = new THREE.Color(bg);
+    if (scene.fog) {
+      (scene.fog as THREE.Fog).color = new THREE.Color(bg);
     }
-    container.scrollTop = container.scrollHeight;
-  }, [logs]);
+  }, [isDarkMode]);
+
+  useKeyboardShortcuts([
+    {
+      key: "k",
+      meta: true,
+      allowInInput: false,
+      handler: () => setIsExampleBrowserOpen((v) => !v),
+    },
+    {
+      key: "Escape",
+      allowInInput: false,
+      handler: () => setIsExampleBrowserOpen(false),
+    },
+    {
+      key: "g",
+      allowInInput: false,
+      handler: () => setShowGrid((v) => !v),
+    },
+    {
+      key: "a",
+      allowInInput: false,
+      handler: () => setShowAxes((v) => !v),
+    },
+    {
+      key: "i",
+      allowInInput: false,
+      handler: () => toggleInspector(),
+    },
+    {
+      key: "c",
+      allowInInput: false,
+      handler: () => toggleConsole(),
+    },
+  ]);
 
   useEffect(() => {
     const viewport = viewportRef.current;
@@ -3294,8 +3174,9 @@ export function KernelViewer() {
     }
 
     const scene = new THREE.Scene();
-    scene.background = new THREE.Color("#edf1f7");
-    scene.fog = new THREE.Fog("#edf1f7", 34, 138);
+    const initialBg = getComputedStyle(document.documentElement).getPropertyValue("--viewport-bg").trim() || "#edf1f7";
+    scene.background = new THREE.Color(initialBg);
+    scene.fog = new THREE.Fog(initialBg, 34, 138);
 
     const camera = new THREE.PerspectiveCamera(
       46,
@@ -3390,7 +3271,7 @@ export function KernelViewer() {
           fallbackContext.save();
           fallbackContext.scale(window.devicePixelRatio, window.devicePixelRatio);
           fallbackContext.clearRect(0, 0, width, height);
-          fallbackContext.fillStyle = "#edf1f7";
+          fallbackContext.fillStyle = getComputedStyle(document.documentElement).getPropertyValue("--viewport-bg").trim() || "#edf1f7";
           fallbackContext.fillRect(0, 0, width, height);
           fallbackContext.fillStyle = "#576b89";
           fallbackContext.font = "600 13px sans-serif";
@@ -3666,7 +3547,7 @@ export function KernelViewer() {
       if (previewMeshHandleRef.current !== null) {
         const liveSession = sessionRef.current;
         if (liveSession) {
-          liveSession.releaseObject(previewMeshHandleRef.current);
+          liveSession.kernel.releaseObject(previewMeshHandleRef.current);
         }
         previewMeshHandleRef.current = null;
       }
@@ -4080,6 +3961,21 @@ export function KernelViewer() {
     [activeExample, appendLog, updateCurveForExample],
   );
 
+  const onExampleBrowserSelect = useCallback(
+    (key: ExampleKey): void => {
+      const next = key;
+      if (!next || next === activeExample) return;
+      try {
+        updateCurveForExample(next, "Example switched");
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        setErrorMessage(message);
+        appendLog("error", `Example switch failed: ${message}`);
+      }
+    },
+    [activeExample, appendLog, updateCurveForExample],
+  );
+
   return (
     <div className="viewer-shell">
       <input
@@ -4096,224 +3992,42 @@ export function KernelViewer() {
         }}
       />
 
-      <header className="toolbar" role="toolbar" aria-label="Viewer actions">
-        <div className="toolbar-group">
-          <button
-            type="button"
-            className="tool-btn"
-            onClick={onLoadSessionClick}
-            aria-label="Load Session"
-            title="Load Session"
-          >
-            <ToolIcon>
-              <path d="M2.5 5.5h4.2l1.2 1.2h5.8v5.8H2.5z" />
-              <path d="M8 9.1v3.4" />
-              <path d="m6.6 11.1 1.4 1.4 1.4-1.4" />
-            </ToolIcon>
-            <span className="tool-label">Load Session</span>
-          </button>
-          <button
-            type="button"
-            className="tool-btn"
-            onClick={onSaveSession}
-            aria-label="Save Session"
-            title="Save Session"
-          >
-            <ToolIcon>
-              <path d="M3 2.7h8.4l1.6 1.6V13.3H3z" />
-              <path d="M5 2.7v3.2h5.5V2.7" />
-              <path d="M5.2 10.6h5.5" />
-            </ToolIcon>
-            <span className="tool-label">Save Session</span>
-          </button>
-          <button
-            type="button"
-            className="tool-btn"
-            disabled={!canImportIges}
-            title="Kernel IGES import API pending"
-            aria-label="Load IGES"
-          >
-            <ToolIcon>
-              <path d="M2.8 3.2h10.4v9.6H2.8z" />
-              <path d="M4.9 6.2h6.2" />
-              <path d="M4.9 8h4.2" />
-              <path d="M4.9 9.8h6.2" />
-            </ToolIcon>
-            <span className="tool-label">Load IGES</span>
-          </button>
-          <button
-            type="button"
-            className="tool-btn"
-            disabled={!canExportIges}
-            title="Kernel IGES export API pending"
-            aria-label="Save IGES"
-          >
-            <ToolIcon>
-              <path d="M2.8 3.2h10.4v9.6H2.8z" />
-              <path d="M8 6v4.2" />
-              <path d="m6.4 8.7 1.6 1.6 1.6-1.6" />
-            </ToolIcon>
-            <span className="tool-label">Save IGES</span>
-          </button>
+      {/* Boot overlay */}
+      <div className={`kernel-boot-overlay ${kernelStatus !== "booting" ? "is-done" : ""}`}>
+        <div className="welcome-card">
+          <div className="welcome-card-mark">◈</div>
+          <h1 className="welcome-card-title">rusted-geom</h1>
+          <p className="welcome-card-caption">
+            <span className="kernel-boot-spinner" />
+            Loading geometry kernel…
+          </p>
         </div>
+      </div>
 
-        <div className="toolbar-group">
-          <button
-            type="button"
-            className="tool-btn"
-            onClick={zoomExtents}
-            aria-label="Zoom Extents"
-            title="Zoom Extents"
-          >
-            <ToolIcon>
-              <rect x="3.2" y="3.2" width="9.6" height="9.6" />
-              <path d="M1.6 1.6 4 4" />
-              <path d="m14.4 1.6-2.4 2.4" />
-              <path d="m1.6 14.4 2.4-2.4" />
-              <path d="m14.4 14.4-2.4-2.4" />
-            </ToolIcon>
-            <span className="tool-label">Zoom Extents</span>
-          </button>
-          <button
-            type="button"
-            className="tool-btn"
-            onClick={resetCamera}
-            aria-label="Reset View"
-            title="Reset View"
-          >
-            <ToolIcon>
-              <path d="M8 2.6a5.4 5.4 0 1 0 5.1 7.2" />
-              <path d="M10.6 2.8h2.8v2.8" />
-              <path d="m10.8 5.6 2.6-2.8" />
-            </ToolIcon>
-            <span className="tool-label">Reset View</span>
-          </button>
-          <button
-            type="button"
-            className={`tool-btn ${orbitEnabled ? "is-active" : ""}`}
-            onClick={() => setOrbitEnabled((value) => !value)}
-            aria-label="Orbit"
-            title="Orbit"
-          >
-            <ToolIcon>
-              <circle cx="8" cy="8" r="1.8" />
-              <ellipse cx="8" cy="8" rx="5.2" ry="2.8" />
-              <path d="M8 2.8a5.2 5.2 0 0 1 0 10.4" />
-            </ToolIcon>
-            <span className="tool-label">Orbit</span>
-          </button>
-          <button
-            type="button"
-            className={`tool-btn ${showGrid ? "is-active" : ""}`}
-            onClick={() => setShowGrid((value) => !value)}
-            aria-label="Grid"
-            title="Grid"
-          >
-            <ToolIcon>
-              <path d="M3 3h10v10H3z" />
-              <path d="M6.3 3v10" />
-              <path d="M9.7 3v10" />
-              <path d="M3 6.3h10" />
-              <path d="M3 9.7h10" />
-            </ToolIcon>
-            <span className="tool-label">Grid</span>
-          </button>
-          <button
-            type="button"
-            className={`tool-btn ${showAxes ? "is-active" : ""}`}
-            onClick={() => setShowAxes((value) => !value)}
-            aria-label="Axes"
-            title="Axes"
-          >
-            <ToolIcon>
-              <path d="M2.8 12.8 8 8" />
-              <path d="M8 8 13.2 3.2" />
-              <path d="M8 8v5.2" />
-              <circle cx="8" cy="8" r="1.1" />
-            </ToolIcon>
-            <span className="tool-label">Axes</span>
-          </button>
-          <button
-            type="button"
-            className="tool-btn"
-            onClick={onSaveScreenshot}
-            aria-label="Save PNG"
-            title="Save PNG"
-          >
-            <ToolIcon>
-              <rect x="2.8" y="4.1" width="10.4" height="8.2" rx="1.2" ry="1.2" />
-              <path d="m5.2 9.8 1.8-1.8 1.8 1.8 1.3-1.3 1.9 1.9" />
-              <circle cx="6.1" cy="6.6" r="0.8" />
-            </ToolIcon>
-            <span className="tool-label">Save PNG</span>
-          </button>
-        </div>
-
-        <div className="toolbar-group">
-          <button
-            type="button"
-            className={`tool-btn ${isInspectorOpen ? "is-active" : ""}`}
-            onClick={toggleInspector}
-            aria-label="Toggle Controls"
-            title="Toggle Controls"
-          >
-            <ToolIcon>
-              <path d="M3 4.2h10" />
-              <path d="M3 8h10" />
-              <path d="M3 11.8h10" />
-              <circle cx="5.4" cy="4.2" r="0.9" />
-              <circle cx="10.6" cy="8" r="0.9" />
-              <circle cx="7.2" cy="11.8" r="0.9" />
-            </ToolIcon>
-            <span className="tool-label">Controls</span>
-          </button>
-          <button
-            type="button"
-            className={`tool-btn ${isConsoleOpen ? "is-active" : ""}`}
-            onClick={toggleConsole}
-            aria-label="Toggle Console"
-            title="Toggle Console"
-          >
-            <ToolIcon>
-              <rect x="2.6" y="3.1" width="10.8" height="9.8" rx="1.4" ry="1.4" />
-              <path d="M4.7 10.2h6.6" />
-              <path d="M4.7 7.8h3.8" />
-            </ToolIcon>
-            <span className="tool-label">Console</span>
-          </button>
-          <button
-            type="button"
-            className="tool-btn"
-            onClick={onExportLogs}
-            aria-label="Export Logs"
-            title="Export Logs"
-          >
-            <ToolIcon>
-              <path d="M8 2.5v7.2" />
-              <path d="m5.6 7.3 2.4 2.4 2.4-2.4" />
-              <path d="M3 11.1h10v2.2H3z" />
-            </ToolIcon>
-            <span className="tool-label">Export Logs</span>
-          </button>
-          <button
-            type="button"
-            className="tool-btn"
-            onClick={onClearLogs}
-            aria-label="Clear Logs"
-            title="Clear Logs"
-          >
-            <ToolIcon>
-              <path d="M3.9 4.2h8.2" />
-              <path d="M5 4.2v8.1h6v-8.1" />
-              <path d="M6.3 6.1v4.2" />
-              <path d="M9.7 6.1v4.2" />
-              <path d="M6.1 2.8h3.8" />
-            </ToolIcon>
-            <span className="tool-label">Clear Logs</span>
-          </button>
-        </div>
-
-      </header>
+      <ViewerToolbar
+        canImportIges={canImportIges}
+        canExportIges={canExportIges}
+        onLoadSession={onLoadSessionClick}
+        onSaveSession={onSaveSession}
+        orbitEnabled={orbitEnabled}
+        showGrid={showGrid}
+        showAxes={showAxes}
+        onZoomExtents={zoomExtents}
+        onResetCamera={resetCamera}
+        onToggleOrbit={() => setOrbitEnabled((v) => !v)}
+        onToggleGrid={() => setShowGrid((v) => !v)}
+        onToggleAxes={() => setShowAxes((v) => !v)}
+        onSaveScreenshot={onSaveScreenshot}
+        isInspectorOpen={isInspectorOpen}
+        isConsoleOpen={isConsoleOpen}
+        onToggleInspector={toggleInspector}
+        onToggleConsole={toggleConsole}
+        onClearLogs={onClearLogs}
+        onExportLogs={onExportLogs}
+        isDarkMode={isDarkMode}
+        onToggleDarkMode={toggleDarkMode}
+        onOpenExampleBrowser={() => setIsExampleBrowserOpen(true)}
+      />
 
       <main className="viewer-main">
         <section className="viewport-wrap">
@@ -4321,287 +4035,46 @@ export function KernelViewer() {
         </section>
       </main>
 
-      <aside
-        className={`inspector-panel ${isInspectorOpen ? "is-open" : "is-collapsed"}`}
-        aria-label="Viewer controls"
-        aria-hidden={!isInspectorOpen}
-      >
-        <div className="inspector-header">
-          <strong>Controls</strong>
-        </div>
-        <div className="inspector-body">
-          <section className="inspector-section" aria-label="Example selection">
-            <h2>Example</h2>
-            <label className="inspector-field">
-              <span>Preset</span>
-              <select
-                value={activeExample}
-                onChange={(event) => {
-                  onExampleSelectionChange(event.currentTarget.value);
-                }}
-              >
-                {Object.entries(EXAMPLE_OPTIONS).map(([label, value]) => (
-                  <option key={value} value={value}>
-                    {label}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <div className="inspector-readout">
-              <span>Name</span>
-              <output>{activeCurveName}</output>
-            </div>
-            <div className="inspector-readout">
-              <span>Type</span>
-              <output>{activeDegreeLabel}</output>
-            </div>
-            <p className="inspector-note">{EXAMPLE_SUMMARIES[activeExample]}</p>
-          </section>
+      <InspectorPanel
+        isOpen={isInspectorOpen}
+        activeExample={activeExample}
+        activeCurveName={activeCurveName}
+        activeDegreeLabel={activeDegreeLabel}
+        perfStats={perfStats}
+        showGizmoControls={showGizmoControls}
+        showTransformTargetControls={showTransformTargetControls}
+        showMeshPlaneTargetControls={showMeshPlaneTargetControls}
+        showSurfaceProbeControls={showSurfaceProbeControls}
+        showProbeControls={showProbeControls}
+        gizmoMode={gizmoMode}
+        onSetGizmoMode={setGizmoMode}
+        transformTargetsUi={transformTargetsUi}
+        transformTargetKey={transformTargetKey}
+        onTransformTargetChange={(key) => applyTransformTargetSelection(key, true)}
+        meshPlaneTarget={meshPlaneTarget}
+        onMeshPlaneTargetChange={setMeshPlaneTarget}
+        probeUiState={probeUiState}
+        onUpdateProbe={updateProbeForT}
+        surfaceProbeUiState={surfaceProbeUiState}
+        onUpdateSurfaceProbe={updateSurfaceProbeForUv}
+        onOpenExampleBrowser={() => setIsExampleBrowserOpen(true)}
+      />
 
-          <section className="inspector-section" aria-label="Performance metrics">
-            <h2>Performance</h2>
-            <div className="inspector-readout">
-              <span>Load</span>
-              <output>{perfStats.loadMs.toFixed(2)} ms</output>
-            </div>
-            <div className="inspector-readout">
-              <span>Intersection</span>
-              <output>{perfStats.intersectionMs.toFixed(2)} ms</output>
-            </div>
-          </section>
+      <KernelConsole
+        isOpen={isConsoleOpen}
+        logs={logs}
+        onExportLogs={onExportLogs}
+        onClearLogs={onClearLogs}
+        activeFilter={consoleFilter}
+        onFilterChange={setConsoleFilter}
+      />
 
-          {showGizmoControls ? (
-            <section className="inspector-section" aria-label="Mesh transform gizmo controls">
-              <h2>Gizmo</h2>
-              {showTransformTargetControls ? (
-                <label className="inspector-field">
-                  <span>Target</span>
-                  <select
-                    value={transformTargetKey}
-                    onChange={(event) => {
-                      applyTransformTargetSelection(event.currentTarget.value, true);
-                    }}
-                  >
-                    {transformTargetsUi.map((target) => (
-                      <option key={target.key} value={target.key}>
-                        {target.label}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-              ) : null}
-              {showMeshPlaneTargetControls ? (
-                <label className="inspector-field">
-                  <span>Element</span>
-                  <select
-                    value={meshPlaneTarget}
-                    onChange={(event) => {
-                      setMeshPlaneTarget(event.currentTarget.value as "mesh" | "plane");
-                    }}
-                  >
-                    <option value="mesh">Section mesh</option>
-                    <option value="plane">Section plane</option>
-                  </select>
-                </label>
-              ) : null}
-              <div className="gizmo-mode-row">
-                <button
-                  type="button"
-                  className={`tool-btn ${gizmoMode === "translate" ? "is-active" : ""}`}
-                  onClick={() => setGizmoMode("translate")}
-                >
-                  Translate
-                </button>
-                <button
-                  type="button"
-                  className={`tool-btn ${gizmoMode === "rotate" ? "is-active" : ""}`}
-                  onClick={() => setGizmoMode("rotate")}
-                >
-                  Rotate
-                </button>
-                <button
-                  type="button"
-                  className={`tool-btn ${gizmoMode === "scale" ? "is-active" : ""}`}
-                  disabled={showMeshPlaneTargetControls && meshPlaneTarget === "plane"}
-                  onClick={() => setGizmoMode("scale")}
-                >
-                  Scale
-                </button>
-              </div>
-              <p className="inspector-note">
-                Drag in viewport to transform. Kernel update is committed when drag ends.
-              </p>
-            </section>
-          ) : null}
-
-          {showSurfaceProbeControls ? (
-            <section className="inspector-section" aria-label="Surface probe controls">
-              <h2>Surface Probe</h2>
-              <label className="inspector-field">
-                <span>u</span>
-                <input
-                  type="range"
-                  min={0}
-                  max={1}
-                  step={0.001}
-                  value={surfaceProbeUiState.u}
-                  onChange={(event) => {
-                    updateSurfaceProbeForUv(Number(event.currentTarget.value), surfaceProbeUiState.v, false);
-                  }}
-                  onPointerUp={(event) => {
-                    updateSurfaceProbeForUv(Number(event.currentTarget.value), surfaceProbeUiState.v, true);
-                  }}
-                  onTouchEnd={(event) => {
-                    updateSurfaceProbeForUv(Number(event.currentTarget.value), surfaceProbeUiState.v, true);
-                  }}
-                />
-              </label>
-              <label className="inspector-field">
-                <span>v</span>
-                <input
-                  type="range"
-                  min={0}
-                  max={1}
-                  step={0.001}
-                  value={surfaceProbeUiState.v}
-                  onChange={(event) => {
-                    updateSurfaceProbeForUv(surfaceProbeUiState.u, Number(event.currentTarget.value), false);
-                  }}
-                  onPointerUp={(event) => {
-                    updateSurfaceProbeForUv(surfaceProbeUiState.u, Number(event.currentTarget.value), true);
-                  }}
-                  onTouchEnd={(event) => {
-                    updateSurfaceProbeForUv(surfaceProbeUiState.u, Number(event.currentTarget.value), true);
-                  }}
-                />
-              </label>
-              <div className="inspector-readout">
-                <span>uv</span>
-                <output>{`(${surfaceProbeUiState.u.toFixed(4)}, ${surfaceProbeUiState.v.toFixed(4)})`}</output>
-              </div>
-              <div className="inspector-readout">
-                <span>D0 point</span>
-                <output>{formatPoint(surfaceProbeUiState.point)}</output>
-              </div>
-              <div className="inspector-readout">
-                <span>D1 du</span>
-                <output>{`${formatVec(surfaceProbeUiState.du)} |du|=${magnitude(surfaceProbeUiState.du).toFixed(4)}`}</output>
-              </div>
-              <div className="inspector-readout">
-                <span>D1 dv</span>
-                <output>{`${formatVec(surfaceProbeUiState.dv)} |dv|=${magnitude(surfaceProbeUiState.dv).toFixed(4)}`}</output>
-              </div>
-              <div className="inspector-readout">
-                <span>normal</span>
-                <output>{formatVec(surfaceProbeUiState.normal)}</output>
-              </div>
-              {surfaceProbeUiState.hasD2 ? (
-                <>
-                  <div className="inspector-readout">
-                    <span>D2 duu</span>
-                    <output>{`${formatVec(surfaceProbeUiState.duu)} |duu|=${magnitude(surfaceProbeUiState.duu).toFixed(4)}`}</output>
-                  </div>
-                  <div className="inspector-readout">
-                    <span>D2 duv</span>
-                    <output>{`${formatVec(surfaceProbeUiState.duv)} |duv|=${magnitude(surfaceProbeUiState.duv).toFixed(4)}`}</output>
-                  </div>
-                  <div className="inspector-readout">
-                    <span>D2 dvv</span>
-                    <output>{`${formatVec(surfaceProbeUiState.dvv)} |dvv|=${magnitude(surfaceProbeUiState.dvv).toFixed(4)}`}</output>
-                  </div>
-                </>
-              ) : (
-                <p className="inspector-note">D2 is unavailable in the currently loaded runtime build.</p>
-              )}
-            </section>
-          ) : showProbeControls ? (
-            <section className="inspector-section" aria-label="Probe controls">
-              <h2>Probe</h2>
-              <label className="inspector-field">
-                <span>t</span>
-                <input
-                  type="range"
-                  min={0}
-                  max={1}
-                  step={0.0005}
-                  value={probeUiState.tNorm}
-                  onChange={(event) => {
-                    updateProbeForT(Number(event.currentTarget.value), false);
-                  }}
-                  onPointerUp={(event) => {
-                    updateProbeForT(Number(event.currentTarget.value), true);
-                  }}
-                  onTouchEnd={(event) => {
-                    updateProbeForT(Number(event.currentTarget.value), true);
-                  }}
-                />
-              </label>
-              <div className="inspector-readout">
-                <span>t value</span>
-                <output>{probeUiState.tNorm.toFixed(5)}</output>
-              </div>
-              <div className="inspector-readout">
-                <span>x</span>
-                <output>{probeUiState.x.toFixed(5)}</output>
-              </div>
-              <div className="inspector-readout">
-                <span>y</span>
-                <output>{probeUiState.y.toFixed(5)}</output>
-              </div>
-              <div className="inspector-readout">
-                <span>z</span>
-                <output>{probeUiState.z.toFixed(5)}</output>
-              </div>
-              <div className="inspector-readout">
-                <span>s(t)</span>
-                <output>{probeUiState.probeLength.toFixed(5)}</output>
-              </div>
-              <div className="inspector-readout">
-                <span>s(total)</span>
-                <output>{probeUiState.totalLength.toFixed(5)}</output>
-              </div>
-            </section>
-          ) : (
-            <section className="inspector-section" aria-label="Probe controls unavailable">
-              <h2>Probe</h2>
-              <p className="inspector-note">
-                Probe readout is hidden for intersection-focused examples.
-              </p>
-            </section>
-          )}
-        </div>
-      </aside>
-
-      <aside
-        className={`kernel-console ${isConsoleOpen ? "is-open" : "is-collapsed"}`}
-        aria-label="Kernel console"
-        aria-hidden={!isConsoleOpen}
-      >
-        <div className="kernel-console-header">
-          <strong>Kernel Console</strong>
-          <div className="kernel-console-actions">
-            <button type="button" className="tool-btn" onClick={onExportLogs}>
-              Export
-            </button>
-            <button type="button" className="tool-btn" onClick={onClearLogs}>
-              Clear
-            </button>
-          </div>
-        </div>
-        <div ref={logBodyRef} className="kernel-console-body">
-          {logs.length > 0 ? (
-            logs.map((entry) => (
-              <div key={entry.id} className={`kernel-log kernel-log-${entry.level}`}>
-                <span className="kernel-log-time">{entry.time}</span>
-                <span className="kernel-log-level">{entry.level.toUpperCase()}</span>
-                <span className="kernel-log-message">{entry.message}</span>
-              </div>
-            ))
-          ) : (
-            <div className="kernel-console-empty">No logs yet.</div>
-          )}
-        </div>
-      </aside>
+      <ExampleBrowser
+        isOpen={isExampleBrowserOpen}
+        activeExample={activeExample}
+        onSelect={onExampleBrowserSelect}
+        onClose={() => setIsExampleBrowserOpen(false)}
+      />
     </div>
   );
 }
