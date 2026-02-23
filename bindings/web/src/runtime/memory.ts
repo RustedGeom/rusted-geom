@@ -1,12 +1,17 @@
 import type { NativeExports } from "../generated/native";
 import type {
+  RgmIntersectionBranchSummary,
   RgmArc3,
   RgmCircle3,
   RgmLine3,
+  RgmNurbsSurfaceDesc,
   RgmPlane,
   RgmPoint3,
   RgmPolycurveSegment,
+  RgmSurfaceEvalFrame,
+  RgmSurfaceTessellationOptions,
   RgmToleranceContext,
+  RgmUv2,
   RgmVec3,
 } from "../generated/types";
 import { RgmStatus } from "../generated/types";
@@ -24,6 +29,11 @@ const CIRCLE3_BYTES = PLANE_BYTES + F64_BYTES;
 const ARC3_BYTES = PLANE_BYTES + F64_BYTES * 3;
 const POLYCURVE_SEGMENT_BYTES = 16;
 const TOLERANCE_BYTES = F64_BYTES * 3;
+const UV2_BYTES = F64_BYTES * 2;
+const NURBS_SURFACE_DESC_BYTES = 20;
+const SURFACE_EVAL_FRAME_BYTES = POINT3_BYTES + VEC3_BYTES * 3;
+const SURFACE_TESSELLATION_OPTIONS_BYTES = I32_BYTES * 4 + F64_BYTES * 2;
+const INTERSECTION_BRANCH_SUMMARY_BYTES = 24;
 
 export class KernelMemory {
   constructor(
@@ -57,6 +67,13 @@ export class KernelMemory {
     }
   }
 
+  writeF64Array(ptr: number, values: number[]): void {
+    const view = this.dataView();
+    for (let idx = 0; idx < values.length; idx += 1) {
+      view.setFloat64(ptr + idx * F64_BYTES, values[idx], true);
+    }
+  }
+
   writePolycurveSegmentArray(ptr: number, segments: RgmPolycurveSegment[]): void {
     const view = this.dataView();
     for (let idx = 0; idx < segments.length; idx += 1) {
@@ -76,7 +93,30 @@ export class KernelMemory {
     view.setFloat64(ptr + F64_BYTES * 2, tolerance.angle_tol, true);
   }
 
+  writeUv(ptr: number, uv: RgmUv2): void {
+    const view = this.dataView();
+    view.setFloat64(ptr, uv.u, true);
+    view.setFloat64(ptr + F64_BYTES, uv.v, true);
+  }
+
+  readUv(ptr: number): RgmUv2 {
+    const view = this.dataView();
+    return {
+      u: view.getFloat64(ptr, true),
+      v: view.getFloat64(ptr + F64_BYTES, true),
+    };
+  }
+
   readPoint(ptr: number): RgmPoint3 {
+    const view = this.dataView();
+    return {
+      x: view.getFloat64(ptr, true),
+      y: view.getFloat64(ptr + F64_BYTES, true),
+      z: view.getFloat64(ptr + F64_BYTES * 2, true),
+    };
+  }
+
+  readVec(ptr: number): RgmVec3 {
     const view = this.dataView();
     return {
       x: view.getFloat64(ptr, true),
@@ -99,6 +139,14 @@ export class KernelMemory {
 
   readU64(ptr: number): bigint {
     return this.dataView().getBigUint64(ptr, true);
+  }
+
+  readBool(ptr: number): boolean {
+    return this.dataView().getUint8(ptr) !== 0;
+  }
+
+  writeBool(ptr: number, value: boolean): void {
+    this.dataView().setUint8(ptr, value ? 1 : 0);
   }
 
   readBytes(ptr: number, length: number): Uint8Array {
@@ -148,6 +196,51 @@ export class KernelMemory {
     view.setFloat64(ptr + PLANE_BYTES + F64_BYTES * 2, arc.sweep_angle, true);
   }
 
+  writeNurbsSurfaceDesc(ptr: number, desc: RgmNurbsSurfaceDesc): void {
+    const view = this.dataView();
+    view.setUint32(ptr, desc.degree_u, true);
+    view.setUint32(ptr + I32_BYTES, desc.degree_v, true);
+    view.setUint8(ptr + I32_BYTES * 2, desc.periodic_u ? 1 : 0);
+    view.setUint8(ptr + I32_BYTES * 2 + 1, desc.periodic_v ? 1 : 0);
+    view.setUint16(ptr + I32_BYTES * 2 + 2, 0, true);
+    view.setUint32(ptr + 12, desc.control_u_count, true);
+    view.setUint32(ptr + 16, desc.control_v_count, true);
+  }
+
+  writeSurfaceTessellationOptions(
+    ptr: number,
+    options: RgmSurfaceTessellationOptions,
+  ): void {
+    const view = this.dataView();
+    view.setUint32(ptr, options.min_u_segments, true);
+    view.setUint32(ptr + I32_BYTES, options.min_v_segments, true);
+    view.setUint32(ptr + I32_BYTES * 2, options.max_u_segments, true);
+    view.setUint32(ptr + I32_BYTES * 3, options.max_v_segments, true);
+    view.setFloat64(ptr + I32_BYTES * 4, options.chord_tol, true);
+    view.setFloat64(ptr + I32_BYTES * 4 + F64_BYTES, options.normal_tol_rad, true);
+  }
+
+  readSurfaceEvalFrame(ptr: number): RgmSurfaceEvalFrame {
+    return {
+      point: this.readPoint(ptr),
+      du: this.readVec(ptr + POINT3_BYTES),
+      dv: this.readVec(ptr + POINT3_BYTES + VEC3_BYTES),
+      normal: this.readVec(ptr + POINT3_BYTES + VEC3_BYTES * 2),
+    };
+  }
+
+  readIntersectionBranchSummary(ptr: number): RgmIntersectionBranchSummary {
+    const view = this.dataView();
+    return {
+      point_count: view.getUint32(ptr, true),
+      uv_a_count: view.getUint32(ptr + 4, true),
+      uv_b_count: view.getUint32(ptr + 8, true),
+      curve_t_count: view.getUint32(ptr + 12, true),
+      closed: view.getUint8(ptr + 16) !== 0,
+      flags: view.getUint32(ptr + 20, true),
+    };
+  }
+
   private dataView(): DataView {
     return new DataView(this.wasmMemory.buffer);
   }
@@ -165,4 +258,9 @@ export const KERNEL_LAYOUT = {
   ARC3_BYTES,
   POLYCURVE_SEGMENT_BYTES,
   TOLERANCE_BYTES,
+  UV2_BYTES,
+  NURBS_SURFACE_DESC_BYTES,
+  SURFACE_EVAL_FRAME_BYTES,
+  SURFACE_TESSELLATION_OPTIONS_BYTES,
+  INTERSECTION_BRANCH_SUMMARY_BYTES,
 } as const;

@@ -1,7 +1,7 @@
 {
   "crate_name": "kernel-ffi",
   "version": "4.0.0",
-  "abi_hash": "2ba4b1fbbf7637793717ffd317102cde48cea3295e898e8db0b748425d27a8ee",
+  "abi_hash": "1827693db805b73a594219a81beb04827659a3687b84a39f12cd70c19c71fa80",
   "functions": [
     {
       "rust_name": "rgm_alloc",
@@ -928,6 +928,198 @@
       ]
     },
     {
+      "rust_name": "rgm_face_add_loop",
+      "c_name": "rgm_face_add_loop",
+      "interop_ts_name": "interopFaceAddLoop",
+      "public_ts_name": null,
+      "receiver": null,
+      "return_type": "RgmStatus",
+      "params": [
+        {
+          "name": "session",
+          "ty": "RgmKernelHandle"
+        },
+        {
+          "name": "face",
+          "ty": "RgmObjectHandle"
+        },
+        {
+          "name": "points",
+          "ty": "*constRgmUv2"
+        },
+        {
+          "name": "point_count",
+          "ty": "usize"
+        },
+        {
+          "name": "is_outer",
+          "ty": "bool"
+        }
+      ]
+    },
+    {
+      "rust_name": "rgm_face_create_from_surface",
+      "c_name": "rgm_face_create_from_surface",
+      "interop_ts_name": "interopFaceCreateFromSurface",
+      "public_ts_name": null,
+      "receiver": null,
+      "return_type": "RgmStatus",
+      "params": [
+        {
+          "name": "session",
+          "ty": "RgmKernelHandle"
+        },
+        {
+          "name": "surface",
+          "ty": "RgmObjectHandle"
+        },
+        {
+          "name": "out_face",
+          "ty": "*mutRgmObjectHandle"
+        }
+      ]
+    },
+    {
+      "rust_name": "rgm_face_heal",
+      "c_name": "rgm_face_heal",
+      "interop_ts_name": "interopFaceHeal",
+      "public_ts_name": null,
+      "receiver": null,
+      "return_type": "RgmStatus",
+      "params": [
+        {
+          "name": "session",
+          "ty": "RgmKernelHandle"
+        },
+        {
+          "name": "face",
+          "ty": "RgmObjectHandle"
+        }
+      ]
+    },
+    {
+      "rust_name": "rgm_face_remove_loop",
+      "c_name": "rgm_face_remove_loop",
+      "interop_ts_name": "interopFaceRemoveLoop",
+      "public_ts_name": null,
+      "receiver": null,
+      "return_type": "RgmStatus",
+      "params": [
+        {
+          "name": "session",
+          "ty": "RgmKernelHandle"
+        },
+        {
+          "name": "face",
+          "ty": "RgmObjectHandle"
+        },
+        {
+          "name": "loop_index",
+          "ty": "u32"
+        }
+      ]
+    },
+    {
+      "rust_name": "rgm_face_reverse_loop",
+      "c_name": "rgm_face_reverse_loop",
+      "interop_ts_name": "interopFaceReverseLoop",
+      "public_ts_name": null,
+      "receiver": null,
+      "return_type": "RgmStatus",
+      "params": [
+        {
+          "name": "session",
+          "ty": "RgmKernelHandle"
+        },
+        {
+          "name": "face",
+          "ty": "RgmObjectHandle"
+        },
+        {
+          "name": "loop_index",
+          "ty": "u32"
+        }
+      ]
+    },
+    {
+      "rust_name": "rgm_face_split_trim_edge",
+      "c_name": "rgm_face_split_trim_edge",
+      "interop_ts_name": "interopFaceSplitTrimEdge",
+      "public_ts_name": null,
+      "receiver": null,
+      "return_type": "RgmStatus",
+      "params": [
+        {
+          "name": "session",
+          "ty": "RgmKernelHandle"
+        },
+        {
+          "name": "face",
+          "ty": "RgmObjectHandle"
+        },
+        {
+          "name": "loop_index",
+          "ty": "u32"
+        },
+        {
+          "name": "edge_index",
+          "ty": "u32"
+        },
+        {
+          "name": "split_t",
+          "ty": "f64"
+        }
+      ]
+    },
+    {
+      "rust_name": "rgm_face_tessellate_to_mesh",
+      "c_name": "rgm_face_tessellate_to_mesh",
+      "interop_ts_name": "interopFaceTessellateToMesh",
+      "public_ts_name": null,
+      "receiver": null,
+      "return_type": "RgmStatus",
+      "params": [
+        {
+          "name": "session",
+          "ty": "RgmKernelHandle"
+        },
+        {
+          "name": "face",
+          "ty": "RgmObjectHandle"
+        },
+        {
+          "name": "options",
+          "ty": "*constRgmSurfaceTessellationOptions"
+        },
+        {
+          "name": "out_mesh",
+          "ty": "*mutRgmObjectHandle"
+        }
+      ]
+    },
+    {
+      "rust_name": "rgm_face_validate",
+      "c_name": "rgm_face_validate",
+      "interop_ts_name": "interopFaceValidate",
+      "public_ts_name": null,
+      "receiver": null,
+      "return_type": "RgmStatus",
+      "params": [
+        {
+          "name": "session",
+          "ty": "RgmKernelHandle"
+        },
+        {
+          "name": "face",
+          "ty": "RgmObjectHandle"
+        },
+        {
+          "name": "out_valid",
+          "ty": "*mutbool"
+        }
+      ]
+    },
+    {
       "rust_name": "rgm_intersect_curve_curve",
       "c_name": "rgm_intersect_curve_curve",
       "interop_ts_name": "interopIntersectCurveCurve",
@@ -1086,6 +1278,298 @@
         {
           "name": "out_points",
           "ty": "*mutRgmPoint3"
+        },
+        {
+          "name": "point_capacity",
+          "ty": "u32"
+        },
+        {
+          "name": "out_count",
+          "ty": "*mutu32"
+        }
+      ]
+    },
+    {
+      "rust_name": "rgm_intersect_surface_curve",
+      "c_name": "rgm_intersect_surface_curve",
+      "interop_ts_name": "interopIntersectSurfaceCurve",
+      "public_ts_name": null,
+      "receiver": null,
+      "return_type": "RgmStatus",
+      "params": [
+        {
+          "name": "session",
+          "ty": "RgmKernelHandle"
+        },
+        {
+          "name": "surface",
+          "ty": "RgmObjectHandle"
+        },
+        {
+          "name": "curve",
+          "ty": "RgmObjectHandle"
+        },
+        {
+          "name": "out_intersection",
+          "ty": "*mutRgmObjectHandle"
+        }
+      ]
+    },
+    {
+      "rust_name": "rgm_intersect_surface_plane",
+      "c_name": "rgm_intersect_surface_plane",
+      "interop_ts_name": "interopIntersectSurfacePlane",
+      "public_ts_name": null,
+      "receiver": null,
+      "return_type": "RgmStatus",
+      "params": [
+        {
+          "name": "session",
+          "ty": "RgmKernelHandle"
+        },
+        {
+          "name": "surface",
+          "ty": "RgmObjectHandle"
+        },
+        {
+          "name": "plane",
+          "ty": "*constRgmPlane"
+        },
+        {
+          "name": "out_intersection",
+          "ty": "*mutRgmObjectHandle"
+        }
+      ]
+    },
+    {
+      "rust_name": "rgm_intersect_surface_surface",
+      "c_name": "rgm_intersect_surface_surface",
+      "interop_ts_name": "interopIntersectSurfaceSurface",
+      "public_ts_name": null,
+      "receiver": null,
+      "return_type": "RgmStatus",
+      "params": [
+        {
+          "name": "session",
+          "ty": "RgmKernelHandle"
+        },
+        {
+          "name": "surface_a",
+          "ty": "RgmObjectHandle"
+        },
+        {
+          "name": "surface_b",
+          "ty": "RgmObjectHandle"
+        },
+        {
+          "name": "out_intersection",
+          "ty": "*mutRgmObjectHandle"
+        }
+      ]
+    },
+    {
+      "rust_name": "rgm_intersection_branch_count",
+      "c_name": "rgm_intersection_branch_count",
+      "interop_ts_name": "interopIntersectionBranchCount",
+      "public_ts_name": null,
+      "receiver": null,
+      "return_type": "RgmStatus",
+      "params": [
+        {
+          "name": "session",
+          "ty": "RgmKernelHandle"
+        },
+        {
+          "name": "intersection",
+          "ty": "RgmObjectHandle"
+        },
+        {
+          "name": "out_count",
+          "ty": "*mutu32"
+        }
+      ]
+    },
+    {
+      "rust_name": "rgm_intersection_branch_summary",
+      "c_name": "rgm_intersection_branch_summary",
+      "interop_ts_name": "interopIntersectionBranchSummary",
+      "public_ts_name": null,
+      "receiver": null,
+      "return_type": "RgmStatus",
+      "params": [
+        {
+          "name": "session",
+          "ty": "RgmKernelHandle"
+        },
+        {
+          "name": "intersection",
+          "ty": "RgmObjectHandle"
+        },
+        {
+          "name": "branch_index",
+          "ty": "u32"
+        },
+        {
+          "name": "out_summary",
+          "ty": "*mutRgmIntersectionBranchSummary"
+        }
+      ]
+    },
+    {
+      "rust_name": "rgm_intersection_branch_to_nurbs",
+      "c_name": "rgm_intersection_branch_to_nurbs",
+      "interop_ts_name": "interopIntersectionBranchToNurbs",
+      "public_ts_name": null,
+      "receiver": null,
+      "return_type": "RgmStatus",
+      "params": [
+        {
+          "name": "session",
+          "ty": "RgmKernelHandle"
+        },
+        {
+          "name": "intersection",
+          "ty": "RgmObjectHandle"
+        },
+        {
+          "name": "branch_index",
+          "ty": "u32"
+        },
+        {
+          "name": "tol",
+          "ty": "*constRgmToleranceContext"
+        },
+        {
+          "name": "out_curve",
+          "ty": "*mutRgmObjectHandle"
+        }
+      ]
+    },
+    {
+      "rust_name": "rgm_intersection_copy_branch_curve_t",
+      "c_name": "rgm_intersection_copy_branch_curve_t",
+      "interop_ts_name": "interopIntersectionCopyBranchCurveT",
+      "public_ts_name": null,
+      "receiver": null,
+      "return_type": "RgmStatus",
+      "params": [
+        {
+          "name": "session",
+          "ty": "RgmKernelHandle"
+        },
+        {
+          "name": "intersection",
+          "ty": "RgmObjectHandle"
+        },
+        {
+          "name": "branch_index",
+          "ty": "u32"
+        },
+        {
+          "name": "out_values",
+          "ty": "*mutf64"
+        },
+        {
+          "name": "value_capacity",
+          "ty": "u32"
+        },
+        {
+          "name": "out_count",
+          "ty": "*mutu32"
+        }
+      ]
+    },
+    {
+      "rust_name": "rgm_intersection_copy_branch_points",
+      "c_name": "rgm_intersection_copy_branch_points",
+      "interop_ts_name": "interopIntersectionCopyBranchPoints",
+      "public_ts_name": null,
+      "receiver": null,
+      "return_type": "RgmStatus",
+      "params": [
+        {
+          "name": "session",
+          "ty": "RgmKernelHandle"
+        },
+        {
+          "name": "intersection",
+          "ty": "RgmObjectHandle"
+        },
+        {
+          "name": "branch_index",
+          "ty": "u32"
+        },
+        {
+          "name": "out_points",
+          "ty": "*mutRgmPoint3"
+        },
+        {
+          "name": "point_capacity",
+          "ty": "u32"
+        },
+        {
+          "name": "out_count",
+          "ty": "*mutu32"
+        }
+      ]
+    },
+    {
+      "rust_name": "rgm_intersection_copy_branch_uv_on_surface_a",
+      "c_name": "rgm_intersection_copy_branch_uv_on_surface_a",
+      "interop_ts_name": "interopIntersectionCopyBranchUvOnSurfaceA",
+      "public_ts_name": null,
+      "receiver": null,
+      "return_type": "RgmStatus",
+      "params": [
+        {
+          "name": "session",
+          "ty": "RgmKernelHandle"
+        },
+        {
+          "name": "intersection",
+          "ty": "RgmObjectHandle"
+        },
+        {
+          "name": "branch_index",
+          "ty": "u32"
+        },
+        {
+          "name": "out_points",
+          "ty": "*mutRgmUv2"
+        },
+        {
+          "name": "point_capacity",
+          "ty": "u32"
+        },
+        {
+          "name": "out_count",
+          "ty": "*mutu32"
+        }
+      ]
+    },
+    {
+      "rust_name": "rgm_intersection_copy_branch_uv_on_surface_b",
+      "c_name": "rgm_intersection_copy_branch_uv_on_surface_b",
+      "interop_ts_name": "interopIntersectionCopyBranchUvOnSurfaceB",
+      "public_ts_name": null,
+      "receiver": null,
+      "return_type": "RgmStatus",
+      "params": [
+        {
+          "name": "session",
+          "ty": "RgmKernelHandle"
+        },
+        {
+          "name": "intersection",
+          "ty": "RgmObjectHandle"
+        },
+        {
+          "name": "branch_index",
+          "ty": "u32"
+        },
+        {
+          "name": "out_points",
+          "ty": "*mutRgmUv2"
         },
         {
           "name": "point_capacity",
@@ -1866,6 +2350,344 @@
           "ty": "*mutRgmPoint3"
         }
       ]
+    },
+    {
+      "rust_name": "rgm_surface_bake_transform",
+      "c_name": "rgm_surface_bake_transform",
+      "interop_ts_name": "interopSurfaceBakeTransform",
+      "public_ts_name": null,
+      "receiver": null,
+      "return_type": "RgmStatus",
+      "params": [
+        {
+          "name": "session",
+          "ty": "RgmKernelHandle"
+        },
+        {
+          "name": "surface",
+          "ty": "RgmObjectHandle"
+        },
+        {
+          "name": "out_surface",
+          "ty": "*mutRgmObjectHandle"
+        }
+      ]
+    },
+    {
+      "rust_name": "rgm_surface_create_nurbs",
+      "c_name": "rgm_surface_create_nurbs",
+      "interop_ts_name": "interopSurfaceCreateNurbs",
+      "public_ts_name": null,
+      "receiver": null,
+      "return_type": "RgmStatus",
+      "params": [
+        {
+          "name": "session",
+          "ty": "RgmKernelHandle"
+        },
+        {
+          "name": "desc",
+          "ty": "*constRgmNurbsSurfaceDesc"
+        },
+        {
+          "name": "control_points",
+          "ty": "*constRgmPoint3"
+        },
+        {
+          "name": "control_point_count",
+          "ty": "usize"
+        },
+        {
+          "name": "weights",
+          "ty": "*constf64"
+        },
+        {
+          "name": "weight_count",
+          "ty": "usize"
+        },
+        {
+          "name": "knots_u",
+          "ty": "*constf64"
+        },
+        {
+          "name": "knot_u_count",
+          "ty": "usize"
+        },
+        {
+          "name": "knots_v",
+          "ty": "*constf64"
+        },
+        {
+          "name": "knot_v_count",
+          "ty": "usize"
+        },
+        {
+          "name": "tol",
+          "ty": "*constRgmToleranceContext"
+        },
+        {
+          "name": "out_surface",
+          "ty": "*mutRgmObjectHandle"
+        }
+      ]
+    },
+    {
+      "rust_name": "rgm_surface_d1_at",
+      "c_name": "rgm_surface_d1_at",
+      "interop_ts_name": "interopSurfaceD1At",
+      "public_ts_name": null,
+      "receiver": null,
+      "return_type": "RgmStatus",
+      "params": [
+        {
+          "name": "session",
+          "ty": "RgmKernelHandle"
+        },
+        {
+          "name": "surface",
+          "ty": "RgmObjectHandle"
+        },
+        {
+          "name": "uv_norm",
+          "ty": "*constRgmUv2"
+        },
+        {
+          "name": "out_du",
+          "ty": "*mutRgmVec3"
+        },
+        {
+          "name": "out_dv",
+          "ty": "*mutRgmVec3"
+        }
+      ]
+    },
+    {
+      "rust_name": "rgm_surface_d2_at",
+      "c_name": "rgm_surface_d2_at",
+      "interop_ts_name": "interopSurfaceD2At",
+      "public_ts_name": null,
+      "receiver": null,
+      "return_type": "RgmStatus",
+      "params": [
+        {
+          "name": "session",
+          "ty": "RgmKernelHandle"
+        },
+        {
+          "name": "surface",
+          "ty": "RgmObjectHandle"
+        },
+        {
+          "name": "uv_norm",
+          "ty": "*constRgmUv2"
+        },
+        {
+          "name": "out_duu",
+          "ty": "*mutRgmVec3"
+        },
+        {
+          "name": "out_duv",
+          "ty": "*mutRgmVec3"
+        },
+        {
+          "name": "out_dvv",
+          "ty": "*mutRgmVec3"
+        }
+      ]
+    },
+    {
+      "rust_name": "rgm_surface_frame_at",
+      "c_name": "rgm_surface_frame_at",
+      "interop_ts_name": "interopSurfaceFrameAt",
+      "public_ts_name": null,
+      "receiver": null,
+      "return_type": "RgmStatus",
+      "params": [
+        {
+          "name": "session",
+          "ty": "RgmKernelHandle"
+        },
+        {
+          "name": "surface",
+          "ty": "RgmObjectHandle"
+        },
+        {
+          "name": "uv_norm",
+          "ty": "*constRgmUv2"
+        },
+        {
+          "name": "out_frame",
+          "ty": "*mutRgmSurfaceEvalFrame"
+        }
+      ]
+    },
+    {
+      "rust_name": "rgm_surface_normal_at",
+      "c_name": "rgm_surface_normal_at",
+      "interop_ts_name": "interopSurfaceNormalAt",
+      "public_ts_name": null,
+      "receiver": null,
+      "return_type": "RgmStatus",
+      "params": [
+        {
+          "name": "session",
+          "ty": "RgmKernelHandle"
+        },
+        {
+          "name": "surface",
+          "ty": "RgmObjectHandle"
+        },
+        {
+          "name": "uv_norm",
+          "ty": "*constRgmUv2"
+        },
+        {
+          "name": "out_normal",
+          "ty": "*mutRgmVec3"
+        }
+      ]
+    },
+    {
+      "rust_name": "rgm_surface_point_at",
+      "c_name": "rgm_surface_point_at",
+      "interop_ts_name": "interopSurfacePointAt",
+      "public_ts_name": null,
+      "receiver": null,
+      "return_type": "RgmStatus",
+      "params": [
+        {
+          "name": "session",
+          "ty": "RgmKernelHandle"
+        },
+        {
+          "name": "surface",
+          "ty": "RgmObjectHandle"
+        },
+        {
+          "name": "uv_norm",
+          "ty": "*constRgmUv2"
+        },
+        {
+          "name": "out_point",
+          "ty": "*mutRgmPoint3"
+        }
+      ]
+    },
+    {
+      "rust_name": "rgm_surface_rotate",
+      "c_name": "rgm_surface_rotate",
+      "interop_ts_name": "interopSurfaceRotate",
+      "public_ts_name": null,
+      "receiver": null,
+      "return_type": "RgmStatus",
+      "params": [
+        {
+          "name": "session",
+          "ty": "RgmKernelHandle"
+        },
+        {
+          "name": "surface",
+          "ty": "RgmObjectHandle"
+        },
+        {
+          "name": "axis",
+          "ty": "*constRgmVec3"
+        },
+        {
+          "name": "angle_rad",
+          "ty": "f64"
+        },
+        {
+          "name": "pivot",
+          "ty": "*constRgmPoint3"
+        },
+        {
+          "name": "out_surface",
+          "ty": "*mutRgmObjectHandle"
+        }
+      ]
+    },
+    {
+      "rust_name": "rgm_surface_scale",
+      "c_name": "rgm_surface_scale",
+      "interop_ts_name": "interopSurfaceScale",
+      "public_ts_name": null,
+      "receiver": null,
+      "return_type": "RgmStatus",
+      "params": [
+        {
+          "name": "session",
+          "ty": "RgmKernelHandle"
+        },
+        {
+          "name": "surface",
+          "ty": "RgmObjectHandle"
+        },
+        {
+          "name": "scale",
+          "ty": "*constRgmVec3"
+        },
+        {
+          "name": "pivot",
+          "ty": "*constRgmPoint3"
+        },
+        {
+          "name": "out_surface",
+          "ty": "*mutRgmObjectHandle"
+        }
+      ]
+    },
+    {
+      "rust_name": "rgm_surface_tessellate_to_mesh",
+      "c_name": "rgm_surface_tessellate_to_mesh",
+      "interop_ts_name": "interopSurfaceTessellateToMesh",
+      "public_ts_name": null,
+      "receiver": null,
+      "return_type": "RgmStatus",
+      "params": [
+        {
+          "name": "session",
+          "ty": "RgmKernelHandle"
+        },
+        {
+          "name": "surface",
+          "ty": "RgmObjectHandle"
+        },
+        {
+          "name": "options",
+          "ty": "*constRgmSurfaceTessellationOptions"
+        },
+        {
+          "name": "out_mesh",
+          "ty": "*mutRgmObjectHandle"
+        }
+      ]
+    },
+    {
+      "rust_name": "rgm_surface_translate",
+      "c_name": "rgm_surface_translate",
+      "interop_ts_name": "interopSurfaceTranslate",
+      "public_ts_name": null,
+      "receiver": null,
+      "return_type": "RgmStatus",
+      "params": [
+        {
+          "name": "session",
+          "ty": "RgmKernelHandle"
+        },
+        {
+          "name": "surface",
+          "ty": "RgmObjectHandle"
+        },
+        {
+          "name": "delta",
+          "ty": "*constRgmVec3"
+        },
+        {
+          "name": "out_surface",
+          "ty": "*mutRgmObjectHandle"
+        }
+      ]
     }
   ],
   "ffi_types": [
@@ -1924,6 +2746,37 @@
     },
     {
       "kind": "Struct",
+      "name": "RgmIntersectionBranchSummary",
+      "repr": "C",
+      "fields": [
+        {
+          "name": "point_count",
+          "ty": "u32"
+        },
+        {
+          "name": "uv_a_count",
+          "ty": "u32"
+        },
+        {
+          "name": "uv_b_count",
+          "ty": "u32"
+        },
+        {
+          "name": "curve_t_count",
+          "ty": "u32"
+        },
+        {
+          "name": "closed",
+          "ty": "bool"
+        },
+        {
+          "name": "flags",
+          "ty": "u32"
+        }
+      ]
+    },
+    {
+      "kind": "Struct",
       "name": "RgmKernelHandle",
       "repr": "transparent",
       "fields": [
@@ -1945,6 +2798,37 @@
         {
           "name": "end",
           "ty": "RgmPoint3"
+        }
+      ]
+    },
+    {
+      "kind": "Struct",
+      "name": "RgmNurbsSurfaceDesc",
+      "repr": "C",
+      "fields": [
+        {
+          "name": "degree_u",
+          "ty": "u32"
+        },
+        {
+          "name": "degree_v",
+          "ty": "u32"
+        },
+        {
+          "name": "periodic_u",
+          "ty": "bool"
+        },
+        {
+          "name": "periodic_v",
+          "ty": "bool"
+        },
+        {
+          "name": "control_u_count",
+          "ty": "u32"
+        },
+        {
+          "name": "control_v_count",
+          "ty": "u32"
         }
       ]
     },
@@ -1979,6 +2863,21 @@
         {
           "name": "z_axis",
           "ty": "RgmVec3"
+        }
+      ]
+    },
+    {
+      "kind": "Struct",
+      "name": "RgmPoint2",
+      "repr": "C",
+      "fields": [
+        {
+          "name": "x",
+          "ty": "f64"
+        },
+        {
+          "name": "y",
+          "ty": "f64"
         }
       ]
     },
@@ -2061,6 +2960,60 @@
     },
     {
       "kind": "Struct",
+      "name": "RgmSurfaceEvalFrame",
+      "repr": "C",
+      "fields": [
+        {
+          "name": "point",
+          "ty": "RgmPoint3"
+        },
+        {
+          "name": "du",
+          "ty": "RgmVec3"
+        },
+        {
+          "name": "dv",
+          "ty": "RgmVec3"
+        },
+        {
+          "name": "normal",
+          "ty": "RgmVec3"
+        }
+      ]
+    },
+    {
+      "kind": "Struct",
+      "name": "RgmSurfaceTessellationOptions",
+      "repr": "C",
+      "fields": [
+        {
+          "name": "min_u_segments",
+          "ty": "u32"
+        },
+        {
+          "name": "min_v_segments",
+          "ty": "u32"
+        },
+        {
+          "name": "max_u_segments",
+          "ty": "u32"
+        },
+        {
+          "name": "max_v_segments",
+          "ty": "u32"
+        },
+        {
+          "name": "chord_tol",
+          "ty": "f64"
+        },
+        {
+          "name": "normal_tol_rad",
+          "ty": "f64"
+        }
+      ]
+    },
+    {
+      "kind": "Struct",
       "name": "RgmToleranceContext",
       "repr": "C",
       "fields": [
@@ -2074,6 +3027,74 @@
         },
         {
           "name": "angle_tol",
+          "ty": "f64"
+        }
+      ]
+    },
+    {
+      "kind": "Struct",
+      "name": "RgmTrimEdgeInput",
+      "repr": "C",
+      "fields": [
+        {
+          "name": "start_uv",
+          "ty": "RgmUv2"
+        },
+        {
+          "name": "end_uv",
+          "ty": "RgmUv2"
+        },
+        {
+          "name": "curve_3d",
+          "ty": "RgmObjectHandle"
+        },
+        {
+          "name": "has_curve_3d",
+          "ty": "bool"
+        }
+      ]
+    },
+    {
+      "kind": "Struct",
+      "name": "RgmTrimLoopInput",
+      "repr": "C",
+      "fields": [
+        {
+          "name": "edge_count",
+          "ty": "u32"
+        },
+        {
+          "name": "is_outer",
+          "ty": "bool"
+        }
+      ]
+    },
+    {
+      "kind": "Struct",
+      "name": "RgmUv2",
+      "repr": "C",
+      "fields": [
+        {
+          "name": "u",
+          "ty": "f64"
+        },
+        {
+          "name": "v",
+          "ty": "f64"
+        }
+      ]
+    },
+    {
+      "kind": "Struct",
+      "name": "RgmVec2",
+      "repr": "C",
+      "fields": [
+        {
+          "name": "x",
+          "ty": "f64"
+        },
+        {
+          "name": "y",
           "ty": "f64"
         }
       ]

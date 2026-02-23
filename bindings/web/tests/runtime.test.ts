@@ -45,6 +45,20 @@ const preset: CurvePresetInput = {
   },
 };
 
+function clampedUniformKnots(controlCount: number, degree: number): number[] {
+  const knotCount = controlCount + degree + 1;
+  const knots = new Array(knotCount).fill(0);
+  const interior = controlCount - degree - 1;
+  for (let i = 0; i <= degree; i += 1) {
+    knots[i] = 0;
+    knots[knotCount - 1 - i] = 1;
+  }
+  for (let i = 1; i <= interior; i += 1) {
+    knots[degree + i] = i / (interior + 1);
+  }
+  return knots;
+}
+
 describe("kernel runtime", () => {
   it("creates a session, builds a curve, and samples points", async () => {
     const wasmBytes = readFileSync(wasmPath);
@@ -176,12 +190,70 @@ describe("kernel runtime", () => {
     const booleanDiff = session.meshBoolean(booleanHost, innerTorus, 2);
     expect(session.meshTriangleCount(booleanDiff)).toBeGreaterThan(0);
 
+    const surfacePoints = [
+      { x: -2, y: -2, z: 0 },
+      { x: -2, y: 0, z: 0.8 },
+      { x: -2, y: 2, z: 0.1 },
+      { x: 0, y: -2, z: 0.7 },
+      { x: 0, y: 0, z: -0.2 },
+      { x: 0, y: 2, z: 0.9 },
+      { x: 2, y: -2, z: -0.3 },
+      { x: 2, y: 0, z: 0.6 },
+      { x: 2, y: 2, z: 0.2 },
+    ];
+    const surface = session.createNurbsSurface(
+      {
+        degree_u: 2,
+        degree_v: 2,
+        periodic_u: false,
+        periodic_v: false,
+        control_u_count: 3,
+        control_v_count: 3,
+      },
+      surfacePoints,
+      new Array(9).fill(1),
+      clampedUniformKnots(3, 2),
+      clampedUniformKnots(3, 2),
+      preset.tolerance,
+    );
+    const frame = session.surfaceFrameAt(surface, { u: 0.5, v: 0.5 });
+    expect(Number.isFinite(frame.point.x)).toBe(true);
+    expect(Number.isFinite(frame.normal.z)).toBe(true);
+
+    const face = session.createFaceFromSurface(surface);
+    session.faceAddLoop(
+      face,
+      [
+        { u: 0.05, v: 0.05 },
+        { u: 0.95, v: 0.05 },
+        { u: 0.95, v: 0.95 },
+        { u: 0.05, v: 0.95 },
+      ],
+      true,
+    );
+    expect(session.faceValidate(face)).toBe(true);
+    const faceMesh = session.faceTessellateToMesh(face);
+    expect(session.meshTriangleCount(faceMesh)).toBeGreaterThan(0);
+
+    const surfacePlaneIntersection = session.intersectSurfacePlane(surface, {
+      origin: { x: 0, y: 0, z: 0.1 },
+      x_axis: { x: 1, y: 0, z: 0 },
+      y_axis: { x: 0, y: 1, z: 0 },
+      z_axis: { x: 0, y: 0, z: 1 },
+    });
+    const branchCount = session.intersectionBranchCount(surfacePlaneIntersection);
+    expect(branchCount).toBeGreaterThanOrEqual(0);
+
     session.releaseObject(lineB);
     session.releaseObject(lineA);
     session.releaseObject(circleHandle);
     session.releaseObject(booleanDiff);
     session.releaseObject(booleanHost);
     session.releaseObject(innerTorus);
+    session.releaseObject(surfacePlaneIntersection);
+    session.releaseObject(faceMesh);
+    session.releaseObject(face);
+    session.releaseObject(surface);
     session.releaseObject(sphere);
     session.releaseObject(torus);
     session.releaseObject(baked);
