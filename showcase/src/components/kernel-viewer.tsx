@@ -109,7 +109,7 @@ const EXAMPLE_SUMMARIES: Record<ExampleKey, string> = {
   meshIntersectMeshMesh: "Computes raw segment pairs from mesh-mesh intersection.",
   meshIntersectMeshPlane: "Cuts a mesh with a plane and shows section segments.",
   meshBoolean:
-    "Constructive solid geometry difference: keeps the box (A) and subtracts the torus (B).",
+    "Select A or B, move it with the gizmo, and recompute the CSG difference (A - B) on every drag commit.",
 };
 
 interface OverlayCurveVisual {
@@ -167,6 +167,13 @@ interface BuiltExample {
   interactiveMeshHandle: bigint | null;
   transformTargets: TransformTarget[];
   defaultTransformTargetKey: string | null;
+  booleanState?:
+    | {
+        baseHandle: bigint;
+        toolHandle: bigint;
+        resultHandle: bigint;
+      }
+    | null;
   intersectionMs: number;
   logs: string[];
 }
@@ -654,6 +661,9 @@ export function KernelViewer() {
   const transformTargetsRef = useRef<TransformTarget[]>([]);
   const meshPlaneMeshHandleRef = useRef<bigint | null>(null);
   const meshPlanePlaneRef = useRef<RgmPlane | null>(null);
+  const booleanBaseMeshHandleRef = useRef<bigint | null>(null);
+  const booleanToolMeshHandleRef = useRef<bigint | null>(null);
+  const booleanResultMeshHandleRef = useRef<bigint | null>(null);
   const planeGroupRef = useRef<THREE.Group | null>(null);
   const liveIntersectionTimerRef = useRef<number | null>(null);
   const previewMeshHandleRef = useRef<bigint | null>(null);
@@ -752,6 +762,9 @@ export function KernelViewer() {
     interactiveMeshHandleRef.current = null;
     meshPlaneMeshHandleRef.current = null;
     meshPlanePlaneRef.current = null;
+    booleanBaseMeshHandleRef.current = null;
+    booleanToolMeshHandleRef.current = null;
+    booleanResultMeshHandleRef.current = null;
     transformTargetsRef.current = [];
     setTransformTargetsUi([]);
     if (previewMeshHandleRef.current !== null) {
@@ -799,6 +812,7 @@ export function KernelViewer() {
         interactiveMeshHandle: null,
         transformTargets: [],
         defaultTransformTargetKey: null,
+        booleanState: null,
         intersectionMs: 0,
         logs,
       });
@@ -1290,7 +1304,7 @@ export function KernelViewer() {
         try {
           const outer = session.createMeshBox({ x: 0, y: 0, z: 0 }, { x: 9.0, y: 9.0, z: 9.0 });
           built.push(outer);
-          const inner = session.createMeshTorus({ x: 0.0, y: 0.0, z: 0.0 }, 2.8, 0.95, 72, 52);
+          const inner = session.createMeshTorus({ x: 2.2, y: 0.0, z: 0.0 }, 2.8, 0.95, 72, 52);
           built.push(inner);
           const result = session.meshBoolean(outer, inner, 2);
           built.push(result);
@@ -1301,46 +1315,70 @@ export function KernelViewer() {
             kind: "mesh",
             curveHandle: null,
             ownedHandles: built,
-            name: "Boolean Difference (Box - Torus)",
-            degreeLabel: "Constructive solid geometry (difference A - B)",
+            name: "Interactive CSG Difference (A - B)",
+            degreeLabel: "Move A/B with gizmo, then recompute boolean difference",
             renderDegree: 0,
             renderSamples: 0,
             meshVisual: {
-              vertices: resultBuffers.vertices,
-              indices: resultBuffers.indices,
-              color: "#8ac6ff",
-              opacity: 0.95,
+              vertices: innerBuffers.vertices,
+              indices: innerBuffers.indices,
+              color: "#f7ba74",
+              opacity: 0.28,
               wireframe: true,
-              name: "boolean result",
+              name: "subtracted solid (B): torus (active target)",
             },
             overlayMeshes: [
               {
                 vertices: outerBuffers.vertices,
                 indices: outerBuffers.indices,
                 color: "#8aa2ba",
-                opacity: 0.18,
-                wireframe: false,
+                opacity: 0.12,
+                wireframe: true,
                 name: "base solid (A): box",
               },
               {
-                vertices: innerBuffers.vertices,
-                indices: innerBuffers.indices,
-                color: "#f7ba74",
-                opacity: 0.18,
+                vertices: resultBuffers.vertices,
+                indices: resultBuffers.indices,
+                color: "#8ac6ff",
+                opacity: 0.82,
                 wireframe: false,
-                name: "subtracted solid (B): torus",
+                name: "boolean result (A - B)",
               },
             ],
             overlayCurves: [],
             segmentOverlays: [],
             intersectionPoints: [],
             planeVisual: null,
-            interactiveMeshHandle: null,
-            transformTargets: [],
-            defaultTransformTargetKey: null,
+            interactiveMeshHandle: inner,
+            transformTargets: [
+              {
+                key: "base",
+                label: "Base solid (A): box",
+                handle: outer,
+                color: "#8aa2ba",
+                opacity: 0.22,
+                wireframe: true,
+              },
+              {
+                key: "tool",
+                label: "Subtracted solid (B): torus",
+                handle: inner,
+                color: "#f7ba74",
+                opacity: 0.28,
+                wireframe: true,
+              },
+            ],
+            defaultTransformTargetKey: "tool",
+            booleanState: {
+              baseHandle: outer,
+              toolHandle: inner,
+              resultHandle: result,
+            },
             intersectionMs: 0,
             logs: [
               "CSG difference: result = A - B (box minus torus)",
+              "Choose target A/B in Controls -> Gizmo, then drag in viewport.",
+              "Each drag commit recomputes boolean result from current source solids.",
               `outer triangles=${session.meshTriangleCount(outer)}`,
               `inner triangles=${session.meshTriangleCount(inner)}`,
               `result triangles=${session.meshTriangleCount(result)}`,
@@ -1505,14 +1543,20 @@ export function KernelViewer() {
       meshPlaneMeshHandleRef.current =
         example === "meshIntersectMeshPlane" ? built.interactiveMeshHandle : null;
       meshPlanePlaneRef.current = example === "meshIntersectMeshPlane" ? built.planeVisual : null;
-      transformTargetsRef.current = example === "meshTransform" ? built.transformTargets : [];
+      booleanBaseMeshHandleRef.current = built.booleanState?.baseHandle ?? null;
+      booleanToolMeshHandleRef.current = built.booleanState?.toolHandle ?? null;
+      booleanResultMeshHandleRef.current = built.booleanState?.resultHandle ?? null;
+      transformTargetsRef.current =
+        example === "meshTransform" || example === "meshBoolean" ? built.transformTargets : [];
       setTransformTargetsUi(
-        example === "meshTransform"
+        example === "meshTransform" || example === "meshBoolean"
           ? built.transformTargets.map((target) => ({ key: target.key, label: target.label }))
           : [],
       );
       setTransformTargetKey(
-        example === "meshTransform" ? (built.defaultTransformTargetKey ?? "") : "",
+        example === "meshTransform" || example === "meshBoolean"
+          ? (built.defaultTransformTargetKey ?? "")
+          : "",
       );
       setMeshPlaneTarget("mesh");
       dragStartTransformRef.current = null;
