@@ -5,7 +5,8 @@ use boolmesh::{
 };
 use kernel_abi_meta::{rgm_export, rgm_ffi_type};
 use crate::math;
-use crate::math::arc_length::{build_arc_length_cache, length_from_u, u_from_length, ArcLengthCache};
+use crate::math::arc_length::{build_arc_length_cache, length_from_u, u_from_length};
+use crate::math::vec3 as v3;
 use crate::math::frame::{
     normal as frame_normal, orthonormalize_plane_axes, plane as frame_plane, point_from_frame,
     tangent as frame_tangent,
@@ -19,38 +20,70 @@ use crate::math::nurbs_surface_eval::{
     eval_nurbs_surface_normalized, eval_nurbs_surface_uv, validate_surface, NurbsSurfaceCore,
     SurfaceEvalResult,
 };
-use once_cell::sync::Lazy;
+use crate::session::objects::*;
+use crate::session::store::*;
 use std::alloc::{alloc, dealloc, Layout};
 use std::collections::HashMap;
 use std::f64::consts::{FRAC_PI_2, PI};
-use std::sync::atomic::{AtomicU64, Ordering};
-use std::sync::Mutex;
 
+/// Return-code type for all C-ABI exports.
+///
+/// Every exported function returns `RgmStatus::Ok` on success.  On failure the
+/// per-session error is also written via [`set_error`] so callers can retrieve a
+/// human-readable description with `rgm_last_error_message`.
 #[rgm_ffi_type]
 #[repr(i32)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum RgmStatus {
+    /// The operation completed successfully.
     Ok = 0,
+    /// One or more arguments were null, out-of-range, or logically inconsistent.
     InvalidInput = 1,
+    /// The referenced session or object handle does not exist.
     NotFound = 2,
+    /// A parameter (e.g. a curve parameter `t`) is outside its valid domain.
     OutOfRange = 3,
+    /// The geometry is singular or too degenerate for the requested operation
+    /// (e.g. zero-length tangent vector, collinear arc points).
     DegenerateGeometry = 4,
+    /// An iterative numerical solver failed to converge within its iteration limit.
     NoConvergence = 5,
+    /// An internal floating-point calculation produced a non-finite result.
     NumericalFailure = 6,
+    /// The requested operation is recognized but not yet implemented.
     NotImplemented = 7,
+    /// An unexpected internal error occurred (mutex poisoning, allocation failure, …).
     InternalError = 255,
 }
 
+/// Opaque session handle returned by `rgm_kernel_create`.
+///
+/// A `RgmKernelHandle` identifies an isolated geometry session.  Sessions are
+/// independent: objects in one session cannot be referenced from another.
+/// Destroy with `rgm_kernel_destroy` when done; all objects in the session are
+/// released automatically.
+///
+/// The zero value (`RgmKernelHandle(0)`) is never a valid handle.
 #[rgm_ffi_type]
 #[repr(transparent)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct RgmKernelHandle(pub u64);
 
+/// Opaque handle to a geometry object (curve, surface, mesh, face, or
+/// intersection result) within a session.
+///
+/// Handles are session-scoped: they are invalidated when the owning session is
+/// destroyed, or when `rgm_object_release` is called on them.  Passing a handle
+/// from a different session is `InvalidInput`.
+///
+/// The zero value (`RgmObjectHandle(0)`) is never a valid handle.
 #[rgm_ffi_type]
 #[repr(transparent)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct RgmObjectHandle(pub u64);
 
+/// A point in 3-D world space.  Coordinates are in the same linear unit as the
+/// session tolerance (typically metres or millimetres — see [`RgmToleranceContext`]).
 #[rgm_ffi_type]
 #[repr(C)]
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -60,6 +93,11 @@ pub struct RgmPoint3 {
     pub z: f64,
 }
 
+/// A free vector (direction + magnitude) in 3-D world space.
+///
+/// Unlike [`RgmPoint3`], `RgmVec3` has no position; it represents a displacement
+/// or direction.  The same linear unit as the session tolerance applies to the
+/// magnitude.
 #[rgm_ffi_type]
 #[repr(C)]
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -69,6 +107,12 @@ pub struct RgmVec3 {
     pub z: f64,
 }
 
+/// A right-handed orthonormal coordinate frame.
+///
+/// `x_axis`, `y_axis`, and `z_axis` are expected to be unit vectors forming a
+/// right-handed triad (`z = x × y`).  `origin` is the frame origin in world
+/// space.  Several APIs accept a `RgmPlane` as an input frame and will
+/// orthonormalize it if the axes are not perfectly unit/orthogonal.
 #[rgm_ffi_type]
 #[repr(C)]
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -79,12 +123,29 @@ pub struct RgmPlane {
     pub z_axis: RgmVec3,
 }
 
+/// Numerical tolerances used by geometry construction and evaluation.
+///
+/// All three fields must be strictly positive.
+///
+/// | Field        | Semantic                                                   | Typical value |
+/// |--------------|------------------------------------------------------------|---------------|
+/// | `abs_tol`    | Maximum acceptable point-to-point distance error (linear) | `1e-6` m      |
+/// | `rel_tol`    | Relative distance tolerance (fraction of characteristic length) | `1e-4` |
+/// | `angle_tol`  | Maximum acceptable angular error (radians)                 | `1e-6` rad    |
+///
+/// Pass a `RgmToleranceContext` by const pointer to construction functions.
+/// The kernel stores a copy alongside each created object so that subsequent
+/// operations (arc-length caching, intersection, tessellation) use consistent
+/// tolerances without requiring the caller to re-specify them.
 #[rgm_ffi_type]
 #[repr(C)]
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct RgmToleranceContext {
+    /// Maximum acceptable linear distance error (same unit as world coordinates).
     pub abs_tol: f64,
+    /// Relative distance tolerance as a fraction of characteristic geometry length.
     pub rel_tol: f64,
+    /// Maximum acceptable angular error, in radians.
     pub angle_tol: f64,
 }
 
@@ -166,6 +227,16 @@ pub struct RgmNurbsSurfaceDesc {
     pub control_v_count: u32,
 }
 
+/// Surface evaluation result at a single (u, v) parameter.
+///
+/// All vectors are expressed in world space after the surface transform is
+/// applied.
+///
+/// * `point`  — The 3-D position on the surface.
+/// * `du`     — First partial derivative with respect to `u` (un-normalized).
+/// * `dv`     — First partial derivative with respect to `v` (un-normalized).
+/// * `normal` — Unit surface normal (`du × dv`, normalized).  Returned as a
+///              zero vector if the surface is degenerate at this point.
 #[rgm_ffi_type]
 #[repr(C)]
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -176,6 +247,14 @@ pub struct RgmSurfaceEvalFrame {
     pub normal: RgmVec3,
 }
 
+/// One edge of a trim loop, specified by start/end parameter-space UV
+/// coordinates and an optional 3-D curve that lies on the surface.
+///
+/// `start_uv` and `end_uv` are normalized UV coordinates in `[0, 1]²`.
+/// If `has_curve_3d` is `true`, `curve_3d` must be a valid curve handle in the
+/// same session; the kernel samples it when building the edge UV polyline.
+/// If `has_curve_3d` is `false`, the `curve_3d` field is ignored and the edge
+/// is interpolated linearly in UV space.
 #[rgm_ffi_type]
 #[repr(C)]
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -218,361 +297,10 @@ pub struct RgmIntersectionBranchSummary {
     pub flags: u32,
 }
 
-#[derive(Clone, Debug)]
-struct NurbsCurveData {
-    core: NurbsCurveCore,
-    closed: bool,
-    fit_points: Vec<RgmPoint3>,
-    arc_length: ArcLengthCache,
-}
-
-#[derive(Clone, Debug)]
-#[allow(dead_code)]
-struct LineData {
-    line: RgmLine3,
-    canonical_nurbs: NurbsCurveData,
-}
-
-#[derive(Clone, Debug)]
-#[allow(dead_code)]
-struct ArcData {
-    arc: RgmArc3,
-    canonical_nurbs: NurbsCurveData,
-}
-
-#[derive(Clone, Debug)]
-#[allow(dead_code)]
-struct CircleData {
-    circle: RgmCircle3,
-    canonical_nurbs: NurbsCurveData,
-}
-
-#[derive(Clone, Debug)]
-#[allow(dead_code)]
-struct PolylineData {
-    closed: bool,
-    points: Vec<RgmPoint3>,
-    canonical_nurbs: NurbsCurveData,
-}
-
-#[derive(Clone, Debug)]
-struct PolycurveSegmentData {
-    curve: RgmObjectHandle,
-    reversed: bool,
-    length: f64,
-}
-
-#[derive(Clone, Debug)]
-struct PolycurveData {
-    segments: Vec<PolycurveSegmentData>,
-    cumulative_lengths: Vec<f64>,
-    total_length: f64,
-}
-
-#[derive(Clone, Debug)]
-struct MeshData {
-    vertices: Vec<RgmPoint3>,
-    triangles: Vec<[u32; 3]>,
-    transform: [[f64; 4]; 4],
-}
-
-#[derive(Clone, Debug)]
-struct SurfaceData {
-    core: NurbsSurfaceCore,
-    transform: [[f64; 4]; 4],
-}
-
-#[derive(Clone, Debug)]
-struct TrimEdgeData {
-    start_uv: RgmUv2,
-    end_uv: RgmUv2,
-    curve_3d: Option<RgmObjectHandle>,
-    uv_samples: Vec<RgmUv2>,
-}
-
-#[derive(Clone, Debug)]
-struct TrimLoopData {
-    edges: Vec<TrimEdgeData>,
-    is_outer: bool,
-}
-
-#[derive(Clone, Debug)]
-struct FaceData {
-    surface: RgmObjectHandle,
-    loops: Vec<TrimLoopData>,
-}
-
-#[derive(Clone, Debug)]
-struct IntersectionBranchData {
-    points: Vec<RgmPoint3>,
-    uv_a: Vec<RgmUv2>,
-    uv_b: Vec<RgmUv2>,
-    curve_t: Vec<f64>,
-    closed: bool,
-    flags: u32,
-}
-
-#[derive(Clone, Debug)]
-struct IntersectionData {
-    branches: Vec<IntersectionBranchData>,
-}
-
-#[derive(Clone, Debug)]
-enum CurveData {
-    NurbsCurve(NurbsCurveData),
-    Line(LineData),
-    Arc(ArcData),
-    Circle(CircleData),
-    Polyline(PolylineData),
-    Polycurve(PolycurveData),
-}
-
-#[derive(Clone, Debug)]
-enum GeometryObject {
-    Curve(CurveData),
-    Mesh(MeshData),
-    Surface(SurfaceData),
-    Face(FaceData),
-    Intersection(IntersectionData),
-}
-
-#[derive(Default)]
-struct SessionState {
-    objects: HashMap<u64, GeometryObject>,
-    mesh_accels: HashMap<u64, MeshAccelCache>,
-    last_error_code: RgmStatus,
-    last_error_message: String,
-}
-
-static NEXT_SESSION_ID: AtomicU64 = AtomicU64::new(1);
-static NEXT_OBJECT_ID: AtomicU64 = AtomicU64::new(1);
-static SESSIONS: Lazy<Mutex<HashMap<u64, SessionState>>> = Lazy::new(|| Mutex::new(HashMap::new()));
-
 impl Default for RgmStatus {
     fn default() -> Self {
         Self::Ok
     }
 }
 
-fn set_error(session_id: u64, status: RgmStatus, message: impl Into<String>) {
-    if let Ok(mut sessions) = SESSIONS.lock() {
-        if let Some(session) = sessions.get_mut(&session_id) {
-            session.last_error_code = status;
-            session.last_error_message = message.into();
-        }
-    }
-}
 
-fn clear_error(session_id: u64) {
-    if let Ok(mut sessions) = SESSIONS.lock() {
-        if let Some(session) = sessions.get_mut(&session_id) {
-            session.last_error_code = RgmStatus::Ok;
-            session.last_error_message.clear();
-        }
-    }
-}
-
-fn with_session_mut<T>(
-    session: RgmKernelHandle,
-    f: impl FnOnce(&mut SessionState) -> Result<T, RgmStatus>,
-) -> Result<T, RgmStatus> {
-    let mut sessions = SESSIONS.lock().map_err(|_| RgmStatus::InternalError)?;
-    let state = sessions.get_mut(&session.0).ok_or(RgmStatus::NotFound)?;
-    f(state)
-}
-
-fn write_point(out: *mut RgmPoint3, value: RgmPoint3) -> Result<(), RgmStatus> {
-    if out.is_null() {
-        return Err(RgmStatus::InvalidInput);
-    }
-
-    // SAFETY: pointer nullability checked above.
-    unsafe {
-        *out = value;
-    }
-
-    Ok(())
-}
-
-fn write_vec(out: *mut RgmVec3, value: RgmVec3) -> Result<(), RgmStatus> {
-    if out.is_null() {
-        return Err(RgmStatus::InvalidInput);
-    }
-
-    // SAFETY: pointer nullability checked above.
-    unsafe {
-        *out = value;
-    }
-
-    Ok(())
-}
-
-fn write_surface_eval_frame(
-    out: *mut RgmSurfaceEvalFrame,
-    value: RgmSurfaceEvalFrame,
-) -> Result<(), RgmStatus> {
-    if out.is_null() {
-        return Err(RgmStatus::InvalidInput);
-    }
-    unsafe {
-        *out = value;
-    }
-    Ok(())
-}
-
-fn write_branch_summary(
-    out: *mut RgmIntersectionBranchSummary,
-    value: RgmIntersectionBranchSummary,
-) -> Result<(), RgmStatus> {
-    if out.is_null() {
-        return Err(RgmStatus::InvalidInput);
-    }
-    unsafe {
-        *out = value;
-    }
-    Ok(())
-}
-
-fn write_plane(out: *mut RgmPlane, value: RgmPlane) -> Result<(), RgmStatus> {
-    if out.is_null() {
-        return Err(RgmStatus::InvalidInput);
-    }
-
-    // SAFETY: pointer nullability checked above.
-    unsafe {
-        *out = value;
-    }
-
-    Ok(())
-}
-
-fn write_object_handle(out: *mut RgmObjectHandle, value: RgmObjectHandle) -> Result<(), RgmStatus> {
-    if out.is_null() {
-        return Err(RgmStatus::InvalidInput);
-    }
-
-    // SAFETY: pointer nullability checked above.
-    unsafe {
-        *out = value;
-    }
-
-    Ok(())
-}
-
-fn write_f64(out: *mut f64, value: f64) -> Result<(), RgmStatus> {
-    if out.is_null() {
-        return Err(RgmStatus::InvalidInput);
-    }
-
-    // SAFETY: pointer nullability checked above.
-    unsafe {
-        *out = value;
-    }
-
-    Ok(())
-}
-
-fn write_u32(out: *mut u32, value: u32) -> Result<(), RgmStatus> {
-    if out.is_null() {
-        return Err(RgmStatus::InvalidInput);
-    }
-
-    // SAFETY: pointer nullability checked above.
-    unsafe {
-        *out = value;
-    }
-
-    Ok(())
-}
-
-fn write_intersection_points(
-    out_points: *mut RgmPoint3,
-    point_capacity: u32,
-    points: &[RgmPoint3],
-    out_count: *mut u32,
-) -> Result<(), RgmStatus> {
-    if out_count.is_null() {
-        return Err(RgmStatus::InvalidInput);
-    }
-
-    // SAFETY: out_count validated above.
-    unsafe {
-        *out_count = points.len().try_into().unwrap_or(u32::MAX);
-    }
-
-    if point_capacity == 0 {
-        return Ok(());
-    }
-    if out_points.is_null() {
-        return Err(RgmStatus::InvalidInput);
-    }
-
-    let copy_count = points.len().min(point_capacity as usize);
-    for (idx, point) in points.iter().take(copy_count).enumerate() {
-        // SAFETY: caller provided output buffer with at least `point_capacity` elements.
-        unsafe {
-            *out_points.add(idx) = *point;
-        }
-    }
-
-    Ok(())
-}
-
-fn write_uv_points(
-    out_points: *mut RgmUv2,
-    point_capacity: u32,
-    points: &[RgmUv2],
-    out_count: *mut u32,
-) -> Result<(), RgmStatus> {
-    if out_count.is_null() {
-        return Err(RgmStatus::InvalidInput);
-    }
-    unsafe {
-        *out_count = points.len().try_into().unwrap_or(u32::MAX);
-    }
-    if point_capacity == 0 {
-        return Ok(());
-    }
-    if out_points.is_null() {
-        return Err(RgmStatus::InvalidInput);
-    }
-    let copy_count = points.len().min(point_capacity as usize);
-    for (idx, point) in points.iter().take(copy_count).enumerate() {
-        unsafe {
-            *out_points.add(idx) = *point;
-        }
-    }
-    Ok(())
-}
-
-fn write_f64_array(
-    out_values: *mut f64,
-    value_capacity: u32,
-    values: &[f64],
-    out_count: *mut u32,
-) -> Result<(), RgmStatus> {
-    if out_count.is_null() {
-        return Err(RgmStatus::InvalidInput);
-    }
-    unsafe {
-        *out_count = values.len().try_into().unwrap_or(u32::MAX);
-    }
-    if value_capacity == 0 {
-        return Ok(());
-    }
-    if out_values.is_null() {
-        return Err(RgmStatus::InvalidInput);
-    }
-    let copy_count = values.len().min(value_capacity as usize);
-    for (idx, value) in values.iter().take(copy_count).enumerate() {
-        unsafe {
-            *out_values.add(idx) = *value;
-        }
-    }
-    Ok(())
-}
-
-fn map_err_with_session(session: RgmKernelHandle, status: RgmStatus, message: &str) -> RgmStatus {
-    set_error(session.0, status, message);
-    status
-}

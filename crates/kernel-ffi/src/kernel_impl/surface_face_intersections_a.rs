@@ -182,8 +182,8 @@ fn refine_surface_surface_uv_pair(
     for _ in 0..24 {
         let frame_a = eval_surface_data_uv(surface_a, uv_a).ok()?;
         let frame_b = eval_surface_data_uv(surface_b, uv_b).ok()?;
-        let residual = point_sub(frame_a.point, frame_b.point);
-        let residual_norm = vec_norm(residual);
+        let residual = v3::sub(frame_a.point, frame_b.point);
+        let residual_norm = v3::norm(residual);
 
         let mid = midpoint(frame_a.point, frame_b.point);
         match best {
@@ -197,15 +197,15 @@ fn refine_surface_surface_uv_pair(
         let cols = [
             frame_a.du,
             frame_a.dv,
-            vec_neg(frame_b.du),
-            vec_neg(frame_b.dv),
+            v3::neg(frame_b.du),
+            v3::neg(frame_b.dv),
         ];
         let mut jtj = [[0.0; 4]; 4];
         let mut jtr = [0.0; 4];
         for i in 0..4 {
-            jtr[i] = vec_dot(cols[i], residual);
+            jtr[i] = v3::dot(cols[i], residual);
             for j in i..4 {
-                let value = vec_dot(cols[i], cols[j]);
+                let value = v3::dot(cols[i], cols[j]);
                 jtj[i][j] = value;
                 jtj[j][i] = value;
             }
@@ -249,7 +249,7 @@ fn refine_surface_surface_uv_pair(
                 alpha *= 0.5;
                 continue;
             };
-            let trial_residual_norm = vec_norm(point_sub(trial_a.point, trial_b.point));
+            let trial_residual_norm = v3::norm(v3::sub(trial_a.point, trial_b.point));
             if trial_residual_norm < residual_norm {
                 uv_a = trial_uv_a;
                 uv_b = trial_uv_b;
@@ -294,12 +294,12 @@ fn project_surface_surface_curve_point(
     for _ in 0..24 {
         let fa = eval_surface_data_uv(surface_a, uv_a).ok()?;
         let fb = eval_surface_data_uv(surface_b, uv_b).ok()?;
-        let diff = point_sub(fa.point, fb.point);
+        let diff = v3::sub(fa.point, fb.point);
         let r3 = (uv_a.u - uv_a_anchor.u) * dir4[0]
             + (uv_a.v - uv_a_anchor.v) * dir4[1]
             + (uv_b.u - uv_b_anchor.u) * dir4[2]
             + (uv_b.v - uv_b_anchor.v) * dir4[3];
-        let spatial = vec_norm(diff);
+        let spatial = v3::norm(diff);
         let err = spatial + r3.abs();
         let mid = midpoint(fa.point, fb.point);
         match best {
@@ -352,12 +352,12 @@ fn project_surface_surface_curve_point(
                 alpha *= 0.5;
                 continue;
             };
-            let tdiff = point_sub(tfa.point, tfb.point);
+            let tdiff = v3::sub(tfa.point, tfb.point);
             let tr3 = (trial_uv_a.u - uv_a_anchor.u) * dir4[0]
                 + (trial_uv_a.v - uv_a_anchor.v) * dir4[1]
                 + (trial_uv_b.u - uv_b_anchor.u) * dir4[2]
                 + (trial_uv_b.v - uv_b_anchor.v) * dir4[3];
-            let terr = vec_norm(tdiff) + tr3.abs();
+            let terr = v3::norm(tdiff) + tr3.abs();
             if terr < err {
                 uv_a = trial_uv_a;
                 uv_b = trial_uv_b;
@@ -429,7 +429,7 @@ fn refine_surface_surface_segment_recursive(
 
     let chord_dev = point_segment_distance(p_mid, p0, p1);
     let spatial_res = refine_surface_surface_uv_pair(surface_a, surface_b, uv_a_mid, uv_b_mid, tol)
-        .map(|(rp, _, _)| distance(rp, p_mid))
+        .map(|(rp, _, _)| v3::distance(rp, p_mid))
         .unwrap_or(tol * 2.0);
     if chord_dev <= chord_tol && spatial_res <= tol * 2.0 {
         out_points.push(p1);
@@ -536,8 +536,8 @@ fn refine_surface_curve_hit(
     for _ in 0..24 {
         let frame = eval_surface_data_uv(surface, uv).ok()?;
         let curve_eval = evaluate_curve_at_normalized_data(state, curve, t).ok()?;
-        let residual = point_sub(frame.point, curve_eval.point);
-        let residual_norm = vec_norm(residual);
+        let residual = v3::sub(frame.point, curve_eval.point);
+        let residual_norm = v3::norm(residual);
 
         match best {
             Some((best_norm, _, _, _)) if residual_norm >= best_norm => {}
@@ -554,13 +554,13 @@ fn refine_surface_curve_hit(
             return Some((midpoint(frame.point, curve_eval.point), uv, t));
         }
 
-        let cols = [frame.du, frame.dv, vec_neg(curve_eval.d1)];
+        let cols = [frame.du, frame.dv, v3::neg(curve_eval.d1)];
         let mut jtj = [[0.0; 3]; 3];
         let mut jtr = [0.0; 3];
         for i in 0..3 {
-            jtr[i] = vec_dot(cols[i], residual);
+            jtr[i] = v3::dot(cols[i], residual);
             for j in i..3 {
-                let value = vec_dot(cols[i], cols[j]);
+                let value = v3::dot(cols[i], cols[j]);
                 jtj[i][j] = value;
                 jtj[j][i] = value;
             }
@@ -592,7 +592,7 @@ fn refine_surface_curve_hit(
                 alpha *= 0.5;
                 continue;
             };
-            let trial_norm = vec_norm(point_sub(trial_surface.point, trial_curve.point));
+            let trial_norm = v3::norm(v3::sub(trial_surface.point, trial_curve.point));
             if trial_norm < residual_norm {
                 uv = trial_uv;
                 t = trial_t;
@@ -625,7 +625,7 @@ fn norm4(v: [f64; 4]) -> f64 {
 }
 
 fn det3(a: RgmVec3, b: RgmVec3, c: RgmVec3) -> f64 {
-    vec_dot(a, vec_cross(b, c))
+    v3::dot(a, v3::cross(b, c))
 }
 
 fn surface_surface_tangent_dir(
@@ -634,8 +634,8 @@ fn surface_surface_tangent_dir(
 ) -> Option<[f64; 4]> {
     let c0 = frame_a.du;
     let c1 = frame_a.dv;
-    let c2 = vec_neg(frame_b.du);
-    let c3 = vec_neg(frame_b.dv);
+    let c2 = v3::neg(frame_b.du);
+    let c3 = v3::neg(frame_b.dv);
 
     let mut dir = [
         det3(c1, c2, c3),
@@ -664,8 +664,8 @@ fn project_point_to_surface(
     let mut best: Option<(f64, RgmPoint3, RgmUv2)> = None;
     for _ in 0..24 {
         let frame = eval_surface_data_uv(surface, uv).ok()?;
-        let residual = point_sub(frame.point, point);
-        let residual_norm = vec_norm(residual);
+        let residual = v3::sub(frame.point, point);
+        let residual_norm = v3::norm(residual);
         match best {
             Some((best_norm, _, _)) if residual_norm >= best_norm => {}
             _ => best = Some((residual_norm, frame.point, uv)),
@@ -674,11 +674,11 @@ fn project_point_to_surface(
             return Some((frame.point, uv, residual_norm));
         }
 
-        let a00 = vec_dot(frame.du, frame.du) + lambda;
-        let a01 = vec_dot(frame.du, frame.dv);
-        let a11 = vec_dot(frame.dv, frame.dv) + lambda;
-        let b0 = -vec_dot(frame.du, residual);
-        let b1 = -vec_dot(frame.dv, residual);
+        let a00 = v3::dot(frame.du, frame.du) + lambda;
+        let a01 = v3::dot(frame.du, frame.dv);
+        let a11 = v3::dot(frame.dv, frame.dv) + lambda;
+        let b0 = -v3::dot(frame.du, residual);
+        let b1 = -v3::dot(frame.dv, residual);
         let Some(delta) = solve_linear_system::<2>([[a00, a01], [a01, a11]], [b0, b1]) else {
             lambda *= 10.0;
             continue;
@@ -698,7 +698,7 @@ fn project_point_to_surface(
                 alpha *= 0.5;
                 continue;
             };
-            let trial_norm = distance(trial_frame.point, point);
+            let trial_norm = v3::distance(trial_frame.point, point);
             if trial_norm < residual_norm {
                 uv = trial_uv;
                 lambda = (lambda * 0.5).max(1e-14);

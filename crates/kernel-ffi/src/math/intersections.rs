@@ -1,3 +1,25 @@
+//! Curve–plane and curve–curve intersection algorithms.
+//!
+//! ## Curve–plane intersection ([`intersect_curve_plane_points`])
+//!
+//! Samples the curve at 384 uniformly-spaced parameter values, detects
+//! sign changes of the signed distance to the plane, then refines each root
+//! with a 56-iteration bisection/secant hybrid.  Returns deduplicated hit
+//! points sorted by parameter.
+//!
+//! ## Curve–curve intersection ([`intersect_curve_curve_points`])
+//!
+//! Samples both curves at 160 points each, builds a grid of segment–segment
+//! proximity candidates via [`closest_segment_parameters`] (Ericson 2005,
+//! §5.1.9), then refines each candidate with an 8-iteration coordinate-descent
+//! grid search.  Falls back to a midpoint seed if no grid hits are found.
+//!
+//! **Numerical parameters:** `point_tol = abs_tol.max(1e-9)` and
+//! `param_tol = 1e-6` are hard-coded.  Both algorithms return deduplicated
+//! results where duplicate detection uses both point distance and parameter
+//! proximity.
+
+use super::vec3::{add_vec, cross, distance, dot, normalize, scale as scale_vec, sub as sub_vec};
 use crate::{RgmPlane, RgmPoint3, RgmStatus, RgmVec3};
 
 #[derive(Clone, Copy, Debug)]
@@ -5,58 +27,6 @@ struct HitRecord {
     ta: f64,
     tb: f64,
     point: RgmPoint3,
-}
-
-fn dot(a: RgmVec3, b: RgmVec3) -> f64 {
-    a.x * b.x + a.y * b.y + a.z * b.z
-}
-
-fn sub_vec(a: RgmPoint3, b: RgmPoint3) -> RgmVec3 {
-    RgmVec3 {
-        x: a.x - b.x,
-        y: a.y - b.y,
-        z: a.z - b.z,
-    }
-}
-
-fn add_vec(a: RgmPoint3, v: RgmVec3) -> RgmPoint3 {
-    RgmPoint3 {
-        x: a.x + v.x,
-        y: a.y + v.y,
-        z: a.z + v.z,
-    }
-}
-
-fn scale_vec(v: RgmVec3, s: f64) -> RgmVec3 {
-    RgmVec3 {
-        x: v.x * s,
-        y: v.y * s,
-        z: v.z * s,
-    }
-}
-
-fn cross(a: RgmVec3, b: RgmVec3) -> RgmVec3 {
-    RgmVec3 {
-        x: a.y * b.z - a.z * b.y,
-        y: a.z * b.x - a.x * b.z,
-        z: a.x * b.y - a.y * b.x,
-    }
-}
-
-fn norm(v: RgmVec3) -> f64 {
-    dot(v, v).sqrt()
-}
-
-fn normalize(v: RgmVec3) -> Option<RgmVec3> {
-    let n = norm(v);
-    if n <= f64::EPSILON {
-        return None;
-    }
-    Some(scale_vec(v, 1.0 / n))
-}
-
-fn distance(a: RgmPoint3, b: RgmPoint3) -> f64 {
-    norm(sub_vec(a, b))
 }
 
 fn signed_distance(point: RgmPoint3, origin: RgmPoint3, normal: RgmVec3) -> f64 {

@@ -1,86 +1,8 @@
-fn distance(a: RgmPoint3, b: RgmPoint3) -> f64 {
-    let dx = b.x - a.x;
-    let dy = b.y - a.y;
-    let dz = b.z - a.z;
-    (dx * dx + dy * dy + dz * dz).sqrt()
-}
-
 fn midpoint(a: RgmPoint3, b: RgmPoint3) -> RgmPoint3 {
     RgmPoint3 {
         x: 0.5 * (a.x + b.x),
         y: 0.5 * (a.y + b.y),
         z: 0.5 * (a.z + b.z),
-    }
-}
-
-#[allow(dead_code)]
-fn vec_dot(a: RgmVec3, b: RgmVec3) -> f64 {
-    a.x * b.x + a.y * b.y + a.z * b.z
-}
-
-#[allow(dead_code)]
-fn vec_norm(v: RgmVec3) -> f64 {
-    vec_dot(v, v).sqrt()
-}
-
-#[allow(dead_code)]
-fn vec_normalize(v: RgmVec3) -> Option<RgmVec3> {
-    let n = vec_norm(v);
-    if n <= f64::EPSILON {
-        return None;
-    }
-    Some(RgmVec3 {
-        x: v.x / n,
-        y: v.y / n,
-        z: v.z / n,
-    })
-}
-
-fn vec_neg(v: RgmVec3) -> RgmVec3 {
-    RgmVec3 {
-        x: -v.x,
-        y: -v.y,
-        z: -v.z,
-    }
-}
-
-fn vec_add(a: RgmVec3, b: RgmVec3) -> RgmVec3 {
-    RgmVec3 {
-        x: a.x + b.x,
-        y: a.y + b.y,
-        z: a.z + b.z,
-    }
-}
-
-fn vec_scale(v: RgmVec3, s: f64) -> RgmVec3 {
-    RgmVec3 {
-        x: v.x * s,
-        y: v.y * s,
-        z: v.z * s,
-    }
-}
-
-fn vec_cross(a: RgmVec3, b: RgmVec3) -> RgmVec3 {
-    RgmVec3 {
-        x: a.y * b.z - a.z * b.y,
-        y: a.z * b.x - a.x * b.z,
-        z: a.x * b.y - a.y * b.x,
-    }
-}
-
-fn point_sub(a: RgmPoint3, b: RgmPoint3) -> RgmVec3 {
-    RgmVec3 {
-        x: a.x - b.x,
-        y: a.y - b.y,
-        z: a.z - b.z,
-    }
-}
-
-fn point_add_vec(p: RgmPoint3, v: RgmVec3) -> RgmPoint3 {
-    RgmPoint3 {
-        x: p.x + v.x,
-        y: p.y + v.y,
-        z: p.z + v.z,
     }
 }
 
@@ -170,7 +92,7 @@ fn matrix_scale(scale: RgmVec3) -> [[f64; 4]; 4] {
 }
 
 fn matrix_rotation(axis: RgmVec3, angle_rad: f64) -> Result<[[f64; 4]; 4], RgmStatus> {
-    let unit = vec_normalize(axis).ok_or(RgmStatus::InvalidInput)?;
+    let unit = v3::normalize(axis).ok_or(RgmStatus::InvalidInput)?;
     let c = angle_rad.cos();
     let s = angle_rad.sin();
     let t = 1.0 - c;
@@ -271,35 +193,35 @@ fn build_arc_from_three_points(
     tol: RgmToleranceContext,
 ) -> Result<RgmArc3, RgmStatus> {
     let eps = tol.abs_tol.max(1e-12);
-    if distance(start, mid) <= eps || distance(mid, end) <= eps || distance(start, end) <= eps {
+    if v3::distance(start, mid) <= eps || v3::distance(mid, end) <= eps || v3::distance(start, end) <= eps {
         return Err(RgmStatus::InvalidInput);
     }
 
-    let ab = point_sub(mid, start);
-    let ac = point_sub(end, start);
-    let normal = vec_cross(ab, ac);
-    let normal_len2 = vec_dot(normal, normal);
+    let ab = v3::sub(mid, start);
+    let ac = v3::sub(end, start);
+    let normal = v3::cross(ab, ac);
+    let normal_len2 = v3::dot(normal, normal);
     if normal_len2 <= eps * eps {
         return Err(RgmStatus::InvalidInput);
     }
 
-    let term1 = vec_scale(vec_cross(ac, normal), vec_dot(ab, ab));
-    let term2 = vec_scale(vec_cross(normal, ab), vec_dot(ac, ac));
-    let center_offset = vec_scale(vec_add(term1, term2), 1.0 / (2.0 * normal_len2));
-    let center = point_add_vec(start, center_offset);
-    let radius = distance(center, start);
+    let term1 = v3::scale(v3::cross(ac, normal), v3::dot(ab, ab));
+    let term2 = v3::scale(v3::cross(normal, ab), v3::dot(ac, ac));
+    let center_offset = v3::scale(v3::add(term1, term2), 1.0 / (2.0 * normal_len2));
+    let center = v3::add_vec(start, center_offset);
+    let radius = v3::distance(center, start);
     if radius <= eps {
         return Err(RgmStatus::DegenerateGeometry);
     }
 
-    let z_axis = vec_normalize(normal).ok_or(RgmStatus::DegenerateGeometry)?;
-    let x_axis = vec_normalize(point_sub(start, center)).ok_or(RgmStatus::DegenerateGeometry)?;
-    let y_axis = vec_normalize(vec_cross(z_axis, x_axis)).ok_or(RgmStatus::DegenerateGeometry)?;
+    let z_axis = v3::normalize(normal).ok_or(RgmStatus::DegenerateGeometry)?;
+    let x_axis = v3::normalize(v3::sub(start, center)).ok_or(RgmStatus::DegenerateGeometry)?;
+    let y_axis = v3::normalize(v3::cross(z_axis, x_axis)).ok_or(RgmStatus::DegenerateGeometry)?;
 
-    let mid_vec = point_sub(mid, center);
-    let end_vec = point_sub(end, center);
-    let mid_angle = vec_dot(mid_vec, y_axis).atan2(vec_dot(mid_vec, x_axis));
-    let end_angle = vec_dot(end_vec, y_axis).atan2(vec_dot(end_vec, x_axis));
+    let mid_vec = v3::sub(mid, center);
+    let end_vec = v3::sub(end, center);
+    let mid_angle = v3::dot(mid_vec, y_axis).atan2(v3::dot(mid_vec, x_axis));
+    let end_angle = v3::dot(end_vec, y_axis).atan2(v3::dot(end_vec, x_axis));
     let sweep = arc_sweep_from_start_mid_end(0.0, mid_angle, end_angle, tol.angle_tol)?;
 
     Ok(RgmArc3 {
@@ -339,7 +261,7 @@ fn dedup_closed_points(mut points: Vec<RgmPoint3>, tol: f64) -> Vec<RgmPoint3> {
     if points.len() > 1 {
         let first = points[0];
         let last = points[points.len() - 1];
-        if distance(first, last) <= tol {
+        if v3::distance(first, last) <= tol {
             points.pop();
         }
     }
@@ -355,7 +277,7 @@ fn chord_length_params(points: &[RgmPoint3]) -> Vec<f64> {
     let mut total = 0.0;
 
     for i in 1..points.len() {
-        total += distance(points[i - 1], points[i]);
+        total += v3::distance(points[i - 1], points[i]);
         cumulative[i] = total;
     }
 
@@ -1090,80 +1012,4 @@ fn reparameterize_open_nurbs(
     )
 }
 
-fn curve_canonical_nurbs(curve: &CurveData) -> Option<&NurbsCurveData> {
-    match curve {
-        CurveData::NurbsCurve(data) => Some(data),
-        CurveData::Line(data) => Some(&data.canonical_nurbs),
-        CurveData::Arc(data) => Some(&data.canonical_nurbs),
-        CurveData::Circle(data) => Some(&data.canonical_nurbs),
-        CurveData::Polyline(data) => Some(&data.canonical_nurbs),
-        CurveData::Polycurve(_) => None,
-    }
-}
-
-fn find_curve<'a>(
-    state: &'a SessionState,
-    object: RgmObjectHandle,
-) -> Result<&'a CurveData, RgmStatus> {
-    match state.objects.get(&object.0) {
-        Some(GeometryObject::Curve(curve)) => Ok(curve),
-        Some(_) => Err(RgmStatus::InvalidInput),
-        None => Err(RgmStatus::NotFound),
-    }
-}
-
-fn find_mesh<'a>(
-    state: &'a SessionState,
-    object: RgmObjectHandle,
-) -> Result<&'a MeshData, RgmStatus> {
-    match state.objects.get(&object.0) {
-        Some(GeometryObject::Mesh(mesh)) => Ok(mesh),
-        Some(_) => Err(RgmStatus::InvalidInput),
-        None => Err(RgmStatus::NotFound),
-    }
-}
-
-fn find_surface<'a>(
-    state: &'a SessionState,
-    object: RgmObjectHandle,
-) -> Result<&'a SurfaceData, RgmStatus> {
-    match state.objects.get(&object.0) {
-        Some(GeometryObject::Surface(surface)) => Ok(surface),
-        Some(_) => Err(RgmStatus::InvalidInput),
-        None => Err(RgmStatus::NotFound),
-    }
-}
-
-fn find_face<'a>(
-    state: &'a SessionState,
-    object: RgmObjectHandle,
-) -> Result<&'a FaceData, RgmStatus> {
-    match state.objects.get(&object.0) {
-        Some(GeometryObject::Face(face)) => Ok(face),
-        Some(_) => Err(RgmStatus::InvalidInput),
-        None => Err(RgmStatus::NotFound),
-    }
-}
-
-fn find_intersection<'a>(
-    state: &'a SessionState,
-    object: RgmObjectHandle,
-) -> Result<&'a IntersectionData, RgmStatus> {
-    match state.objects.get(&object.0) {
-        Some(GeometryObject::Intersection(intersection)) => Ok(intersection),
-        Some(_) => Err(RgmStatus::InvalidInput),
-        None => Err(RgmStatus::NotFound),
-    }
-}
-
-fn find_face_mut<'a>(
-    state: &'a mut SessionState,
-    object: RgmObjectHandle,
-) -> Result<&'a mut FaceData, RgmStatus> {
-    match state.objects.get_mut(&object.0) {
-        Some(GeometryObject::Face(face)) => Ok(face),
-        Some(_) => Err(RgmStatus::InvalidInput),
-        None => Err(RgmStatus::NotFound),
-    }
-}
 

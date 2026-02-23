@@ -1,3 +1,21 @@
+//! NURBS curve evaluation: position and derivatives.
+//!
+//! Implements the rational de Boor (NURBS) point evaluation and derivative
+//! algorithms from Piegl & Tiller, *The NURBS Book*, 2nd ed.:
+//!
+//! * §4.1 — [`eval_nurbs_u`]: weighted B-spline evaluation at a raw knot
+//!   parameter `u` (Algorithm A4.2 extended to compute first and second
+//!   derivatives simultaneously).
+//! * Normalization helpers map the public `[0, 1]` domain to the curve's
+//!   native `[u_start, u_end]` domain; see [`eval_nurbs_normalized`].
+//!
+//! **Periodicity:** for periodic curves the raw parameter is wrapped back into
+//! `[u_start, u_end]` before evaluation using knot-range modular arithmetic.
+//!
+//! **Domain constraints:** the curve must pass [`validate_curve`] before any
+//! evaluation call.  Validation checks degree, control-point count, and knot
+//! vector monotonicity.
+
 use super::basis::{basis_funs, ders_basis_funs, find_span};
 use crate::{RgmPoint3, RgmStatus, RgmToleranceContext, RgmVec3};
 

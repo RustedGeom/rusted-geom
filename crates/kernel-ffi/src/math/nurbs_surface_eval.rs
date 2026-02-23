@@ -1,3 +1,22 @@
+//! NURBS surface evaluation: position, first, and second derivatives.
+//!
+//! Implements the tensor-product rational de Boor algorithm for NURBS surfaces
+//! from Piegl & Tiller, *The NURBS Book*, 2nd ed.:
+//!
+//! * §4.4 — [`eval_nurbs_surface_uv`]: point and derivative evaluation at a
+//!   raw `(u, v)` knot parameter (Algorithm A4.6 adapted for first and second
+//!   order derivatives simultaneously).
+//! * Normalization helpers map the public `[0, 1]²` domain to the surface's
+//!   native `[u_start, u_end] × [v_start, v_end]` domain; see
+//!   [`eval_nurbs_surface_normalized`].
+//!
+//! **Periodicity:** each parametric direction is independently wrapped for
+//! periodic surfaces.
+//!
+//! **Domain constraints:** the surface must pass [`validate_surface`] before
+//! evaluation.  `validate_surface` checks degrees, control-point grid
+//! dimensions, and knot vector consistency in both directions.
+
 use super::basis::{ders_basis_funs, find_span};
 use crate::{RgmPoint3, RgmStatus, RgmToleranceContext, RgmUv2, RgmVec3};
 

@@ -186,50 +186,12 @@ fn evaluate_polycurve_at_length(
 
     let mut eval = evaluate_curve_by_handle_at_length(state, seg.curve, local)?;
     if seg.reversed {
-        eval.d1 = vec_neg(eval.d1);
+        eval.d1 = v3::neg(eval.d1);
     }
 
     Ok(eval)
 }
 
-fn insert_curve(state: &mut SessionState, curve: CurveData) -> RgmObjectHandle {
-    let object_id = NEXT_OBJECT_ID.fetch_add(1, Ordering::Relaxed);
-    state
-        .objects
-        .insert(object_id, GeometryObject::Curve(curve));
-    RgmObjectHandle(object_id)
-}
-
-fn insert_mesh(state: &mut SessionState, mesh: MeshData) -> RgmObjectHandle {
-    let object_id = NEXT_OBJECT_ID.fetch_add(1, Ordering::Relaxed);
-    state.objects.insert(object_id, GeometryObject::Mesh(mesh));
-    RgmObjectHandle(object_id)
-}
-
-fn insert_surface(state: &mut SessionState, surface: SurfaceData) -> RgmObjectHandle {
-    let object_id = NEXT_OBJECT_ID.fetch_add(1, Ordering::Relaxed);
-    state
-        .objects
-        .insert(object_id, GeometryObject::Surface(surface));
-    RgmObjectHandle(object_id)
-}
-
-fn insert_face(state: &mut SessionState, face: FaceData) -> RgmObjectHandle {
-    let object_id = NEXT_OBJECT_ID.fetch_add(1, Ordering::Relaxed);
-    state.objects.insert(object_id, GeometryObject::Face(face));
-    RgmObjectHandle(object_id)
-}
-
-fn insert_intersection(
-    state: &mut SessionState,
-    intersection: IntersectionData,
-) -> RgmObjectHandle {
-    let object_id = NEXT_OBJECT_ID.fetch_add(1, Ordering::Relaxed);
-    state
-        .objects
-        .insert(object_id, GeometryObject::Intersection(intersection));
-    RgmObjectHandle(object_id)
-}
 
 fn mesh_world_vertices(mesh: &MeshData) -> Vec<RgmPoint3> {
     mesh.vertices
@@ -508,8 +470,8 @@ fn surface_eval_result_to_frame(
     let point = matrix_apply_point(transform, eval.point);
     let du = matrix_apply_vec(transform, eval.du);
     let dv = matrix_apply_vec(transform, eval.dv);
-    let normal = vec_cross(du, dv);
-    let normal = vec_normalize(normal).ok_or(RgmStatus::DegenerateGeometry)?;
+    let normal = v3::cross(du, dv);
+    let normal = v3::normalize(normal).ok_or(RgmStatus::DegenerateGeometry)?;
 
     Ok(RgmSurfaceEvalFrame {
         point,

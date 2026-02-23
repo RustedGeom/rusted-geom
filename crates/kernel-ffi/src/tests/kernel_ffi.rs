@@ -1157,7 +1157,7 @@ mod tests {
             rgm_curve_d2_at(session, object, 0.5, &mut d2 as *mut _),
             RgmStatus::Ok
         );
-        assert!(vec_norm(d2) > 0.0);
+        assert!(v3::norm(d2) > 0.0);
 
         let mut plane = RgmPlane {
             origin: point,
@@ -1284,7 +1284,7 @@ mod tests {
             rgm_curve_d2_at(session, line, 0.5, &mut d2 as *mut _),
             RgmStatus::Ok
         );
-        assert!(vec_norm(d2) < 1e-7);
+        assert!(v3::norm(d2) < 1e-7);
 
         assert_eq!(rgm_object_release(session, line), RgmStatus::Ok);
         assert_eq!(rgm_kernel_destroy(session), RgmStatus::Ok);
@@ -1503,8 +1503,8 @@ mod tests {
             rgm_curve_point_at(session, arc, 1.0, &mut p1),
             RgmStatus::Ok
         );
-        assert!(distance(start, p0) < 1e-7);
-        assert!(distance(end, p1) < 1e-7);
+        assert!(v3::distance(start, p0) < 1e-7);
+        assert!(v3::distance(end, p1) < 1e-7);
 
         let center = RgmPoint3 {
             x: 0.0,
@@ -1518,7 +1518,7 @@ mod tests {
                 z: 0.0,
             };
             assert_eq!(rgm_curve_point_at(session, arc, t, &mut p), RgmStatus::Ok);
-            assert!((distance(center, p) - 1.0).abs() < 1e-6);
+            assert!((v3::distance(center, p) - 1.0).abs() < 1e-6);
         }
 
         let mut length = 0.0_f64;
@@ -1811,7 +1811,7 @@ mod tests {
             rgm_curve_point_at(session, circle, 1.0, &mut p1),
             RgmStatus::Ok
         );
-        assert!(distance(p0, p1) < 1e-6);
+        assert!(v3::distance(p0, p1) < 1e-6);
         for t in [0.0, 0.13, 0.27, 0.51, 0.79, 1.0] {
             let mut p = RgmPoint3 {
                 x: 0.0,
@@ -1908,11 +1908,11 @@ mod tests {
             z: center.z,
         };
 
-        assert!(distance(p0, expected_start) < 1e-6);
-        assert!(distance(p1, expected_end) < 1e-6);
+        assert!(v3::distance(p0, expected_start) < 1e-6);
+        assert!(v3::distance(p1, expected_end) < 1e-6);
 
         for p in [p0, pm, p1] {
-            let r = distance(center, p);
+            let r = v3::distance(center, p);
             assert!((r - radius).abs() < 1e-5);
         }
 
@@ -2044,7 +2044,7 @@ mod tests {
                 rgm_curve_point_at_length(session, nurbs, dist, &mut from_nurbs as *mut _),
                 RgmStatus::Ok
             );
-            assert!(distance(from_poly, from_nurbs) < 1e-6);
+            assert!(v3::distance(from_poly, from_nurbs) < 1e-6);
         }
 
         assert_eq!(rgm_object_release(session, nurbs), RgmStatus::Ok);
@@ -2197,7 +2197,7 @@ mod tests {
                 rgm_curve_point_at_length(session, nurbs, s, &mut from_nurbs as *mut _),
                 RgmStatus::Ok
             );
-            assert!(distance(from_poly, from_nurbs) < 1e-6);
+            assert!(v3::distance(from_poly, from_nurbs) < 1e-6);
         }
 
         assert_eq!(rgm_object_release(session, nurbs), RgmStatus::Ok);
@@ -2340,8 +2340,8 @@ mod tests {
             rgm_curve_point_at(session, nurbs, 1.0, &mut nurbs_end as *mut _),
             RgmStatus::Ok
         );
-        assert!(distance(poly_start, nurbs_start) < 0.15);
-        assert!(distance(poly_end, nurbs_end) < 0.15);
+        assert!(v3::distance(poly_start, nurbs_start) < 0.15);
+        assert!(v3::distance(poly_end, nurbs_end) < 0.15);
 
         assert_eq!(rgm_object_release(session, nurbs), RgmStatus::Ok);
         assert_eq!(rgm_object_release(session, poly), RgmStatus::Ok);
@@ -2417,7 +2417,7 @@ mod tests {
         );
         assert_eq!(count, 1);
         assert!(
-            distance(
+            v3::distance(
                 points[0],
                 RgmPoint3 {
                     x: 0.0,
@@ -2661,7 +2661,7 @@ mod tests {
         );
         assert_eq!(count, 1);
         assert!(
-            distance(
+            v3::distance(
                 points[0],
                 RgmPoint3 {
                     x: 0.0,

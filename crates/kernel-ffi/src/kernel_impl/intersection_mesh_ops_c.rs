@@ -38,7 +38,7 @@ fn rgm_nurbs_interpolate_fit_points_impl(
 
     let result = with_session_mut(session, |state| {
         let handle = insert_curve(state, CurveData::NurbsCurve(curve));
-        write_object_handle(out_object, handle)
+        write_out(out_object, handle)
     });
 
     match result {
@@ -63,7 +63,7 @@ fn create_curve_object(
     let result = with_session_mut(session, |state| {
         let curve = build(state)?;
         let handle = insert_curve(state, curve);
-        write_object_handle(out_object, handle)
+        write_out(out_object, handle)
     });
 
     match result {
@@ -88,7 +88,7 @@ fn create_mesh_object(
     let result = with_session_mut(session, |state| {
         let mesh = build(state)?;
         let handle = insert_mesh(state, mesh);
-        write_object_handle(out_object, handle)
+        write_out(out_object, handle)
     });
 
     match result {
@@ -113,7 +113,7 @@ fn create_surface_object(
     let result = with_session_mut(session, |state| {
         let surface = build(state)?;
         let handle = insert_surface(state, surface);
-        write_object_handle(out_object, handle)
+        write_out(out_object, handle)
     });
 
     match result {
@@ -138,7 +138,7 @@ fn create_face_object(
     let result = with_session_mut(session, |state| {
         let face = build(state)?;
         let handle = insert_face(state, face);
-        write_object_handle(out_object, handle)
+        write_out(out_object, handle)
     });
 
     match result {
@@ -163,7 +163,7 @@ fn create_intersection_object(
     let result = with_session_mut(session, |state| {
         let intersection = build(state)?;
         let handle = insert_intersection(state, intersection);
-        write_object_handle(out_object, handle)
+        write_out(out_object, handle)
     });
 
     match result {

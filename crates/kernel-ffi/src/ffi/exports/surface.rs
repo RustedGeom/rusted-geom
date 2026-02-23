@@ -17,7 +17,9 @@ pub extern "C" fn rgm_surface_create_nurbs(
     if desc.is_null() || tol.is_null() {
         return map_err_with_session(session, RgmStatus::InvalidInput, "Null surface descriptor");
     }
+    // SAFETY: pointer is non-null by guard above.
     let desc = unsafe { *desc };
+    // SAFETY: pointer is non-null by guard above.
     let tol = unsafe { *tol };
     rgm_surface_create_nurbs_impl(
         session,
@@ -46,11 +48,12 @@ pub extern "C" fn rgm_surface_point_at(
     if uv_norm.is_null() {
         return map_err_with_session(session, RgmStatus::InvalidInput, "Null uv pointer");
     }
+    // SAFETY: pointer is non-null by guard above.
     let uv_norm = unsafe { *uv_norm };
     let result = with_session_mut(session, |state| {
         let surface = find_surface(state, surface)?;
         let frame = eval_surface_data_normalized(surface, uv_norm)?;
-        write_point(out_point, frame.point)
+        write_out(out_point, frame.point)
     });
     match result {
         Ok(()) => {
@@ -73,12 +76,13 @@ pub extern "C" fn rgm_surface_d1_at(
     if uv_norm.is_null() {
         return map_err_with_session(session, RgmStatus::InvalidInput, "Null uv pointer");
     }
+    // SAFETY: pointer is non-null by guard above.
     let uv_norm = unsafe { *uv_norm };
     let result = with_session_mut(session, |state| {
         let surface = find_surface(state, surface)?;
         let frame = eval_surface_data_normalized(surface, uv_norm)?;
-        write_vec(out_du, frame.du)?;
-        write_vec(out_dv, frame.dv)
+        write_out(out_du, frame.du)?;
+        write_out(out_dv, frame.dv)
     });
     match result {
         Ok(()) => {
@@ -102,6 +106,7 @@ pub extern "C" fn rgm_surface_d2_at(
     if uv_norm.is_null() {
         return map_err_with_session(session, RgmStatus::InvalidInput, "Null uv pointer");
     }
+    // SAFETY: pointer is non-null by guard above.
     let uv_norm = unsafe { *uv_norm };
     let result = with_session_mut(session, |state| {
         let surface = find_surface(state, surface)?;
@@ -109,9 +114,9 @@ pub extern "C" fn rgm_surface_d2_at(
         let duu = matrix_apply_vec(surface.transform, eval.duu);
         let duv = matrix_apply_vec(surface.transform, eval.duv);
         let dvv = matrix_apply_vec(surface.transform, eval.dvv);
-        write_vec(out_duu, duu)?;
-        write_vec(out_duv, duv)?;
-        write_vec(out_dvv, dvv)
+        write_out(out_duu, duu)?;
+        write_out(out_duv, duv)?;
+        write_out(out_dvv, dvv)
     });
     match result {
         Ok(()) => {
@@ -133,11 +138,12 @@ pub extern "C" fn rgm_surface_normal_at(
     if uv_norm.is_null() {
         return map_err_with_session(session, RgmStatus::InvalidInput, "Null uv pointer");
     }
+    // SAFETY: pointer is non-null by guard above.
     let uv_norm = unsafe { *uv_norm };
     let result = with_session_mut(session, |state| {
         let surface = find_surface(state, surface)?;
         let frame = eval_surface_data_normalized(surface, uv_norm)?;
-        write_vec(out_normal, frame.normal)
+        write_out(out_normal, frame.normal)
     });
     match result {
         Ok(()) => {
@@ -159,11 +165,12 @@ pub extern "C" fn rgm_surface_frame_at(
     if uv_norm.is_null() {
         return map_err_with_session(session, RgmStatus::InvalidInput, "Null uv pointer");
     }
+    // SAFETY: pointer is non-null by guard above.
     let uv_norm = unsafe { *uv_norm };
     let result = with_session_mut(session, |state| {
         let surface = find_surface(state, surface)?;
         let frame = eval_surface_data_normalized(surface, uv_norm)?;
-        write_surface_eval_frame(out_frame, frame)
+        write_out(out_frame, frame)
     });
     match result {
         Ok(()) => {
@@ -185,6 +192,7 @@ pub extern "C" fn rgm_surface_translate(
     if delta.is_null() {
         return map_err_with_session(session, RgmStatus::InvalidInput, "Null translation vector");
     }
+    // SAFETY: pointer is non-null by guard above.
     let delta = unsafe { *delta };
     let transform = matrix_translation(delta);
     rgm_surface_transform_impl(
@@ -209,7 +217,9 @@ pub extern "C" fn rgm_surface_rotate(
     if axis.is_null() || pivot.is_null() {
         return map_err_with_session(session, RgmStatus::InvalidInput, "Null rotation pointer");
     }
+    // SAFETY: pointer is non-null by guard above.
     let axis = unsafe { *axis };
+    // SAFETY: pointer is non-null by guard above.
     let pivot = unsafe { *pivot };
     let rotation = match matrix_rotation(axis, angle_rad) {
         Ok(value) => value,
@@ -237,7 +247,9 @@ pub extern "C" fn rgm_surface_scale(
     if scale.is_null() || pivot.is_null() {
         return map_err_with_session(session, RgmStatus::InvalidInput, "Null scale pointer");
     }
+    // SAFETY: pointer is non-null by guard above.
     let scale = unsafe { *scale };
+    // SAFETY: pointer is non-null by guard above.
     let pivot = unsafe { *pivot };
     let transform = matrix_about_pivot(matrix_scale(scale), pivot);
     rgm_surface_transform_impl(
@@ -270,6 +282,7 @@ pub extern "C" fn rgm_surface_tessellate_to_mesh(
     let options = if options.is_null() {
         None
     } else {
+        // SAFETY: pointer is non-null by guard above.
         Some(unsafe { *options })
     };
     rgm_surface_tessellate_to_mesh_impl(session, surface, options, out_mesh)

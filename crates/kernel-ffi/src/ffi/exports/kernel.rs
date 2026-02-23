@@ -1,3 +1,5 @@
+use std::sync::atomic::Ordering;
+
 #[rgm_export(ts = "create", receiver = "kernel_static")]
 #[no_mangle]
 pub extern "C" fn rgm_kernel_create(out_session: *mut RgmKernelHandle) -> RgmStatus {

@@ -192,7 +192,7 @@ fn mesh_copy_vertices_world(
     out_count: *mut u32,
 ) -> Result<(), RgmStatus> {
     let points = mesh_world_vertices(mesh);
-    write_intersection_points(out_vertices, vertex_capacity, &points, out_count)
+    write_slice(out_vertices, vertex_capacity, &points, out_count)
 }
 
 fn mesh_copy_indices(
@@ -229,13 +229,13 @@ fn mesh_copy_indices(
 }
 
 fn plane_unit_normal(plane: RgmPlane) -> Option<RgmVec3> {
-    vec_normalize(plane.z_axis).or_else(|| vec_normalize(vec_cross(plane.x_axis, plane.y_axis)))
+    v3::normalize(plane.z_axis).or_else(|| v3::normalize(v3::cross(plane.x_axis, plane.y_axis)))
 }
 
 fn push_unique_point(points: &mut Vec<RgmPoint3>, candidate: RgmPoint3, tol: f64) {
     if points
         .iter()
-        .any(|point| distance(*point, candidate) <= tol)
+        .any(|point| v3::distance(*point, candidate) <= tol)
     {
         return;
     }
@@ -250,9 +250,9 @@ fn intersect_triangle_plane_segment(
     plane_normal: RgmVec3,
     tol: f64,
 ) -> Option<(RgmPoint3, RgmPoint3)> {
-    let d0 = vec_dot(point_sub(a, plane_origin), plane_normal);
-    let d1 = vec_dot(point_sub(b, plane_origin), plane_normal);
-    let d2 = vec_dot(point_sub(c, plane_origin), plane_normal);
+    let d0 = v3::dot(v3::sub(a, plane_origin), plane_normal);
+    let d1 = v3::dot(v3::sub(b, plane_origin), plane_normal);
+    let d2 = v3::dot(v3::sub(c, plane_origin), plane_normal);
     if d0.abs() <= tol && d1.abs() <= tol && d2.abs() <= tol {
         return None;
     }
@@ -267,8 +267,8 @@ fn intersect_triangle_plane_segment(
         }
         if (s0 > tol && s1 < -tol) || (s0 < -tol && s1 > tol) {
             let t = s0 / (s0 - s1);
-            let segment = point_sub(p1, p0);
-            let hit = point_add_vec(p0, vec_scale(segment, t));
+            let segment = v3::sub(p1, p0);
+            let hit = v3::add_vec(p0, v3::scale(segment, t));
             push_unique_point(&mut points, hit, tol);
         }
     };
@@ -282,10 +282,10 @@ fn intersect_triangle_plane_segment(
     }
 
     let mut best = (points[0], points[1]);
-    let mut best_len = distance(points[0], points[1]);
+    let mut best_len = v3::distance(points[0], points[1]);
     for i in 0..points.len() {
         for j in (i + 1)..points.len() {
-            let len = distance(points[i], points[j]);
+            let len = v3::distance(points[i], points[j]);
             if len > best_len {
                 best_len = len;
                 best = (points[i], points[j]);
@@ -299,210 +299,6 @@ fn intersect_triangle_plane_segment(
     }
 }
 
-fn triangle_aabb(points: [RgmPoint3; 3]) -> (RgmPoint3, RgmPoint3) {
-    let mut min = points[0];
-    let mut max = points[0];
-    for point in points.iter().skip(1) {
-        min.x = min.x.min(point.x);
-        min.y = min.y.min(point.y);
-        min.z = min.z.min(point.z);
-        max.x = max.x.max(point.x);
-        max.y = max.y.max(point.y);
-        max.z = max.z.max(point.z);
-    }
-    (min, max)
-}
-
-#[derive(Clone, Copy, Debug)]
-struct TriangleRecord {
-    points: [RgmPoint3; 3],
-    min: RgmPoint3,
-    max: RgmPoint3,
-}
-
-impl TriangleRecord {
-    fn from_mesh(vertices: &[RgmPoint3], tri: [u32; 3]) -> Self {
-        let points = [
-            vertices[tri[0] as usize],
-            vertices[tri[1] as usize],
-            vertices[tri[2] as usize],
-        ];
-        let (min, max) = triangle_aabb(points);
-        Self { points, min, max }
-    }
-}
-
-struct MeshAccelCache {
-    triangles: Vec<TriangleRecord>,
-    bvh: Option<MeshBvh>,
-}
-
-#[derive(Clone, Copy)]
-struct BvhNode {
-    min: RgmPoint3,
-    max: RgmPoint3,
-    left: Option<usize>,
-    right: Option<usize>,
-    start: usize,
-    count: usize,
-}
-
-impl BvhNode {
-    fn leaf(min: RgmPoint3, max: RgmPoint3, start: usize, count: usize) -> Self {
-        Self {
-            min,
-            max,
-            left: None,
-            right: None,
-            start,
-            count,
-        }
-    }
-
-    fn branch(min: RgmPoint3, max: RgmPoint3, left: usize, right: usize) -> Self {
-        Self {
-            min,
-            max,
-            left: Some(left),
-            right: Some(right),
-            start: 0,
-            count: 0,
-        }
-    }
-
-    fn is_leaf(&self) -> bool {
-        self.left.is_none() && self.right.is_none()
-    }
-}
-
-struct MeshBvh {
-    root: usize,
-    nodes: Vec<BvhNode>,
-    tri_indices: Vec<usize>,
-}
-
-impl MeshBvh {
-    fn build(records: &[TriangleRecord]) -> Option<Self> {
-        if records.is_empty() {
-            return None;
-        }
-
-        let mut tri_indices = (0..records.len()).collect::<Vec<_>>();
-        let tri_count = tri_indices.len();
-        let mut nodes = Vec::new();
-        let root = Self::build_node(records, &mut tri_indices, &mut nodes, 0, tri_count);
-        Some(Self {
-            root,
-            nodes,
-            tri_indices,
-        })
-    }
-
-    fn build_node(
-        records: &[TriangleRecord],
-        tri_indices: &mut Vec<usize>,
-        nodes: &mut Vec<BvhNode>,
-        start: usize,
-        end: usize,
-    ) -> usize {
-        let node_idx = nodes.len();
-        nodes.push(BvhNode::leaf(
-            RgmPoint3 {
-                x: 0.0,
-                y: 0.0,
-                z: 0.0,
-            },
-            RgmPoint3 {
-                x: 0.0,
-                y: 0.0,
-                z: 0.0,
-            },
-            start,
-            end.saturating_sub(start),
-        ));
-
-        let (min, max) = Self::range_bounds(records, &tri_indices[start..end]);
-        let count = end.saturating_sub(start);
-        const LEAF_TRIANGLES: usize = 8;
-        if count <= LEAF_TRIANGLES {
-            nodes[node_idx] = BvhNode::leaf(min, max, start, count);
-            return node_idx;
-        }
-
-        let axis = Self::split_axis(records, &tri_indices[start..end]);
-        tri_indices[start..end].sort_by(|a, b| {
-            let ca = Self::triangle_centroid_axis(records[*a], axis);
-            let cb = Self::triangle_centroid_axis(records[*b], axis);
-            ca.partial_cmp(&cb).unwrap_or(std::cmp::Ordering::Equal)
-        });
-
-        let mid = start + count / 2;
-        if mid == start || mid == end {
-            nodes[node_idx] = BvhNode::leaf(min, max, start, count);
-            return node_idx;
-        }
-
-        let left = Self::build_node(records, tri_indices, nodes, start, mid);
-        let right = Self::build_node(records, tri_indices, nodes, mid, end);
-        nodes[node_idx] = BvhNode::branch(min, max, left, right);
-        node_idx
-    }
-
-    fn range_bounds(records: &[TriangleRecord], indices: &[usize]) -> (RgmPoint3, RgmPoint3) {
-        let mut min = records[indices[0]].min;
-        let mut max = records[indices[0]].max;
-        for &idx in indices.iter().skip(1) {
-            let tri = records[idx];
-            min.x = min.x.min(tri.min.x);
-            min.y = min.y.min(tri.min.y);
-            min.z = min.z.min(tri.min.z);
-            max.x = max.x.max(tri.max.x);
-            max.y = max.y.max(tri.max.y);
-            max.z = max.z.max(tri.max.z);
-        }
-        (min, max)
-    }
-
-    fn split_axis(records: &[TriangleRecord], indices: &[usize]) -> usize {
-        let mut cmin = Self::triangle_centroid(records[indices[0]]);
-        let mut cmax = cmin;
-        for &idx in indices.iter().skip(1) {
-            let c = Self::triangle_centroid(records[idx]);
-            cmin.x = cmin.x.min(c.x);
-            cmin.y = cmin.y.min(c.y);
-            cmin.z = cmin.z.min(c.z);
-            cmax.x = cmax.x.max(c.x);
-            cmax.y = cmax.y.max(c.y);
-            cmax.z = cmax.z.max(c.z);
-        }
-        let ex = cmax.x - cmin.x;
-        let ey = cmax.y - cmin.y;
-        let ez = cmax.z - cmin.z;
-        if ex >= ey && ex >= ez {
-            0
-        } else if ey >= ez {
-            1
-        } else {
-            2
-        }
-    }
-
-    fn triangle_centroid(record: TriangleRecord) -> RgmPoint3 {
-        RgmPoint3 {
-            x: (record.min.x + record.max.x) * 0.5,
-            y: (record.min.y + record.max.y) * 0.5,
-            z: (record.min.z + record.max.z) * 0.5,
-        }
-    }
-
-    fn triangle_centroid_axis(record: TriangleRecord, axis: usize) -> f64 {
-        match axis {
-            0 => (record.min.x + record.max.x) * 0.5,
-            1 => (record.min.y + record.max.y) * 0.5,
-            _ => (record.min.z + record.max.z) * 0.5,
-        }
-    }
-}
 
 fn aabb_node_plane_overlap(
     min: RgmPoint3,
@@ -521,7 +317,7 @@ fn aabb_node_plane_overlap(
         y: (max.y - min.y) * 0.5,
         z: (max.z - min.z) * 0.5,
     };
-    let dist = vec_dot(point_sub(center, plane_origin), plane_normal);
+    let dist = v3::dot(v3::sub(center, plane_origin), plane_normal);
     let radius = half.x * plane_normal.x.abs()
         + half.y * plane_normal.y.abs()
         + half.z * plane_normal.z.abs();
@@ -568,31 +364,31 @@ fn segment_triangle_intersection_with_params(
     t2: RgmPoint3,
     tol: f64,
 ) -> Option<(RgmPoint3, f64, f64, f64)> {
-    let dir = point_sub(p1, p0);
-    let edge1 = point_sub(t1, t0);
-    let edge2 = point_sub(t2, t0);
-    let pvec = vec_cross(dir, edge2);
-    let det = vec_dot(edge1, pvec);
+    let dir = v3::sub(p1, p0);
+    let edge1 = v3::sub(t1, t0);
+    let edge2 = v3::sub(t2, t0);
+    let pvec = v3::cross(dir, edge2);
+    let det = v3::dot(edge1, pvec);
     if det.abs() <= tol {
         return None;
     }
     let inv_det = 1.0 / det;
-    let tvec = point_sub(p0, t0);
-    let u = vec_dot(tvec, pvec) * inv_det;
+    let tvec = v3::sub(p0, t0);
+    let u = v3::dot(tvec, pvec) * inv_det;
     if u < -tol || u > 1.0 + tol {
         return None;
     }
-    let qvec = vec_cross(tvec, edge1);
-    let v = vec_dot(dir, qvec) * inv_det;
+    let qvec = v3::cross(tvec, edge1);
+    let v = v3::dot(dir, qvec) * inv_det;
     if v < -tol || u + v > 1.0 + tol {
         return None;
     }
-    let t = vec_dot(edge2, qvec) * inv_det;
+    let t = v3::dot(edge2, qvec) * inv_det;
     if t < -tol || t > 1.0 + tol {
         return None;
     }
 
-    Some((point_add_vec(p0, vec_scale(dir, t)), t, u, v))
+    Some((v3::add_vec(p0, v3::scale(dir, t)), t, u, v))
 }
 
 fn tri_tri_intersection_segment(
@@ -622,10 +418,10 @@ fn tri_tri_intersection_segment(
         return None;
     }
     let mut best = (points[0], points[1]);
-    let mut best_len = distance(points[0], points[1]);
+    let mut best_len = v3::distance(points[0], points[1]);
     for i in 0..points.len() {
         for j in (i + 1)..points.len() {
-            let len = distance(points[i], points[j]);
+            let len = v3::distance(points[i], points[j]);
             if len > best_len {
                 best_len = len;
                 best = (points[i], points[j]);

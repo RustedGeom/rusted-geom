@@ -1,3 +1,15 @@
+//! Arc-length parameterization for NURBS curves.
+//!
+//! Builds a piecewise-linear cache that maps between the native NURBS parameter
+//! `u ∈ [u_start, u_end]` and chord-accumulated arc length `s ∈ [0, L]`.
+//!
+//! The cache uses 128 Gauss-Legendre integration points per span for adequate
+//! accuracy on high-curvature arcs and circles.  After construction the
+//! forward mapping `u_from_length` and inverse `length_from_u` run in O(log n)
+//! time via binary search on the span table.
+//!
+//! Domain constraints: the curve must be valid (see [`super::nurbs_curve_eval::validate_curve`]).
+
 use super::nurbs_curve_eval::{eval_nurbs_u, NurbsCurveCore};
 use crate::RgmStatus;
 

@@ -10,8 +10,8 @@ fn project_point_to_curve(
     let mut best: Option<(f64, RgmPoint3, f64)> = None;
     for _ in 0..24 {
         let eval = evaluate_curve_at_normalized_data(state, curve, t).ok()?;
-        let residual = point_sub(eval.point, point);
-        let residual_norm = vec_norm(residual);
+        let residual = v3::sub(eval.point, point);
+        let residual_norm = v3::norm(residual);
         match best {
             Some((best_norm, _, _)) if residual_norm >= best_norm => {}
             _ => best = Some((residual_norm, eval.point, t)),
@@ -20,8 +20,8 @@ fn project_point_to_curve(
             return Some((eval.point, t, residual_norm));
         }
 
-        let grad = vec_dot(eval.d1, residual);
-        let hess = vec_dot(eval.d1, eval.d1) + vec_dot(eval.d2, residual) + lambda;
+        let grad = v3::dot(eval.d1, residual);
+        let hess = v3::dot(eval.d1, eval.d1) + v3::dot(eval.d2, residual) + lambda;
         if hess.abs() <= 1e-16 {
             lambda *= 10.0;
             continue;
@@ -37,7 +37,7 @@ fn project_point_to_curve(
                 alpha *= 0.5;
                 continue;
             };
-            let trial_norm = distance(trial_eval.point, point);
+            let trial_norm = v3::distance(trial_eval.point, point);
             if trial_norm < residual_norm {
                 t = trial_t;
                 lambda = (lambda * 0.5).max(1e-14);
@@ -119,7 +119,7 @@ fn nearest_surface_seed_uvs(
     let mut ranked = seeds
         .iter()
         .map(|seed| {
-            let d = distance(seed.point, point);
+            let d = v3::distance(seed.point, point);
             (d, seed.uv)
         })
         .collect::<Vec<_>>();
@@ -161,7 +161,7 @@ fn nearest_curve_seed_t(
     let mut ranked = seeds
         .iter()
         .map(|seed| {
-            let d = distance(seed.point, point);
+            let d = v3::distance(seed.point, point);
             (d, seed.t)
         })
         .collect::<Vec<_>>();
@@ -424,7 +424,7 @@ fn march_surface_surface_direction(
             continue;
         };
 
-        let seg_len = distance(point, next_point);
+        let seg_len = v3::distance(point, next_point);
         if seg_len <= tol * 0.5 {
             step *= 0.5;
             if step < step_min {
@@ -434,7 +434,7 @@ fn march_surface_surface_direction(
         }
 
         out.push((next_point, next_uv_a, next_uv_b));
-        if out.len() > 16 && distance(next_point, seed_point) <= step * 0.9 {
+        if out.len() > 16 && v3::distance(next_point, seed_point) <= step * 0.9 {
             closed = true;
             break;
         }
@@ -494,7 +494,7 @@ fn build_surface_surface_branch_from_seed(
     for idx in 0..points.len() {
         if compact_points
             .last()
-            .map(|prev| distance(*prev, points[idx]) <= tol * 0.5)
+            .map(|prev| v3::distance(*prev, points[idx]) <= tol * 0.5)
             .unwrap_or(false)
         {
             continue;
