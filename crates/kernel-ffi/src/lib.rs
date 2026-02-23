@@ -15,6 +15,10 @@ use math::nurbs_curve_eval::{
     eval_nurbs_normalized, eval_nurbs_u, map_normalized_to_u, validate_curve, CurveEvalResult,
     NurbsCurveCore,
 };
+use math::nurbs_surface_eval::{
+    eval_nurbs_surface_normalized, eval_nurbs_surface_uv, validate_surface, NurbsSurfaceCore,
+    SurfaceEvalResult,
+};
 use once_cell::sync::Lazy;
 use std::alloc::{alloc, dealloc, Layout};
 use std::collections::HashMap;
@@ -126,6 +130,94 @@ pub struct RgmPolycurveSegment {
     pub reversed: bool,
 }
 
+#[rgm_ffi_type]
+#[repr(C)]
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct RgmPoint2 {
+    pub x: f64,
+    pub y: f64,
+}
+
+#[rgm_ffi_type]
+#[repr(C)]
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct RgmVec2 {
+    pub x: f64,
+    pub y: f64,
+}
+
+#[rgm_ffi_type]
+#[repr(C)]
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct RgmUv2 {
+    pub u: f64,
+    pub v: f64,
+}
+
+#[rgm_ffi_type]
+#[repr(C)]
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct RgmNurbsSurfaceDesc {
+    pub degree_u: u32,
+    pub degree_v: u32,
+    pub periodic_u: bool,
+    pub periodic_v: bool,
+    pub control_u_count: u32,
+    pub control_v_count: u32,
+}
+
+#[rgm_ffi_type]
+#[repr(C)]
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct RgmSurfaceEvalFrame {
+    pub point: RgmPoint3,
+    pub du: RgmVec3,
+    pub dv: RgmVec3,
+    pub normal: RgmVec3,
+}
+
+#[rgm_ffi_type]
+#[repr(C)]
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct RgmTrimEdgeInput {
+    pub start_uv: RgmUv2,
+    pub end_uv: RgmUv2,
+    pub curve_3d: RgmObjectHandle,
+    pub has_curve_3d: bool,
+}
+
+#[rgm_ffi_type]
+#[repr(C)]
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct RgmTrimLoopInput {
+    pub edge_count: u32,
+    pub is_outer: bool,
+}
+
+#[rgm_ffi_type]
+#[repr(C)]
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct RgmSurfaceTessellationOptions {
+    pub min_u_segments: u32,
+    pub min_v_segments: u32,
+    pub max_u_segments: u32,
+    pub max_v_segments: u32,
+    pub chord_tol: f64,
+    pub normal_tol_rad: f64,
+}
+
+#[rgm_ffi_type]
+#[repr(C)]
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct RgmIntersectionBranchSummary {
+    pub point_count: u32,
+    pub uv_a_count: u32,
+    pub uv_b_count: u32,
+    pub curve_t_count: u32,
+    pub closed: bool,
+    pub flags: u32,
+}
+
 #[derive(Clone, Debug)]
 struct NurbsCurveData {
     core: NurbsCurveCore,
@@ -185,6 +277,46 @@ struct MeshData {
 }
 
 #[derive(Clone, Debug)]
+struct SurfaceData {
+    core: NurbsSurfaceCore,
+    transform: [[f64; 4]; 4],
+}
+
+#[derive(Clone, Debug)]
+struct TrimEdgeData {
+    start_uv: RgmUv2,
+    end_uv: RgmUv2,
+    curve_3d: Option<RgmObjectHandle>,
+}
+
+#[derive(Clone, Debug)]
+struct TrimLoopData {
+    edges: Vec<TrimEdgeData>,
+    is_outer: bool,
+}
+
+#[derive(Clone, Debug)]
+struct FaceData {
+    surface: RgmObjectHandle,
+    loops: Vec<TrimLoopData>,
+}
+
+#[derive(Clone, Debug)]
+struct IntersectionBranchData {
+    points: Vec<RgmPoint3>,
+    uv_a: Vec<RgmUv2>,
+    uv_b: Vec<RgmUv2>,
+    curve_t: Vec<f64>,
+    closed: bool,
+    flags: u32,
+}
+
+#[derive(Clone, Debug)]
+struct IntersectionData {
+    branches: Vec<IntersectionBranchData>,
+}
+
+#[derive(Clone, Debug)]
 enum CurveData {
     NurbsCurve(NurbsCurveData),
     Line(LineData),
@@ -198,6 +330,9 @@ enum CurveData {
 enum GeometryObject {
     Curve(CurveData),
     Mesh(MeshData),
+    Surface(SurfaceData),
+    Face(FaceData),
+    Intersection(IntersectionData),
 }
 
 #[derive(Default)]
@@ -258,6 +393,26 @@ fn write_point(out: *mut RgmPoint3, value: RgmPoint3) -> Result<(), RgmStatus> {
     Ok(())
 }
 
+fn write_point2(out: *mut RgmPoint2, value: RgmPoint2) -> Result<(), RgmStatus> {
+    if out.is_null() {
+        return Err(RgmStatus::InvalidInput);
+    }
+    unsafe {
+        *out = value;
+    }
+    Ok(())
+}
+
+fn write_uv(out: *mut RgmUv2, value: RgmUv2) -> Result<(), RgmStatus> {
+    if out.is_null() {
+        return Err(RgmStatus::InvalidInput);
+    }
+    unsafe {
+        *out = value;
+    }
+    Ok(())
+}
+
 fn write_vec(out: *mut RgmVec3, value: RgmVec3) -> Result<(), RgmStatus> {
     if out.is_null() {
         return Err(RgmStatus::InvalidInput);
@@ -268,6 +423,32 @@ fn write_vec(out: *mut RgmVec3, value: RgmVec3) -> Result<(), RgmStatus> {
         *out = value;
     }
 
+    Ok(())
+}
+
+fn write_surface_eval_frame(
+    out: *mut RgmSurfaceEvalFrame,
+    value: RgmSurfaceEvalFrame,
+) -> Result<(), RgmStatus> {
+    if out.is_null() {
+        return Err(RgmStatus::InvalidInput);
+    }
+    unsafe {
+        *out = value;
+    }
+    Ok(())
+}
+
+fn write_branch_summary(
+    out: *mut RgmIntersectionBranchSummary,
+    value: RgmIntersectionBranchSummary,
+) -> Result<(), RgmStatus> {
+    if out.is_null() {
+        return Err(RgmStatus::InvalidInput);
+    }
+    unsafe {
+        *out = value;
+    }
     Ok(())
 }
 
@@ -356,6 +537,60 @@ fn write_intersection_points(
     Ok(())
 }
 
+fn write_uv_points(
+    out_points: *mut RgmUv2,
+    point_capacity: u32,
+    points: &[RgmUv2],
+    out_count: *mut u32,
+) -> Result<(), RgmStatus> {
+    if out_count.is_null() {
+        return Err(RgmStatus::InvalidInput);
+    }
+    unsafe {
+        *out_count = points.len().try_into().unwrap_or(u32::MAX);
+    }
+    if point_capacity == 0 {
+        return Ok(());
+    }
+    if out_points.is_null() {
+        return Err(RgmStatus::InvalidInput);
+    }
+    let copy_count = points.len().min(point_capacity as usize);
+    for (idx, point) in points.iter().take(copy_count).enumerate() {
+        unsafe {
+            *out_points.add(idx) = *point;
+        }
+    }
+    Ok(())
+}
+
+fn write_f64_array(
+    out_values: *mut f64,
+    value_capacity: u32,
+    values: &[f64],
+    out_count: *mut u32,
+) -> Result<(), RgmStatus> {
+    if out_count.is_null() {
+        return Err(RgmStatus::InvalidInput);
+    }
+    unsafe {
+        *out_count = values.len().try_into().unwrap_or(u32::MAX);
+    }
+    if value_capacity == 0 {
+        return Ok(());
+    }
+    if out_values.is_null() {
+        return Err(RgmStatus::InvalidInput);
+    }
+    let copy_count = values.len().min(value_capacity as usize);
+    for (idx, value) in values.iter().take(copy_count).enumerate() {
+        unsafe {
+            *out_values.add(idx) = *value;
+        }
+    }
+    Ok(())
+}
+
 fn map_err_with_session(session: RgmKernelHandle, status: RgmStatus, message: &str) -> RgmStatus {
     set_error(session.0, status, message);
     status
@@ -366,6 +601,14 @@ fn distance(a: RgmPoint3, b: RgmPoint3) -> f64 {
     let dy = b.y - a.y;
     let dz = b.z - a.z;
     (dx * dx + dy * dy + dz * dz).sqrt()
+}
+
+fn midpoint(a: RgmPoint3, b: RgmPoint3) -> RgmPoint3 {
+    RgmPoint3 {
+        x: 0.5 * (a.x + b.x),
+        y: 0.5 * (a.y + b.y),
+        z: 0.5 * (a.z + b.z),
+    }
 }
 
 #[allow(dead_code)]
@@ -1430,6 +1673,47 @@ fn find_mesh<'a>(
     }
 }
 
+fn find_surface<'a>(
+    state: &'a SessionState,
+    object: RgmObjectHandle,
+) -> Result<&'a SurfaceData, RgmStatus> {
+    match state.objects.get(&object.0) {
+        Some(GeometryObject::Surface(surface)) => Ok(surface),
+        Some(_) => Err(RgmStatus::InvalidInput),
+        None => Err(RgmStatus::NotFound),
+    }
+}
+
+fn find_face<'a>(state: &'a SessionState, object: RgmObjectHandle) -> Result<&'a FaceData, RgmStatus> {
+    match state.objects.get(&object.0) {
+        Some(GeometryObject::Face(face)) => Ok(face),
+        Some(_) => Err(RgmStatus::InvalidInput),
+        None => Err(RgmStatus::NotFound),
+    }
+}
+
+fn find_intersection<'a>(
+    state: &'a SessionState,
+    object: RgmObjectHandle,
+) -> Result<&'a IntersectionData, RgmStatus> {
+    match state.objects.get(&object.0) {
+        Some(GeometryObject::Intersection(intersection)) => Ok(intersection),
+        Some(_) => Err(RgmStatus::InvalidInput),
+        None => Err(RgmStatus::NotFound),
+    }
+}
+
+fn find_face_mut<'a>(
+    state: &'a mut SessionState,
+    object: RgmObjectHandle,
+) -> Result<&'a mut FaceData, RgmStatus> {
+    match state.objects.get_mut(&object.0) {
+        Some(GeometryObject::Face(face)) => Ok(face),
+        Some(_) => Err(RgmStatus::InvalidInput),
+        None => Err(RgmStatus::NotFound),
+    }
+}
+
 fn curve_total_length(_state: &SessionState, curve: &CurveData) -> Result<f64, RgmStatus> {
     if let Some(nurbs) = curve_canonical_nurbs(curve) {
         return Ok(nurbs.arc_length.total_length);
@@ -1638,6 +1922,28 @@ fn insert_mesh(state: &mut SessionState, mesh: MeshData) -> RgmObjectHandle {
     RgmObjectHandle(object_id)
 }
 
+fn insert_surface(state: &mut SessionState, surface: SurfaceData) -> RgmObjectHandle {
+    let object_id = NEXT_OBJECT_ID.fetch_add(1, Ordering::Relaxed);
+    state
+        .objects
+        .insert(object_id, GeometryObject::Surface(surface));
+    RgmObjectHandle(object_id)
+}
+
+fn insert_face(state: &mut SessionState, face: FaceData) -> RgmObjectHandle {
+    let object_id = NEXT_OBJECT_ID.fetch_add(1, Ordering::Relaxed);
+    state.objects.insert(object_id, GeometryObject::Face(face));
+    RgmObjectHandle(object_id)
+}
+
+fn insert_intersection(state: &mut SessionState, intersection: IntersectionData) -> RgmObjectHandle {
+    let object_id = NEXT_OBJECT_ID.fetch_add(1, Ordering::Relaxed);
+    state
+        .objects
+        .insert(object_id, GeometryObject::Intersection(intersection));
+    RgmObjectHandle(object_id)
+}
+
 fn mesh_world_vertices(mesh: &MeshData) -> Vec<RgmPoint3> {
     mesh.vertices
         .iter()
@@ -1663,6 +1969,492 @@ fn ensure_mesh_accel(state: &mut SessionState, handle: RgmObjectHandle) -> Resul
         .mesh_accels
         .insert(handle.0, MeshAccelCache { triangles, bvh });
     Ok(())
+}
+
+fn matrix_apply_vec(matrix: [[f64; 4]; 4], vector: RgmVec3) -> RgmVec3 {
+    RgmVec3 {
+        x: matrix[0][0] * vector.x + matrix[0][1] * vector.y + matrix[0][2] * vector.z,
+        y: matrix[1][0] * vector.x + matrix[1][1] * vector.y + matrix[1][2] * vector.z,
+        z: matrix[2][0] * vector.x + matrix[2][1] * vector.y + matrix[2][2] * vector.z,
+    }
+}
+
+fn default_surface_tess_options(tol: RgmToleranceContext) -> RgmSurfaceTessellationOptions {
+    RgmSurfaceTessellationOptions {
+        min_u_segments: 24,
+        min_v_segments: 24,
+        max_u_segments: 256,
+        max_v_segments: 256,
+        chord_tol: (tol.abs_tol * 2000.0).max(1e-5),
+        normal_tol_rad: 0.08,
+    }
+}
+
+fn sanitize_surface_tess_options(
+    options: Option<RgmSurfaceTessellationOptions>,
+    tol: RgmToleranceContext,
+) -> RgmSurfaceTessellationOptions {
+    let mut value = options.unwrap_or_else(|| default_surface_tess_options(tol));
+    if value.min_u_segments < 2 {
+        value.min_u_segments = 2;
+    }
+    if value.min_v_segments < 2 {
+        value.min_v_segments = 2;
+    }
+    if value.max_u_segments < value.min_u_segments {
+        value.max_u_segments = value.min_u_segments;
+    }
+    if value.max_v_segments < value.min_v_segments {
+        value.max_v_segments = value.min_v_segments;
+    }
+    if value.max_u_segments > 1024 {
+        value.max_u_segments = 1024;
+    }
+    if value.max_v_segments > 1024 {
+        value.max_v_segments = 1024;
+    }
+    if value.chord_tol <= 0.0 {
+        value.chord_tol = (tol.abs_tol * 2000.0).max(1e-5);
+    }
+    if value.normal_tol_rad <= 0.0 {
+        value.normal_tol_rad = 0.08;
+    }
+    value
+}
+
+fn build_surface_from_desc(
+    desc: RgmNurbsSurfaceDesc,
+    control_points: &[RgmPoint3],
+    weights: &[f64],
+    knots_u: &[f64],
+    knots_v: &[f64],
+    tol: RgmToleranceContext,
+) -> Result<SurfaceData, RgmStatus> {
+    let control_u_count = desc.control_u_count as usize;
+    let control_v_count = desc.control_v_count as usize;
+    if control_u_count == 0 || control_v_count == 0 {
+        return Err(RgmStatus::InvalidInput);
+    }
+    let control_count = control_u_count
+        .checked_mul(control_v_count)
+        .ok_or(RgmStatus::OutOfRange)?;
+    if control_points.len() != control_count || weights.len() != control_count {
+        return Err(RgmStatus::InvalidInput);
+    }
+
+    let degree_u = desc.degree_u as usize;
+    let degree_v = desc.degree_v as usize;
+    if control_u_count <= degree_u || control_v_count <= degree_v {
+        return Err(RgmStatus::InvalidInput);
+    }
+
+    let mut core = NurbsSurfaceCore {
+        degree_u,
+        degree_v,
+        periodic_u: desc.periodic_u,
+        periodic_v: desc.periodic_v,
+        control_u_count,
+        control_v_count,
+        control_points: control_points.to_vec(),
+        weights: weights.to_vec(),
+        knots_u: knots_u.to_vec(),
+        knots_v: knots_v.to_vec(),
+        u_start: 0.0,
+        u_end: 0.0,
+        v_start: 0.0,
+        v_end: 0.0,
+        tol,
+    };
+    core.u_start = core.knots_u[core.degree_u];
+    core.u_end = core.knots_u[core.control_u_count];
+    core.v_start = core.knots_v[core.degree_v];
+    core.v_end = core.knots_v[core.control_v_count];
+    validate_surface(&core)?;
+
+    Ok(SurfaceData {
+        core,
+        transform: matrix_identity(),
+    })
+}
+
+fn surface_eval_result_to_frame(
+    eval: SurfaceEvalResult,
+    transform: [[f64; 4]; 4],
+) -> Result<RgmSurfaceEvalFrame, RgmStatus> {
+    let point = matrix_apply_point(transform, eval.point);
+    let du = matrix_apply_vec(transform, eval.du);
+    let dv = matrix_apply_vec(transform, eval.dv);
+    let normal = vec_cross(du, dv);
+    let normal = vec_normalize(normal).ok_or(RgmStatus::DegenerateGeometry)?;
+
+    Ok(RgmSurfaceEvalFrame {
+        point,
+        du,
+        dv,
+        normal,
+    })
+}
+
+fn eval_surface_data_uv(
+    surface: &SurfaceData,
+    uv: RgmUv2,
+) -> Result<RgmSurfaceEvalFrame, RgmStatus> {
+    let eval = eval_nurbs_surface_uv(&surface.core, uv)?;
+    surface_eval_result_to_frame(eval, surface.transform)
+}
+
+fn eval_surface_data_normalized(
+    surface: &SurfaceData,
+    uv_norm: RgmUv2,
+) -> Result<RgmSurfaceEvalFrame, RgmStatus> {
+    let eval = eval_nurbs_surface_normalized(&surface.core, uv_norm)?;
+    surface_eval_result_to_frame(eval, surface.transform)
+}
+
+fn trim_loop_polyline(loop_data: &TrimLoopData) -> Vec<RgmUv2> {
+    if loop_data.edges.is_empty() {
+        return Vec::new();
+    }
+    let mut points = Vec::with_capacity(loop_data.edges.len() + 1);
+    points.push(loop_data.edges[0].start_uv);
+    for edge in &loop_data.edges {
+        points.push(edge.end_uv);
+    }
+    points
+}
+
+fn uv_distance(a: RgmUv2, b: RgmUv2) -> f64 {
+    let du = a.u - b.u;
+    let dv = a.v - b.v;
+    (du * du + dv * dv).sqrt()
+}
+
+fn uv_lerp(a: RgmUv2, b: RgmUv2, t: f64) -> RgmUv2 {
+    RgmUv2 {
+        u: a.u + (b.u - a.u) * t,
+        v: a.v + (b.v - a.v) * t,
+    }
+}
+
+fn point_in_polygon_uv(point: RgmUv2, polygon: &[RgmUv2]) -> bool {
+    if polygon.len() < 3 {
+        return false;
+    }
+
+    let mut inside = false;
+    let mut j = polygon.len() - 1;
+    for i in 0..polygon.len() {
+        let pi = polygon[i];
+        let pj = polygon[j];
+        let intersects = ((pi.v > point.v) != (pj.v > point.v))
+            && (point.u
+                < (pj.u - pi.u) * (point.v - pi.v) / (pj.v - pi.v + f64::EPSILON) + pi.u);
+        if intersects {
+            inside = !inside;
+        }
+        j = i;
+    }
+
+    inside
+}
+
+fn is_uv_on_segment(point: RgmUv2, a: RgmUv2, b: RgmUv2, tol: f64) -> bool {
+    let ab = RgmVec2 {
+        x: b.u - a.u,
+        y: b.v - a.v,
+    };
+    let ap = RgmVec2 {
+        x: point.u - a.u,
+        y: point.v - a.v,
+    };
+    let cross = ab.x * ap.y - ab.y * ap.x;
+    if cross.abs() > tol {
+        return false;
+    }
+    let dot = ap.x * ab.x + ap.y * ab.y;
+    if dot < -tol {
+        return false;
+    }
+    let len2 = ab.x * ab.x + ab.y * ab.y;
+    dot <= len2 + tol
+}
+
+fn classify_uv_in_face(face: &FaceData, uv: RgmUv2, tol: f64) -> i32 {
+    if face.loops.is_empty() {
+        return 1;
+    }
+
+    for loop_data in &face.loops {
+        let poly = trim_loop_polyline(loop_data);
+        if poly.len() < 3 {
+            continue;
+        }
+        for seg in poly.windows(2) {
+            if is_uv_on_segment(uv, seg[0], seg[1], tol) {
+                return 0;
+            }
+        }
+    }
+
+    let mut in_outer = false;
+    for loop_data in &face.loops {
+        let poly = trim_loop_polyline(loop_data);
+        if poly.len() < 3 {
+            continue;
+        }
+        let inside = point_in_polygon_uv(uv, &poly);
+        if loop_data.is_outer {
+            if inside {
+                in_outer = true;
+            }
+        } else if inside {
+            return -1;
+        }
+    }
+
+    if in_outer {
+        1
+    } else {
+        -1
+    }
+}
+
+struct TessSampleMesh {
+    vertices: Vec<RgmPoint3>,
+    uvs: Vec<RgmUv2>,
+    triangles: Vec<[u32; 3]>,
+}
+
+fn add_triangle_indices(triangles: &mut Vec<[u32; 3]>, a: usize, b: usize, c: usize) -> Result<(), RgmStatus> {
+    triangles.push([
+        u32::try_from(a).map_err(|_| RgmStatus::OutOfRange)?,
+        u32::try_from(b).map_err(|_| RgmStatus::OutOfRange)?,
+        u32::try_from(c).map_err(|_| RgmStatus::OutOfRange)?,
+    ]);
+    Ok(())
+}
+
+fn tessellate_surface_samples(
+    surface: &SurfaceData,
+    face: Option<&FaceData>,
+    options: Option<RgmSurfaceTessellationOptions>,
+) -> Result<TessSampleMesh, RgmStatus> {
+    let options = sanitize_surface_tess_options(options, surface.core.tol);
+    let u_segments = options.min_u_segments.min(options.max_u_segments) as usize;
+    let v_segments = options.min_v_segments.min(options.max_v_segments) as usize;
+    let u_segments = u_segments.max(2);
+    let v_segments = v_segments.max(2);
+
+    let mut vertices = Vec::with_capacity((u_segments + 1) * (v_segments + 1));
+    let mut uvs = Vec::with_capacity((u_segments + 1) * (v_segments + 1));
+    let mut inside = Vec::with_capacity((u_segments + 1) * (v_segments + 1));
+
+    for iu in 0..=u_segments {
+        let u_norm = iu as f64 / u_segments as f64;
+        for iv in 0..=v_segments {
+            let v_norm = iv as f64 / v_segments as f64;
+            let uv_norm = RgmUv2 {
+                u: u_norm,
+                v: v_norm,
+            };
+            let uv = math::nurbs_surface_eval::map_normalized_to_surface_uv(&surface.core, uv_norm)?;
+            let frame = eval_surface_data_uv(surface, uv)?;
+            vertices.push(frame.point);
+            uvs.push(uv);
+            let is_inside = if let Some(face) = face {
+                classify_uv_in_face(face, uv, surface.core.tol.abs_tol.max(1e-8)) >= 0
+            } else {
+                true
+            };
+            inside.push(is_inside);
+        }
+    }
+
+    let index_of = |iu: usize, iv: usize| -> usize { iu * (v_segments + 1) + iv };
+    let mut triangles = Vec::new();
+    for iu in 0..u_segments {
+        for iv in 0..v_segments {
+            let a = index_of(iu, iv);
+            let b = index_of(iu + 1, iv);
+            let c = index_of(iu, iv + 1);
+            let d = index_of(iu + 1, iv + 1);
+
+            let center_uv0 = RgmUv2 {
+                u: (uvs[a].u + uvs[b].u + uvs[c].u) / 3.0,
+                v: (uvs[a].v + uvs[b].v + uvs[c].v) / 3.0,
+            };
+            let center_uv1 = RgmUv2 {
+                u: (uvs[b].u + uvs[d].u + uvs[c].u) / 3.0,
+                v: (uvs[b].v + uvs[d].v + uvs[c].v) / 3.0,
+            };
+
+            let tri0_ok = if let Some(face) = face {
+                inside[a]
+                    || inside[b]
+                    || inside[c]
+                    || classify_uv_in_face(face, center_uv0, surface.core.tol.abs_tol.max(1e-8)) >= 0
+            } else {
+                true
+            };
+            let tri1_ok = if let Some(face) = face {
+                inside[b]
+                    || inside[d]
+                    || inside[c]
+                    || classify_uv_in_face(face, center_uv1, surface.core.tol.abs_tol.max(1e-8)) >= 0
+            } else {
+                true
+            };
+
+            if tri0_ok {
+                add_triangle_indices(&mut triangles, a, b, c)?;
+            }
+            if tri1_ok {
+                add_triangle_indices(&mut triangles, b, d, c)?;
+            }
+        }
+    }
+
+    Ok(TessSampleMesh {
+        vertices,
+        uvs,
+        triangles,
+    })
+}
+
+fn build_mesh_from_tessellation(samples: &TessSampleMesh) -> MeshData {
+    MeshData {
+        vertices: samples.vertices.clone(),
+        triangles: samples.triangles.clone(),
+        transform: matrix_identity(),
+    }
+}
+
+fn surface_triangle_records(samples: &TessSampleMesh) -> Vec<TriangleRecord> {
+    samples
+        .triangles
+        .iter()
+        .map(|tri| TriangleRecord::from_mesh(&samples.vertices, *tri))
+        .collect()
+}
+
+fn triangle_barycentric(
+    p: RgmPoint3,
+    a: RgmPoint3,
+    b: RgmPoint3,
+    c: RgmPoint3,
+) -> Option<(f64, f64, f64)> {
+    let v0 = point_sub(b, a);
+    let v1 = point_sub(c, a);
+    let v2 = point_sub(p, a);
+    let d00 = vec_dot(v0, v0);
+    let d01 = vec_dot(v0, v1);
+    let d11 = vec_dot(v1, v1);
+    let d20 = vec_dot(v2, v0);
+    let d21 = vec_dot(v2, v1);
+    let denom = d00 * d11 - d01 * d01;
+    if denom.abs() <= 1e-16 {
+        return None;
+    }
+    let v = (d11 * d20 - d01 * d21) / denom;
+    let w = (d00 * d21 - d01 * d20) / denom;
+    let u = 1.0 - v - w;
+    Some((u, v, w))
+}
+
+fn uv_from_triangle_bary(
+    p: RgmPoint3,
+    tri: [RgmPoint3; 3],
+    tri_uv: [RgmUv2; 3],
+) -> RgmUv2 {
+    if let Some((wa, wb, wc)) = triangle_barycentric(p, tri[0], tri[1], tri[2]) {
+        return RgmUv2 {
+            u: wa * tri_uv[0].u + wb * tri_uv[1].u + wc * tri_uv[2].u,
+            v: wa * tri_uv[0].v + wb * tri_uv[1].v + wc * tri_uv[2].v,
+        };
+    }
+    tri_uv[0]
+}
+
+fn surface_uv_at_tri_index(samples: &TessSampleMesh, tri: [u32; 3]) -> [RgmUv2; 3] {
+    [
+        samples.uvs[tri[0] as usize],
+        samples.uvs[tri[1] as usize],
+        samples.uvs[tri[2] as usize],
+    ]
+}
+
+fn make_branch_from_segment(
+    p0: RgmPoint3,
+    p1: RgmPoint3,
+    uv_a0: RgmUv2,
+    uv_a1: RgmUv2,
+    uv_b0: RgmUv2,
+    uv_b1: RgmUv2,
+    curve_t: Option<(f64, f64)>,
+    closed: bool,
+    flags: u32,
+) -> IntersectionBranchData {
+    IntersectionBranchData {
+        points: vec![p0, p1],
+        uv_a: vec![uv_a0, uv_a1],
+        uv_b: vec![uv_b0, uv_b1],
+        curve_t: curve_t.map(|v| vec![v.0, v.1]).unwrap_or_default(),
+        closed,
+        flags,
+    }
+}
+
+fn ensure_loop_closed(loop_data: &mut TrimLoopData, tol: f64) {
+    if loop_data.edges.is_empty() {
+        return;
+    }
+    for idx in 1..loop_data.edges.len() {
+        let prev_end = loop_data.edges[idx - 1].end_uv;
+        if uv_distance(loop_data.edges[idx].start_uv, prev_end) <= tol {
+            loop_data.edges[idx].start_uv = prev_end;
+        }
+    }
+    let first_start = loop_data.edges[0].start_uv;
+    let last_idx = loop_data.edges.len() - 1;
+    if uv_distance(loop_data.edges[last_idx].end_uv, first_start) <= tol {
+        loop_data.edges[last_idx].end_uv = first_start;
+    }
+}
+
+fn loop_signed_area(loop_data: &TrimLoopData) -> f64 {
+    let poly = trim_loop_polyline(loop_data);
+    if poly.len() < 3 {
+        return 0.0;
+    }
+    let mut area = 0.0;
+    for idx in 0..(poly.len() - 1) {
+        let a = poly[idx];
+        let b = poly[idx + 1];
+        area += a.u * b.v - b.u * a.v;
+    }
+    area * 0.5
+}
+
+fn heal_face(face: &mut FaceData, tol: f64) {
+    for loop_data in &mut face.loops {
+        loop_data
+            .edges
+            .retain(|edge| uv_distance(edge.start_uv, edge.end_uv) > tol);
+        ensure_loop_closed(loop_data, tol);
+        let area = loop_signed_area(loop_data);
+        if loop_data.is_outer && area < 0.0 {
+            loop_data.edges.reverse();
+            for edge in &mut loop_data.edges {
+                std::mem::swap(&mut edge.start_uv, &mut edge.end_uv);
+            }
+        }
+        if !loop_data.is_outer && area > 0.0 {
+            loop_data.edges.reverse();
+            for edge in &mut loop_data.edges {
+                std::mem::swap(&mut edge.start_uv, &mut edge.end_uv);
+            }
+        }
+    }
 }
 
 fn build_mesh_from_indexed(
@@ -2224,6 +3016,17 @@ fn segment_triangle_intersection(
     t2: RgmPoint3,
     tol: f64,
 ) -> Option<RgmPoint3> {
+    segment_triangle_intersection_with_params(p0, p1, t0, t1, t2, tol).map(|v| v.0)
+}
+
+fn segment_triangle_intersection_with_params(
+    p0: RgmPoint3,
+    p1: RgmPoint3,
+    t0: RgmPoint3,
+    t1: RgmPoint3,
+    t2: RgmPoint3,
+    tol: f64,
+) -> Option<(RgmPoint3, f64, f64, f64)> {
     let dir = point_sub(p1, p0);
     let edge1 = point_sub(t1, t0);
     let edge2 = point_sub(t2, t0);
@@ -2248,7 +3051,7 @@ fn segment_triangle_intersection(
         return None;
     }
 
-    Some(point_add_vec(p0, vec_scale(dir, t)))
+    Some((point_add_vec(p0, vec_scale(dir, t)), t, u, v))
 }
 
 fn tri_tri_intersection_segment(
@@ -2385,6 +3188,81 @@ fn create_mesh_object(
     let result = with_session_mut(session, |state| {
         let mesh = build(state)?;
         let handle = insert_mesh(state, mesh);
+        write_object_handle(out_object, handle)
+    });
+
+    match result {
+        Ok(()) => {
+            clear_error(session.0);
+            RgmStatus::Ok
+        }
+        Err(status) => map_err_with_session(session, status, message),
+    }
+}
+
+fn create_surface_object(
+    session: RgmKernelHandle,
+    out_object: *mut RgmObjectHandle,
+    build: impl FnOnce(&SessionState) -> Result<SurfaceData, RgmStatus>,
+    message: &str,
+) -> RgmStatus {
+    if out_object.is_null() {
+        return map_err_with_session(session, RgmStatus::InvalidInput, "Null out_object pointer");
+    }
+
+    let result = with_session_mut(session, |state| {
+        let surface = build(state)?;
+        let handle = insert_surface(state, surface);
+        write_object_handle(out_object, handle)
+    });
+
+    match result {
+        Ok(()) => {
+            clear_error(session.0);
+            RgmStatus::Ok
+        }
+        Err(status) => map_err_with_session(session, status, message),
+    }
+}
+
+fn create_face_object(
+    session: RgmKernelHandle,
+    out_object: *mut RgmObjectHandle,
+    build: impl FnOnce(&SessionState) -> Result<FaceData, RgmStatus>,
+    message: &str,
+) -> RgmStatus {
+    if out_object.is_null() {
+        return map_err_with_session(session, RgmStatus::InvalidInput, "Null out_object pointer");
+    }
+
+    let result = with_session_mut(session, |state| {
+        let face = build(state)?;
+        let handle = insert_face(state, face);
+        write_object_handle(out_object, handle)
+    });
+
+    match result {
+        Ok(()) => {
+            clear_error(session.0);
+            RgmStatus::Ok
+        }
+        Err(status) => map_err_with_session(session, status, message),
+    }
+}
+
+fn create_intersection_object(
+    session: RgmKernelHandle,
+    out_object: *mut RgmObjectHandle,
+    build: impl FnOnce(&SessionState) -> Result<IntersectionData, RgmStatus>,
+    message: &str,
+) -> RgmStatus {
+    if out_object.is_null() {
+        return map_err_with_session(session, RgmStatus::InvalidInput, "Null out_object pointer");
+    }
+
+    let result = with_session_mut(session, |state| {
+        let intersection = build(state)?;
+        let handle = insert_intersection(state, intersection);
         write_object_handle(out_object, handle)
     });
 
@@ -2591,6 +3469,689 @@ fn rgm_mesh_boolean_impl(
             })
         },
         "Mesh boolean failed",
+    )
+}
+
+fn resolve_surface_operand(
+    state: &SessionState,
+    handle: RgmObjectHandle,
+) -> Result<(SurfaceData, Option<FaceData>), RgmStatus> {
+    match state.objects.get(&handle.0) {
+        Some(GeometryObject::Surface(surface)) => Ok((surface.clone(), None)),
+        Some(GeometryObject::Face(face)) => {
+            let surface = find_surface(state, face.surface)?.clone();
+            Ok((surface, Some(face.clone())))
+        }
+        Some(_) => Err(RgmStatus::InvalidInput),
+        None => Err(RgmStatus::NotFound),
+    }
+}
+
+fn intersect_triangle_plane_segment_with_uv(
+    tri_points: [RgmPoint3; 3],
+    tri_uv: [RgmUv2; 3],
+    plane_origin: RgmPoint3,
+    plane_normal: RgmVec3,
+    tol: f64,
+) -> Option<((RgmPoint3, RgmUv2), (RgmPoint3, RgmUv2))> {
+    let d0 = vec_dot(point_sub(tri_points[0], plane_origin), plane_normal);
+    let d1 = vec_dot(point_sub(tri_points[1], plane_origin), plane_normal);
+    let d2 = vec_dot(point_sub(tri_points[2], plane_origin), plane_normal);
+    if d0.abs() <= tol && d1.abs() <= tol && d2.abs() <= tol {
+        return None;
+    }
+
+    let mut hits = Vec::<(RgmPoint3, RgmUv2)>::new();
+    let mut edge_hit = |p0: RgmPoint3,
+                        p1: RgmPoint3,
+                        uv0: RgmUv2,
+                        uv1: RgmUv2,
+                        s0: f64,
+                        s1: f64| {
+        if s0.abs() <= tol {
+            hits.push((p0, uv0));
+        }
+        if s1.abs() <= tol {
+            hits.push((p1, uv1));
+        }
+        if (s0 > tol && s1 < -tol) || (s0 < -tol && s1 > tol) {
+            let t = s0 / (s0 - s1);
+            let point = point_add_vec(p0, vec_scale(point_sub(p1, p0), t));
+            hits.push((point, uv_lerp(uv0, uv1, t)));
+        }
+    };
+
+    edge_hit(
+        tri_points[0],
+        tri_points[1],
+        tri_uv[0],
+        tri_uv[1],
+        d0,
+        d1,
+    );
+    edge_hit(
+        tri_points[1],
+        tri_points[2],
+        tri_uv[1],
+        tri_uv[2],
+        d1,
+        d2,
+    );
+    edge_hit(
+        tri_points[2],
+        tri_points[0],
+        tri_uv[2],
+        tri_uv[0],
+        d2,
+        d0,
+    );
+
+    if hits.len() < 2 {
+        return None;
+    }
+
+    let mut best = (hits[0], hits[1]);
+    let mut best_len = distance(hits[0].0, hits[1].0);
+    for i in 0..hits.len() {
+        for j in (i + 1)..hits.len() {
+            let len = distance(hits[i].0, hits[j].0);
+            if len > best_len {
+                best_len = len;
+                best = (hits[i], hits[j]);
+            }
+        }
+    }
+    if best_len <= tol {
+        None
+    } else {
+        Some(best)
+    }
+}
+
+fn push_unique_branch(
+    branches: &mut Vec<IntersectionBranchData>,
+    branch: IntersectionBranchData,
+    tol: f64,
+) {
+    if branch.points.is_empty() {
+        return;
+    }
+    let mid = if branch.points.len() == 1 {
+        branch.points[0]
+    } else {
+        midpoint(branch.points[0], branch.points[branch.points.len() - 1])
+    };
+    let mut duplicate = false;
+    for existing in branches.iter() {
+        if existing.points.is_empty() {
+            continue;
+        }
+        let emid = if existing.points.len() == 1 {
+            existing.points[0]
+        } else {
+            midpoint(existing.points[0], existing.points[existing.points.len() - 1])
+        };
+        if distance(mid, emid) <= tol {
+            duplicate = true;
+            break;
+        }
+    }
+    if !duplicate {
+        branches.push(branch);
+    }
+}
+
+fn validate_face_data(face: &FaceData, tol: f64) -> bool {
+    if face.loops.is_empty() {
+        return true;
+    }
+    let mut outer_count = 0usize;
+    for loop_data in &face.loops {
+        if loop_data.is_outer {
+            outer_count += 1;
+        }
+        if loop_data.edges.len() < 3 {
+            return false;
+        }
+        for idx in 1..loop_data.edges.len() {
+            if uv_distance(loop_data.edges[idx - 1].end_uv, loop_data.edges[idx].start_uv) > tol {
+                return false;
+            }
+        }
+        if uv_distance(
+            loop_data.edges[0].start_uv,
+            loop_data.edges[loop_data.edges.len() - 1].end_uv,
+        ) > tol
+        {
+            return false;
+        }
+    }
+    outer_count <= 1
+}
+
+fn build_trim_loop_from_points(points: &[RgmUv2], is_outer: bool, tol: f64) -> Result<TrimLoopData, RgmStatus> {
+    if points.len() < 3 {
+        return Err(RgmStatus::InvalidInput);
+    }
+    let mut edges = Vec::with_capacity(points.len());
+    for i in 0..points.len() {
+        let a = points[i];
+        let b = points[(i + 1) % points.len()];
+        if uv_distance(a, b) <= tol {
+            continue;
+        }
+        edges.push(TrimEdgeData {
+            start_uv: a,
+            end_uv: b,
+            curve_3d: None,
+        });
+    }
+    if edges.len() < 3 {
+        return Err(RgmStatus::InvalidInput);
+    }
+    let mut loop_data = TrimLoopData { edges, is_outer };
+    ensure_loop_closed(&mut loop_data, tol);
+    Ok(loop_data)
+}
+
+fn rgm_surface_create_nurbs_impl(
+    session: RgmKernelHandle,
+    desc: RgmNurbsSurfaceDesc,
+    control_points: *const RgmPoint3,
+    control_point_count: usize,
+    weights: *const f64,
+    weight_count: usize,
+    knots_u: *const f64,
+    knot_u_count: usize,
+    knots_v: *const f64,
+    knot_v_count: usize,
+    tol: RgmToleranceContext,
+    out_surface: *mut RgmObjectHandle,
+) -> RgmStatus {
+    if control_points.is_null() || weights.is_null() || knots_u.is_null() || knots_v.is_null() {
+        return map_err_with_session(session, RgmStatus::InvalidInput, "Null surface array pointer");
+    }
+    let control_points = unsafe { std::slice::from_raw_parts(control_points, control_point_count) };
+    let weights = unsafe { std::slice::from_raw_parts(weights, weight_count) };
+    let knots_u = unsafe { std::slice::from_raw_parts(knots_u, knot_u_count) };
+    let knots_v = unsafe { std::slice::from_raw_parts(knots_v, knot_v_count) };
+
+    create_surface_object(
+        session,
+        out_surface,
+        |_| build_surface_from_desc(desc, control_points, weights, knots_u, knots_v, tol),
+        "Surface constructor failed",
+    )
+}
+
+fn rgm_surface_transform_impl(
+    session: RgmKernelHandle,
+    surface: RgmObjectHandle,
+    transform: [[f64; 4]; 4],
+    out_surface: *mut RgmObjectHandle,
+    message: &str,
+) -> RgmStatus {
+    create_surface_object(
+        session,
+        out_surface,
+        |state| {
+            let source = find_surface(state, surface)?;
+            let mut next = source.clone();
+            next.transform = matrix_mul(transform, source.transform);
+            Ok(next)
+        },
+        message,
+    )
+}
+
+fn rgm_surface_bake_transform_impl(
+    session: RgmKernelHandle,
+    surface: RgmObjectHandle,
+    out_surface: *mut RgmObjectHandle,
+) -> RgmStatus {
+    create_surface_object(
+        session,
+        out_surface,
+        |state| {
+            let source = find_surface(state, surface)?;
+            let mut next = source.clone();
+            for point in &mut next.core.control_points {
+                *point = matrix_apply_point(source.transform, *point);
+            }
+            next.transform = matrix_identity();
+            Ok(next)
+        },
+        "Surface bake transform failed",
+    )
+}
+
+fn rgm_surface_tessellate_to_mesh_impl(
+    session: RgmKernelHandle,
+    surface: RgmObjectHandle,
+    options: Option<RgmSurfaceTessellationOptions>,
+    out_mesh: *mut RgmObjectHandle,
+) -> RgmStatus {
+    create_mesh_object(
+        session,
+        out_mesh,
+        |state| {
+            let surface = find_surface(state, surface)?;
+            let samples = tessellate_surface_samples(surface, None, options)?;
+            Ok(build_mesh_from_tessellation(&samples))
+        },
+        "Surface tessellation failed",
+    )
+}
+
+fn rgm_face_create_from_surface_impl(
+    session: RgmKernelHandle,
+    surface: RgmObjectHandle,
+    out_face: *mut RgmObjectHandle,
+) -> RgmStatus {
+    create_face_object(
+        session,
+        out_face,
+        |state| {
+            let _ = find_surface(state, surface)?;
+            Ok(FaceData {
+                surface,
+                loops: Vec::new(),
+            })
+        },
+        "Face creation failed",
+    )
+}
+
+fn rgm_face_add_loop_impl(
+    session: RgmKernelHandle,
+    face: RgmObjectHandle,
+    points: *const RgmUv2,
+    point_count: usize,
+    is_outer: bool,
+) -> RgmStatus {
+    if points.is_null() {
+        return map_err_with_session(session, RgmStatus::InvalidInput, "Null trim loop points");
+    }
+    let points = unsafe { std::slice::from_raw_parts(points, point_count) };
+    let result = with_session_mut(session, |state| {
+        let face_data = find_face_mut(state, face)?;
+        let loop_data = build_trim_loop_from_points(points, is_outer, 1e-8)?;
+        face_data.loops.push(loop_data);
+        Ok(())
+    });
+    match result {
+        Ok(()) => {
+            clear_error(session.0);
+            RgmStatus::Ok
+        }
+        Err(status) => map_err_with_session(session, status, "Face add loop failed"),
+    }
+}
+
+fn rgm_face_remove_loop_impl(
+    session: RgmKernelHandle,
+    face: RgmObjectHandle,
+    loop_index: u32,
+) -> RgmStatus {
+    let result = with_session_mut(session, |state| {
+        let face_data = find_face_mut(state, face)?;
+        let idx = loop_index as usize;
+        if idx >= face_data.loops.len() {
+            return Err(RgmStatus::OutOfRange);
+        }
+        face_data.loops.remove(idx);
+        Ok(())
+    });
+    match result {
+        Ok(()) => {
+            clear_error(session.0);
+            RgmStatus::Ok
+        }
+        Err(status) => map_err_with_session(session, status, "Face remove loop failed"),
+    }
+}
+
+fn rgm_face_split_trim_edge_impl(
+    session: RgmKernelHandle,
+    face: RgmObjectHandle,
+    loop_index: u32,
+    edge_index: u32,
+    split_t: f64,
+) -> RgmStatus {
+    let result = with_session_mut(session, |state| {
+        let face_data = find_face_mut(state, face)?;
+        let lidx = loop_index as usize;
+        if lidx >= face_data.loops.len() {
+            return Err(RgmStatus::OutOfRange);
+        }
+        if !(0.0..=1.0).contains(&split_t) {
+            return Err(RgmStatus::OutOfRange);
+        }
+        let loop_data = &mut face_data.loops[lidx];
+        let eidx = edge_index as usize;
+        if eidx >= loop_data.edges.len() {
+            return Err(RgmStatus::OutOfRange);
+        }
+        let edge = loop_data.edges[eidx].clone();
+        let split_uv = uv_lerp(edge.start_uv, edge.end_uv, split_t.clamp(0.0, 1.0));
+        loop_data.edges[eidx].end_uv = split_uv;
+        loop_data.edges.insert(
+            eidx + 1,
+            TrimEdgeData {
+                start_uv: split_uv,
+                end_uv: edge.end_uv,
+                curve_3d: edge.curve_3d,
+            },
+        );
+        Ok(())
+    });
+    match result {
+        Ok(()) => {
+            clear_error(session.0);
+            RgmStatus::Ok
+        }
+        Err(status) => map_err_with_session(session, status, "Face split edge failed"),
+    }
+}
+
+fn rgm_face_reverse_loop_impl(
+    session: RgmKernelHandle,
+    face: RgmObjectHandle,
+    loop_index: u32,
+) -> RgmStatus {
+    let result = with_session_mut(session, |state| {
+        let face_data = find_face_mut(state, face)?;
+        let idx = loop_index as usize;
+        if idx >= face_data.loops.len() {
+            return Err(RgmStatus::OutOfRange);
+        }
+        let loop_data = &mut face_data.loops[idx];
+        loop_data.edges.reverse();
+        for edge in &mut loop_data.edges {
+            std::mem::swap(&mut edge.start_uv, &mut edge.end_uv);
+        }
+        Ok(())
+    });
+    match result {
+        Ok(()) => {
+            clear_error(session.0);
+            RgmStatus::Ok
+        }
+        Err(status) => map_err_with_session(session, status, "Face reverse loop failed"),
+    }
+}
+
+fn rgm_face_validate_impl(
+    session: RgmKernelHandle,
+    face: RgmObjectHandle,
+    out_valid: *mut bool,
+) -> RgmStatus {
+    if out_valid.is_null() {
+        return map_err_with_session(session, RgmStatus::InvalidInput, "Null out_valid pointer");
+    }
+    let result = with_session_mut(session, |state| {
+        let face_data = find_face(state, face)?;
+        let valid = validate_face_data(face_data, 1e-8);
+        unsafe {
+            *out_valid = valid;
+        }
+        Ok(())
+    });
+    match result {
+        Ok(()) => {
+            clear_error(session.0);
+            RgmStatus::Ok
+        }
+        Err(status) => map_err_with_session(session, status, "Face validation failed"),
+    }
+}
+
+fn rgm_face_heal_impl(session: RgmKernelHandle, face: RgmObjectHandle) -> RgmStatus {
+    let result = with_session_mut(session, |state| {
+        let face_data = find_face_mut(state, face)?;
+        heal_face(face_data, 1e-8);
+        Ok(())
+    });
+    match result {
+        Ok(()) => {
+            clear_error(session.0);
+            RgmStatus::Ok
+        }
+        Err(status) => map_err_with_session(session, status, "Face heal failed"),
+    }
+}
+
+fn rgm_face_tessellate_to_mesh_impl(
+    session: RgmKernelHandle,
+    face: RgmObjectHandle,
+    options: Option<RgmSurfaceTessellationOptions>,
+    out_mesh: *mut RgmObjectHandle,
+) -> RgmStatus {
+    create_mesh_object(
+        session,
+        out_mesh,
+        |state| {
+            let face_data = find_face(state, face)?;
+            let surface = find_surface(state, face_data.surface)?;
+            let samples = tessellate_surface_samples(surface, Some(face_data), options)?;
+            Ok(build_mesh_from_tessellation(&samples))
+        },
+        "Face tessellation failed",
+    )
+}
+
+fn rgm_intersect_surface_surface_impl(
+    session: RgmKernelHandle,
+    surface_a: RgmObjectHandle,
+    surface_b: RgmObjectHandle,
+    out_intersection: *mut RgmObjectHandle,
+) -> RgmStatus {
+    create_intersection_object(
+        session,
+        out_intersection,
+        |state| {
+            let (surface_a_data, face_a) = resolve_surface_operand(state, surface_a)?;
+            let (surface_b_data, face_b) = resolve_surface_operand(state, surface_b)?;
+
+            let samples_a = tessellate_surface_samples(
+                &surface_a_data,
+                face_a.as_ref(),
+                Some(default_surface_tess_options(surface_a_data.core.tol)),
+            )?;
+            let samples_b = tessellate_surface_samples(
+                &surface_b_data,
+                face_b.as_ref(),
+                Some(default_surface_tess_options(surface_b_data.core.tol)),
+            )?;
+            let tri_a = surface_triangle_records(&samples_a);
+            let tri_b = surface_triangle_records(&samples_b);
+            let bvh_b = MeshBvh::build(&tri_b);
+            let tol = surface_a_data
+                .core
+                .tol
+                .abs_tol
+                .max(surface_b_data.core.tol.abs_tol)
+                .max(1e-7);
+
+            let mut branches = Vec::new();
+            if let Some(bvh_b) = bvh_b {
+                for (a_idx, tri_rec_a) in tri_a.iter().enumerate() {
+                    let mut stack = vec![bvh_b.root];
+                    while let Some(node_idx) = stack.pop() {
+                        let node = bvh_b.nodes[node_idx];
+                        if !aabb_overlap(tri_rec_a.min, tri_rec_a.max, node.min, node.max, tol) {
+                            continue;
+                        }
+                        if node.is_leaf() {
+                            for &b_idx in &bvh_b.tri_indices[node.start..(node.start + node.count)] {
+                                let tri_rec_b = tri_b[b_idx];
+                                if let Some((p0, p1)) = tri_tri_intersection_segment(
+                                    tri_rec_a.points[0],
+                                    tri_rec_a.points[1],
+                                    tri_rec_a.points[2],
+                                    tri_rec_b.points[0],
+                                    tri_rec_b.points[1],
+                                    tri_rec_b.points[2],
+                                    tol,
+                                ) {
+                                    let tri_a_idx = samples_a.triangles[a_idx];
+                                    let tri_b_idx = samples_b.triangles[b_idx];
+                                    let tri_a_uv = surface_uv_at_tri_index(&samples_a, tri_a_idx);
+                                    let tri_b_uv = surface_uv_at_tri_index(&samples_b, tri_b_idx);
+                                    let uv_a0 = uv_from_triangle_bary(p0, tri_rec_a.points, tri_a_uv);
+                                    let uv_a1 = uv_from_triangle_bary(p1, tri_rec_a.points, tri_a_uv);
+                                    let uv_b0 = uv_from_triangle_bary(p0, tri_rec_b.points, tri_b_uv);
+                                    let uv_b1 = uv_from_triangle_bary(p1, tri_rec_b.points, tri_b_uv);
+                                    push_unique_branch(
+                                        &mut branches,
+                                        make_branch_from_segment(
+                                            p0, p1, uv_a0, uv_a1, uv_b0, uv_b1, None, false, 0,
+                                        ),
+                                        tol * 5.0,
+                                    );
+                                }
+                            }
+                        } else {
+                            if let Some(left) = node.left {
+                                stack.push(left);
+                            }
+                            if let Some(right) = node.right {
+                                stack.push(right);
+                            }
+                        }
+                    }
+                }
+            }
+
+            Ok(IntersectionData { branches })
+        },
+        "Surface-surface intersection failed",
+    )
+}
+
+fn rgm_intersect_surface_plane_impl(
+    session: RgmKernelHandle,
+    surface: RgmObjectHandle,
+    plane: RgmPlane,
+    out_intersection: *mut RgmObjectHandle,
+) -> RgmStatus {
+    let Some(normal) = plane_unit_normal(plane) else {
+        return map_err_with_session(session, RgmStatus::InvalidInput, "Invalid plane normal");
+    };
+    create_intersection_object(
+        session,
+        out_intersection,
+        |state| {
+            let (surface_data, face) = resolve_surface_operand(state, surface)?;
+            let samples = tessellate_surface_samples(
+                &surface_data,
+                face.as_ref(),
+                Some(default_surface_tess_options(surface_data.core.tol)),
+            )?;
+            let tol = surface_data.core.tol.abs_tol.max(1e-7);
+            let mut branches = Vec::new();
+            for (idx, tri) in samples.triangles.iter().enumerate() {
+                let tri_points = [
+                    samples.vertices[tri[0] as usize],
+                    samples.vertices[tri[1] as usize],
+                    samples.vertices[tri[2] as usize],
+                ];
+                let tri_uv = surface_uv_at_tri_index(&samples, samples.triangles[idx]);
+                if let Some(((p0, uv0), (p1, uv1))) =
+                    intersect_triangle_plane_segment_with_uv(tri_points, tri_uv, plane.origin, normal, tol)
+                {
+                    push_unique_branch(
+                        &mut branches,
+                        make_branch_from_segment(
+                            p0,
+                            p1,
+                            uv0,
+                            uv1,
+                            RgmUv2 { u: 0.0, v: 0.0 },
+                            RgmUv2 { u: 0.0, v: 0.0 },
+                            None,
+                            false,
+                            1,
+                        ),
+                        tol * 5.0,
+                    );
+                }
+            }
+            Ok(IntersectionData { branches })
+        },
+        "Surface-plane intersection failed",
+    )
+}
+
+fn rgm_intersect_surface_curve_impl(
+    session: RgmKernelHandle,
+    surface: RgmObjectHandle,
+    curve: RgmObjectHandle,
+    out_intersection: *mut RgmObjectHandle,
+) -> RgmStatus {
+    create_intersection_object(
+        session,
+        out_intersection,
+        |state| {
+            let curve_data = find_curve(state, curve)?;
+            let (surface_data, face) = resolve_surface_operand(state, surface)?;
+            let samples = tessellate_surface_samples(
+                &surface_data,
+                face.as_ref(),
+                Some(default_surface_tess_options(surface_data.core.tol)),
+            )?;
+            let tri_records = surface_triangle_records(&samples);
+            let tol = surface_data.core.tol.abs_tol.max(1e-7);
+
+            let sample_count = 480usize;
+            let mut curve_samples = Vec::with_capacity(sample_count + 1);
+            for i in 0..=sample_count {
+                let t = i as f64 / sample_count as f64;
+                let point = curve_point_at_normalized_data(state, curve_data, t)?;
+                curve_samples.push((t, point));
+            }
+
+            let mut branches = Vec::new();
+            for seg_idx in 0..sample_count {
+                let (t0, p0) = curve_samples[seg_idx];
+                let (t1, p1) = curve_samples[seg_idx + 1];
+                for (tri_idx, tri_rec) in tri_records.iter().enumerate() {
+                    if let Some((hit, seg_t, u, v)) = segment_triangle_intersection_with_params(
+                        p0,
+                        p1,
+                        tri_rec.points[0],
+                        tri_rec.points[1],
+                        tri_rec.points[2],
+                        tol,
+                    ) {
+                        let tri = samples.triangles[tri_idx];
+                        let uv = {
+                            let uv0 = samples.uvs[tri[0] as usize];
+                            let uv1 = samples.uvs[tri[1] as usize];
+                            let uv2 = samples.uvs[tri[2] as usize];
+                            let w0 = 1.0 - u - v;
+                            RgmUv2 {
+                                u: w0 * uv0.u + u * uv1.u + v * uv2.u,
+                                v: w0 * uv0.v + u * uv1.v + v * uv2.v,
+                            }
+                        };
+                        let t_hit = t0 + (t1 - t0) * seg_t.clamp(0.0, 1.0);
+                        let branch = IntersectionBranchData {
+                            points: vec![hit],
+                            uv_a: vec![uv],
+                            uv_b: Vec::new(),
+                            curve_t: vec![t_hit],
+                            closed: false,
+                            flags: 0,
+                        };
+                        push_unique_branch(&mut branches, branch, tol * 4.0);
+                    }
+                }
+            }
+
+            Ok(IntersectionData { branches })
+        },
+        "Surface-curve intersection failed",
     )
 }
 
@@ -4142,6 +5703,603 @@ pub extern "C" fn rgm_mesh_boolean(
     rgm_mesh_boolean_impl(session, mesh_a, mesh_b, op, out_mesh)
 }
 
+#[rgm_export(ts = "createNurbs", receiver = "surface")]
+#[no_mangle]
+pub extern "C" fn rgm_surface_create_nurbs(
+    session: RgmKernelHandle,
+    desc: *const RgmNurbsSurfaceDesc,
+    control_points: *const RgmPoint3,
+    control_point_count: usize,
+    weights: *const f64,
+    weight_count: usize,
+    knots_u: *const f64,
+    knot_u_count: usize,
+    knots_v: *const f64,
+    knot_v_count: usize,
+    tol: *const RgmToleranceContext,
+    out_surface: *mut RgmObjectHandle,
+) -> RgmStatus {
+    if desc.is_null() || tol.is_null() {
+        return map_err_with_session(session, RgmStatus::InvalidInput, "Null surface descriptor");
+    }
+    let desc = unsafe { *desc };
+    let tol = unsafe { *tol };
+    rgm_surface_create_nurbs_impl(
+        session,
+        desc,
+        control_points,
+        control_point_count,
+        weights,
+        weight_count,
+        knots_u,
+        knot_u_count,
+        knots_v,
+        knot_v_count,
+        tol,
+        out_surface,
+    )
+}
+
+#[rgm_export(ts = "pointAt", receiver = "surface")]
+#[no_mangle]
+pub extern "C" fn rgm_surface_point_at(
+    session: RgmKernelHandle,
+    surface: RgmObjectHandle,
+    uv_norm: *const RgmUv2,
+    out_point: *mut RgmPoint3,
+) -> RgmStatus {
+    if uv_norm.is_null() {
+        return map_err_with_session(session, RgmStatus::InvalidInput, "Null uv pointer");
+    }
+    let uv_norm = unsafe { *uv_norm };
+    let result = with_session_mut(session, |state| {
+        let surface = find_surface(state, surface)?;
+        let frame = eval_surface_data_normalized(surface, uv_norm)?;
+        write_point(out_point, frame.point)
+    });
+    match result {
+        Ok(()) => {
+            clear_error(session.0);
+            RgmStatus::Ok
+        }
+        Err(status) => map_err_with_session(session, status, "Surface point evaluation failed"),
+    }
+}
+
+#[rgm_export(ts = "d1At", receiver = "surface")]
+#[no_mangle]
+pub extern "C" fn rgm_surface_d1_at(
+    session: RgmKernelHandle,
+    surface: RgmObjectHandle,
+    uv_norm: *const RgmUv2,
+    out_du: *mut RgmVec3,
+    out_dv: *mut RgmVec3,
+) -> RgmStatus {
+    if uv_norm.is_null() {
+        return map_err_with_session(session, RgmStatus::InvalidInput, "Null uv pointer");
+    }
+    let uv_norm = unsafe { *uv_norm };
+    let result = with_session_mut(session, |state| {
+        let surface = find_surface(state, surface)?;
+        let frame = eval_surface_data_normalized(surface, uv_norm)?;
+        write_vec(out_du, frame.du)?;
+        write_vec(out_dv, frame.dv)
+    });
+    match result {
+        Ok(()) => {
+            clear_error(session.0);
+            RgmStatus::Ok
+        }
+        Err(status) => map_err_with_session(session, status, "Surface first derivatives failed"),
+    }
+}
+
+#[rgm_export(ts = "d2At", receiver = "surface")]
+#[no_mangle]
+pub extern "C" fn rgm_surface_d2_at(
+    session: RgmKernelHandle,
+    surface: RgmObjectHandle,
+    uv_norm: *const RgmUv2,
+    out_duu: *mut RgmVec3,
+    out_duv: *mut RgmVec3,
+    out_dvv: *mut RgmVec3,
+) -> RgmStatus {
+    if uv_norm.is_null() {
+        return map_err_with_session(session, RgmStatus::InvalidInput, "Null uv pointer");
+    }
+    let uv_norm = unsafe { *uv_norm };
+    let result = with_session_mut(session, |state| {
+        let surface = find_surface(state, surface)?;
+        let eval = eval_nurbs_surface_normalized(&surface.core, uv_norm)?;
+        let duu = matrix_apply_vec(surface.transform, eval.duu);
+        let duv = matrix_apply_vec(surface.transform, eval.duv);
+        let dvv = matrix_apply_vec(surface.transform, eval.dvv);
+        write_vec(out_duu, duu)?;
+        write_vec(out_duv, duv)?;
+        write_vec(out_dvv, dvv)
+    });
+    match result {
+        Ok(()) => {
+            clear_error(session.0);
+            RgmStatus::Ok
+        }
+        Err(status) => map_err_with_session(session, status, "Surface second derivatives failed"),
+    }
+}
+
+#[rgm_export(ts = "normalAt", receiver = "surface")]
+#[no_mangle]
+pub extern "C" fn rgm_surface_normal_at(
+    session: RgmKernelHandle,
+    surface: RgmObjectHandle,
+    uv_norm: *const RgmUv2,
+    out_normal: *mut RgmVec3,
+) -> RgmStatus {
+    if uv_norm.is_null() {
+        return map_err_with_session(session, RgmStatus::InvalidInput, "Null uv pointer");
+    }
+    let uv_norm = unsafe { *uv_norm };
+    let result = with_session_mut(session, |state| {
+        let surface = find_surface(state, surface)?;
+        let frame = eval_surface_data_normalized(surface, uv_norm)?;
+        write_vec(out_normal, frame.normal)
+    });
+    match result {
+        Ok(()) => {
+            clear_error(session.0);
+            RgmStatus::Ok
+        }
+        Err(status) => map_err_with_session(session, status, "Surface normal evaluation failed"),
+    }
+}
+
+#[rgm_export(ts = "frameAt", receiver = "surface")]
+#[no_mangle]
+pub extern "C" fn rgm_surface_frame_at(
+    session: RgmKernelHandle,
+    surface: RgmObjectHandle,
+    uv_norm: *const RgmUv2,
+    out_frame: *mut RgmSurfaceEvalFrame,
+) -> RgmStatus {
+    if uv_norm.is_null() {
+        return map_err_with_session(session, RgmStatus::InvalidInput, "Null uv pointer");
+    }
+    let uv_norm = unsafe { *uv_norm };
+    let result = with_session_mut(session, |state| {
+        let surface = find_surface(state, surface)?;
+        let frame = eval_surface_data_normalized(surface, uv_norm)?;
+        write_surface_eval_frame(out_frame, frame)
+    });
+    match result {
+        Ok(()) => {
+            clear_error(session.0);
+            RgmStatus::Ok
+        }
+        Err(status) => map_err_with_session(session, status, "Surface frame evaluation failed"),
+    }
+}
+
+#[rgm_export(ts = "translate", receiver = "surface")]
+#[no_mangle]
+pub extern "C" fn rgm_surface_translate(
+    session: RgmKernelHandle,
+    surface: RgmObjectHandle,
+    delta: *const RgmVec3,
+    out_surface: *mut RgmObjectHandle,
+) -> RgmStatus {
+    if delta.is_null() {
+        return map_err_with_session(session, RgmStatus::InvalidInput, "Null translation vector");
+    }
+    let delta = unsafe { *delta };
+    let transform = matrix_translation(delta);
+    rgm_surface_transform_impl(
+        session,
+        surface,
+        transform,
+        out_surface,
+        "Surface translation failed",
+    )
+}
+
+#[rgm_export(ts = "rotate", receiver = "surface")]
+#[no_mangle]
+pub extern "C" fn rgm_surface_rotate(
+    session: RgmKernelHandle,
+    surface: RgmObjectHandle,
+    axis: *const RgmVec3,
+    angle_rad: f64,
+    pivot: *const RgmPoint3,
+    out_surface: *mut RgmObjectHandle,
+) -> RgmStatus {
+    if axis.is_null() || pivot.is_null() {
+        return map_err_with_session(session, RgmStatus::InvalidInput, "Null rotation pointer");
+    }
+    let axis = unsafe { *axis };
+    let pivot = unsafe { *pivot };
+    let rotation = match matrix_rotation(axis, angle_rad) {
+        Ok(value) => value,
+        Err(status) => return map_err_with_session(session, status, "Surface rotation failed"),
+    };
+    let transform = matrix_about_pivot(rotation, pivot);
+    rgm_surface_transform_impl(session, surface, transform, out_surface, "Surface rotation failed")
+}
+
+#[rgm_export(ts = "scale", receiver = "surface")]
+#[no_mangle]
+pub extern "C" fn rgm_surface_scale(
+    session: RgmKernelHandle,
+    surface: RgmObjectHandle,
+    scale: *const RgmVec3,
+    pivot: *const RgmPoint3,
+    out_surface: *mut RgmObjectHandle,
+) -> RgmStatus {
+    if scale.is_null() || pivot.is_null() {
+        return map_err_with_session(session, RgmStatus::InvalidInput, "Null scale pointer");
+    }
+    let scale = unsafe { *scale };
+    let pivot = unsafe { *pivot };
+    let transform = matrix_about_pivot(matrix_scale(scale), pivot);
+    rgm_surface_transform_impl(session, surface, transform, out_surface, "Surface scale failed")
+}
+
+#[rgm_export(ts = "bakeTransform", receiver = "surface")]
+#[no_mangle]
+pub extern "C" fn rgm_surface_bake_transform(
+    session: RgmKernelHandle,
+    surface: RgmObjectHandle,
+    out_surface: *mut RgmObjectHandle,
+) -> RgmStatus {
+    rgm_surface_bake_transform_impl(session, surface, out_surface)
+}
+
+#[rgm_export(ts = "tessellateToMesh", receiver = "surface")]
+#[no_mangle]
+pub extern "C" fn rgm_surface_tessellate_to_mesh(
+    session: RgmKernelHandle,
+    surface: RgmObjectHandle,
+    options: *const RgmSurfaceTessellationOptions,
+    out_mesh: *mut RgmObjectHandle,
+) -> RgmStatus {
+    let options = if options.is_null() {
+        None
+    } else {
+        Some(unsafe { *options })
+    };
+    rgm_surface_tessellate_to_mesh_impl(session, surface, options, out_mesh)
+}
+
+#[rgm_export(ts = "createFromSurface", receiver = "face")]
+#[no_mangle]
+pub extern "C" fn rgm_face_create_from_surface(
+    session: RgmKernelHandle,
+    surface: RgmObjectHandle,
+    out_face: *mut RgmObjectHandle,
+) -> RgmStatus {
+    rgm_face_create_from_surface_impl(session, surface, out_face)
+}
+
+#[rgm_export(ts = "addLoop", receiver = "face")]
+#[no_mangle]
+pub extern "C" fn rgm_face_add_loop(
+    session: RgmKernelHandle,
+    face: RgmObjectHandle,
+    points: *const RgmUv2,
+    point_count: usize,
+    is_outer: bool,
+) -> RgmStatus {
+    rgm_face_add_loop_impl(session, face, points, point_count, is_outer)
+}
+
+#[rgm_export(ts = "removeLoop", receiver = "face")]
+#[no_mangle]
+pub extern "C" fn rgm_face_remove_loop(
+    session: RgmKernelHandle,
+    face: RgmObjectHandle,
+    loop_index: u32,
+) -> RgmStatus {
+    rgm_face_remove_loop_impl(session, face, loop_index)
+}
+
+#[rgm_export(ts = "splitTrimEdge", receiver = "face")]
+#[no_mangle]
+pub extern "C" fn rgm_face_split_trim_edge(
+    session: RgmKernelHandle,
+    face: RgmObjectHandle,
+    loop_index: u32,
+    edge_index: u32,
+    split_t: f64,
+) -> RgmStatus {
+    rgm_face_split_trim_edge_impl(session, face, loop_index, edge_index, split_t)
+}
+
+#[rgm_export(ts = "reverseLoop", receiver = "face")]
+#[no_mangle]
+pub extern "C" fn rgm_face_reverse_loop(
+    session: RgmKernelHandle,
+    face: RgmObjectHandle,
+    loop_index: u32,
+) -> RgmStatus {
+    rgm_face_reverse_loop_impl(session, face, loop_index)
+}
+
+#[rgm_export(ts = "validate", receiver = "face")]
+#[no_mangle]
+pub extern "C" fn rgm_face_validate(
+    session: RgmKernelHandle,
+    face: RgmObjectHandle,
+    out_valid: *mut bool,
+) -> RgmStatus {
+    rgm_face_validate_impl(session, face, out_valid)
+}
+
+#[rgm_export(ts = "heal", receiver = "face")]
+#[no_mangle]
+pub extern "C" fn rgm_face_heal(session: RgmKernelHandle, face: RgmObjectHandle) -> RgmStatus {
+    rgm_face_heal_impl(session, face)
+}
+
+#[rgm_export(ts = "tessellateToMesh", receiver = "face")]
+#[no_mangle]
+pub extern "C" fn rgm_face_tessellate_to_mesh(
+    session: RgmKernelHandle,
+    face: RgmObjectHandle,
+    options: *const RgmSurfaceTessellationOptions,
+    out_mesh: *mut RgmObjectHandle,
+) -> RgmStatus {
+    let options = if options.is_null() {
+        None
+    } else {
+        Some(unsafe { *options })
+    };
+    rgm_face_tessellate_to_mesh_impl(session, face, options, out_mesh)
+}
+
+#[rgm_export(ts = "intersectSurfaceSurface", receiver = "kernel")]
+#[no_mangle]
+pub extern "C" fn rgm_intersect_surface_surface(
+    session: RgmKernelHandle,
+    surface_a: RgmObjectHandle,
+    surface_b: RgmObjectHandle,
+    out_intersection: *mut RgmObjectHandle,
+) -> RgmStatus {
+    rgm_intersect_surface_surface_impl(session, surface_a, surface_b, out_intersection)
+}
+
+#[rgm_export(ts = "intersectSurfacePlane", receiver = "kernel")]
+#[no_mangle]
+pub extern "C" fn rgm_intersect_surface_plane(
+    session: RgmKernelHandle,
+    surface: RgmObjectHandle,
+    plane: *const RgmPlane,
+    out_intersection: *mut RgmObjectHandle,
+) -> RgmStatus {
+    if plane.is_null() {
+        return map_err_with_session(session, RgmStatus::InvalidInput, "Null plane pointer");
+    }
+    let plane = unsafe { *plane };
+    rgm_intersect_surface_plane_impl(session, surface, plane, out_intersection)
+}
+
+#[rgm_export(ts = "intersectSurfaceCurve", receiver = "kernel")]
+#[no_mangle]
+pub extern "C" fn rgm_intersect_surface_curve(
+    session: RgmKernelHandle,
+    surface: RgmObjectHandle,
+    curve: RgmObjectHandle,
+    out_intersection: *mut RgmObjectHandle,
+) -> RgmStatus {
+    rgm_intersect_surface_curve_impl(session, surface, curve, out_intersection)
+}
+
+#[rgm_export(ts = "branchCount", receiver = "intersection")]
+#[no_mangle]
+pub extern "C" fn rgm_intersection_branch_count(
+    session: RgmKernelHandle,
+    intersection: RgmObjectHandle,
+    out_count: *mut u32,
+) -> RgmStatus {
+    let result = with_session_mut(session, |state| {
+        let intersection_data = find_intersection(state, intersection)?;
+        write_u32(
+            out_count,
+            intersection_data
+                .branches
+                .len()
+                .try_into()
+                .unwrap_or(u32::MAX),
+        )
+    });
+    match result {
+        Ok(()) => {
+            clear_error(session.0);
+            RgmStatus::Ok
+        }
+        Err(status) => map_err_with_session(session, status, "Intersection branch count failed"),
+    }
+}
+
+#[rgm_export]
+#[no_mangle]
+pub extern "C" fn rgm_intersection_branch_summary(
+    session: RgmKernelHandle,
+    intersection: RgmObjectHandle,
+    branch_index: u32,
+    out_summary: *mut RgmIntersectionBranchSummary,
+) -> RgmStatus {
+    let result = with_session_mut(session, |state| {
+        let intersection_data = find_intersection(state, intersection)?;
+        let idx = branch_index as usize;
+        if idx >= intersection_data.branches.len() {
+            return Err(RgmStatus::OutOfRange);
+        }
+        let branch = &intersection_data.branches[idx];
+        let summary = RgmIntersectionBranchSummary {
+            point_count: branch.points.len().try_into().unwrap_or(u32::MAX),
+            uv_a_count: branch.uv_a.len().try_into().unwrap_or(u32::MAX),
+            uv_b_count: branch.uv_b.len().try_into().unwrap_or(u32::MAX),
+            curve_t_count: branch.curve_t.len().try_into().unwrap_or(u32::MAX),
+            closed: branch.closed,
+            flags: branch.flags,
+        };
+        write_branch_summary(out_summary, summary)
+    });
+    match result {
+        Ok(()) => {
+            clear_error(session.0);
+            RgmStatus::Ok
+        }
+        Err(status) => map_err_with_session(session, status, "Intersection summary failed"),
+    }
+}
+
+#[rgm_export(ts = "copyBranchPoints", receiver = "intersection")]
+#[no_mangle]
+pub extern "C" fn rgm_intersection_copy_branch_points(
+    session: RgmKernelHandle,
+    intersection: RgmObjectHandle,
+    branch_index: u32,
+    out_points: *mut RgmPoint3,
+    point_capacity: u32,
+    out_count: *mut u32,
+) -> RgmStatus {
+    let result = with_session_mut(session, |state| {
+        let intersection_data = find_intersection(state, intersection)?;
+        let idx = branch_index as usize;
+        if idx >= intersection_data.branches.len() {
+            return Err(RgmStatus::OutOfRange);
+        }
+        write_intersection_points(out_points, point_capacity, &intersection_data.branches[idx].points, out_count)
+    });
+    match result {
+        Ok(()) => {
+            clear_error(session.0);
+            RgmStatus::Ok
+        }
+        Err(status) => map_err_with_session(session, status, "Intersection branch points copy failed"),
+    }
+}
+
+#[rgm_export(ts = "copyBranchUvOnSurfaceA", receiver = "intersection")]
+#[no_mangle]
+pub extern "C" fn rgm_intersection_copy_branch_uv_on_surface_a(
+    session: RgmKernelHandle,
+    intersection: RgmObjectHandle,
+    branch_index: u32,
+    out_points: *mut RgmUv2,
+    point_capacity: u32,
+    out_count: *mut u32,
+) -> RgmStatus {
+    let result = with_session_mut(session, |state| {
+        let intersection_data = find_intersection(state, intersection)?;
+        let idx = branch_index as usize;
+        if idx >= intersection_data.branches.len() {
+            return Err(RgmStatus::OutOfRange);
+        }
+        write_uv_points(out_points, point_capacity, &intersection_data.branches[idx].uv_a, out_count)
+    });
+    match result {
+        Ok(()) => {
+            clear_error(session.0);
+            RgmStatus::Ok
+        }
+        Err(status) => map_err_with_session(session, status, "Intersection branch uv-a copy failed"),
+    }
+}
+
+#[rgm_export(ts = "copyBranchUvOnSurfaceB", receiver = "intersection")]
+#[no_mangle]
+pub extern "C" fn rgm_intersection_copy_branch_uv_on_surface_b(
+    session: RgmKernelHandle,
+    intersection: RgmObjectHandle,
+    branch_index: u32,
+    out_points: *mut RgmUv2,
+    point_capacity: u32,
+    out_count: *mut u32,
+) -> RgmStatus {
+    let result = with_session_mut(session, |state| {
+        let intersection_data = find_intersection(state, intersection)?;
+        let idx = branch_index as usize;
+        if idx >= intersection_data.branches.len() {
+            return Err(RgmStatus::OutOfRange);
+        }
+        write_uv_points(out_points, point_capacity, &intersection_data.branches[idx].uv_b, out_count)
+    });
+    match result {
+        Ok(()) => {
+            clear_error(session.0);
+            RgmStatus::Ok
+        }
+        Err(status) => map_err_with_session(session, status, "Intersection branch uv-b copy failed"),
+    }
+}
+
+#[rgm_export(ts = "copyBranchCurveT", receiver = "intersection")]
+#[no_mangle]
+pub extern "C" fn rgm_intersection_copy_branch_curve_t(
+    session: RgmKernelHandle,
+    intersection: RgmObjectHandle,
+    branch_index: u32,
+    out_values: *mut f64,
+    value_capacity: u32,
+    out_count: *mut u32,
+) -> RgmStatus {
+    let result = with_session_mut(session, |state| {
+        let intersection_data = find_intersection(state, intersection)?;
+        let idx = branch_index as usize;
+        if idx >= intersection_data.branches.len() {
+            return Err(RgmStatus::OutOfRange);
+        }
+        write_f64_array(out_values, value_capacity, &intersection_data.branches[idx].curve_t, out_count)
+    });
+    match result {
+        Ok(()) => {
+            clear_error(session.0);
+            RgmStatus::Ok
+        }
+        Err(status) => map_err_with_session(session, status, "Intersection branch curve-t copy failed"),
+    }
+}
+
+#[rgm_export(ts = "branchToNurbs", receiver = "intersection")]
+#[no_mangle]
+pub extern "C" fn rgm_intersection_branch_to_nurbs(
+    session: RgmKernelHandle,
+    intersection: RgmObjectHandle,
+    branch_index: u32,
+    tol: *const RgmToleranceContext,
+    out_curve: *mut RgmObjectHandle,
+) -> RgmStatus {
+    if tol.is_null() {
+        return map_err_with_session(session, RgmStatus::InvalidInput, "Null tolerance pointer");
+    }
+    let tol = unsafe { *tol };
+    if out_curve.is_null() {
+        return map_err_with_session(session, RgmStatus::InvalidInput, "Null out_curve pointer");
+    }
+
+    let result = with_session_mut(session, |state| {
+        let intersection_data = find_intersection(state, intersection)?;
+        let idx = branch_index as usize;
+        if idx >= intersection_data.branches.len() {
+            return Err(RgmStatus::OutOfRange);
+        }
+        let branch = &intersection_data.branches[idx];
+        if branch.points.len() < 2 {
+            return Err(RgmStatus::DegenerateGeometry);
+        }
+        let nurbs = build_open_nurbs_from_points(&branch.points, 1, tol, branch.points.clone())?;
+        let handle = insert_curve(state, CurveData::NurbsCurve(nurbs));
+        write_object_handle(out_curve, handle)
+    });
+    match result {
+        Ok(()) => {
+            clear_error(session.0);
+            RgmStatus::Ok
+        }
+        Err(status) => map_err_with_session(session, status, "Intersection branch to nurbs failed"),
+    }
+}
+
 fn polycurve_to_nurbs(
     state: &SessionState,
     poly: &PolycurveData,
@@ -4801,7 +6959,10 @@ fn debug_get_curve(session: RgmKernelHandle, object: RgmObjectHandle) -> Option<
     let state = sessions.get(&session.0)?;
     match state.objects.get(&object.0)? {
         GeometryObject::Curve(curve) => Some(curve.clone()),
-        GeometryObject::Mesh(_) => None,
+        GeometryObject::Mesh(_)
+        | GeometryObject::Surface(_)
+        | GeometryObject::Face(_)
+        | GeometryObject::Intersection(_) => None,
     }
 }
 

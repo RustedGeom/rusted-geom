@@ -20,8 +20,8 @@ pnpm --dir showcase dev
 ## Example Notes
 
 - `Mesh (CSG difference: box - torus)` demonstrates constructive solid geometry.
-- CSG operation shown: `result = A - B`, where `A` is a box and `B` is a torus.
-- The translucent overlays are the source solids; the highlighted wireframe mesh is the boolean result.
+- CSG operation shown: `result = A - B`, where `A` is a box and `B` is an offset torus that intersects the box wall.
+- The translucent overlays are the source solids; the highlighted solid mesh is the boolean result.
 
 ## IGES Status
 
