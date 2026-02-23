@@ -53,6 +53,9 @@ jobs:
           npm --prefix ./bindings/web install
           npm --prefix ./bindings/web run typecheck
 
+      - name: Build WASM for tests
+        run: cargo build -p kernel-ffi --target wasm32-unknown-unknown
+
       - name: Web runtime tests
         run: npm --prefix ./bindings/web run test
 
