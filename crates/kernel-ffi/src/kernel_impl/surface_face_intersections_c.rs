@@ -33,6 +33,8 @@ fn project_surface_plane_curve_point(
     let mut uv = clamp_surface_uv(surface, uv_seed);
     let mut lambda = 1e-12;
     let mut best: Option<(f64, f64, RgmPoint3, RgmUv2)> = None;
+    let mut stagnation: u8 = 0;
+    let mut prev_err = f64::INFINITY;
     for _ in 0..20 {
         let frame = eval_surface_data_uv(surface, uv).ok()?;
         let f1 = plane_signed_distance(frame.point, plane_origin, normal);
@@ -45,6 +47,10 @@ fn project_surface_plane_curve_point(
         if f1.abs() <= tol && f2.abs() <= 1e-12 {
             return Some((frame.point, uv));
         }
+        let improvement = (prev_err - err2) / prev_err.max(1e-30);
+        if improvement < 0.01 { stagnation += 1; } else { stagnation = 0; }
+        prev_err = prev_err.min(err2);
+        if stagnation >= 3 { break; }
 
         let mut jtj = [[0.0; 2]; 2];
         let mut jtr = [0.0; 2];
@@ -364,6 +370,30 @@ fn intersect_surface_plane_uv_segments(
     let max_u_steps = options.max_u_segments.max(options.min_u_segments).max(4) as usize;
     let max_v_steps = options.max_v_segments.max(options.min_v_segments).max(4) as usize;
     let tol = surface.core.tol.abs_tol.max(1e-7);
+
+    // Control-hull plane pre-check (NURBS convex-hull property):
+    // if all control points in world space are strictly on one side, guaranteed miss.
+    {
+        let tol_check = surface.core.tol.abs_tol.max(1e-7);
+        let mut all_positive = true;
+        let mut all_negative = true;
+        for cp in &surface.core.control_points {
+            let world_cp = matrix_apply_point(surface.transform, *cp);
+            let sd = plane_signed_distance(world_cp, plane_origin, normal);
+            if sd <= tol_check {
+                all_positive = false;
+            }
+            if sd >= -tol_check {
+                all_negative = false;
+            }
+            if !all_positive && !all_negative {
+                break;
+            }
+        }
+        if all_positive || all_negative {
+            return Ok(Vec::new());
+        }
+    }
 
     let mut u_steps = min_u_steps;
     let mut v_steps = min_v_steps;

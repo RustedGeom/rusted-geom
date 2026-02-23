@@ -1,3 +1,6 @@
+#[cfg(not(target_arch = "wasm32"))]
+use rayon::prelude::*;
+
 fn rgm_mesh_transform_impl(
     session: RgmKernelHandle,
     mesh: RgmObjectHandle,
@@ -178,6 +181,8 @@ fn refine_surface_surface_uv_pair(
     let mut uv_b = clamp_surface_uv(surface_b, uv_b_seed);
     let mut lambda = 1e-12;
     let mut best: Option<(f64, RgmPoint3, RgmUv2, RgmUv2)> = None;
+    let mut stagnation: u8 = 0;
+    let mut prev_best = f64::INFINITY;
 
     for _ in 0..24 {
         let frame_a = eval_surface_data_uv(surface_a, uv_a).ok()?;
@@ -189,6 +194,16 @@ fn refine_surface_surface_uv_pair(
         match best {
             Some((best_norm, _, _, _)) if residual_norm >= best_norm => {}
             _ => best = Some((residual_norm, mid, uv_a, uv_b)),
+        }
+        let improvement = (prev_best - residual_norm) / prev_best.max(1e-30);
+        if improvement < 0.01 {
+            stagnation += 1;
+        } else {
+            stagnation = 0;
+        }
+        prev_best = prev_best.min(residual_norm);
+        if stagnation >= 3 {
+            break;
         }
         if residual_norm <= tol {
             return Some((mid, uv_a, uv_b));
@@ -291,6 +306,8 @@ fn project_surface_surface_curve_point(
     let mut uv_a = clamp_surface_uv(surface_a, uv_a_seed);
     let mut uv_b = clamp_surface_uv(surface_b, uv_b_seed);
     let mut best: Option<(f64, f64, RgmPoint3, RgmUv2, RgmUv2)> = None;
+    let mut stagnation: u8 = 0;
+    let mut prev_best = f64::INFINITY;
     for _ in 0..24 {
         let fa = eval_surface_data_uv(surface_a, uv_a).ok()?;
         let fb = eval_surface_data_uv(surface_b, uv_b).ok()?;
@@ -305,6 +322,16 @@ fn project_surface_surface_curve_point(
         match best {
             Some((best_err, _, _, _, _)) if err >= best_err => {}
             _ => best = Some((err, spatial, mid, uv_a, uv_b)),
+        }
+        let improvement = (prev_best - spatial) / prev_best.max(1e-30);
+        if improvement < 0.01 {
+            stagnation += 1;
+        } else {
+            stagnation = 0;
+        }
+        prev_best = prev_best.min(spatial);
+        if stagnation >= 3 {
+            break;
         }
         if spatial <= tol && r3.abs() <= 1e-11 {
             return Some((mid, uv_a, uv_b));
@@ -428,14 +455,16 @@ fn refine_surface_surface_segment_recursive(
     };
 
     let chord_dev = point_segment_distance(p_mid, p0, p1);
-    let spatial_res = refine_surface_surface_uv_pair(surface_a, surface_b, uv_a_mid, uv_b_mid, tol)
-        .map(|(rp, _, _)| v3::distance(rp, p_mid))
-        .unwrap_or(tol * 2.0);
-    if chord_dev <= chord_tol && spatial_res <= tol * 2.0 {
-        out_points.push(p1);
-        out_uv_a.push(uv_a1);
-        out_uv_b.push(uv_b1);
-        return;
+    if chord_dev <= chord_tol {
+        let spatial_res = refine_surface_surface_uv_pair(surface_a, surface_b, uv_a_mid, uv_b_mid, tol)
+            .map(|(rp, _, _)| v3::distance(rp, p_mid))
+            .unwrap_or(tol * 2.0);
+        if spatial_res <= tol * 2.0 {
+            out_points.push(p1);
+            out_uv_a.push(uv_a1);
+            out_uv_b.push(uv_b1);
+            return;
+        }
     }
 
     refine_surface_surface_segment_recursive(
@@ -486,29 +515,74 @@ fn refine_surface_surface_branch_polyline(
         return branch.clone();
     }
 
-    let mut points = Vec::with_capacity(branch.points.len() * 2);
-    let mut uv_a = Vec::with_capacity(branch.uv_a.len() * 2);
-    let mut uv_b = Vec::with_capacity(branch.uv_b.len() * 2);
+    let n = branch.points.len();
+
+    // On native targets rayon gives real parallelism; on WASM it would run
+    // sequentially while still paying scheduler overhead — use sequential there.
+    #[cfg(not(target_arch = "wasm32"))]
+    let segment_results: Vec<(Vec<RgmPoint3>, Vec<RgmUv2>, Vec<RgmUv2>)> = (1..n)
+        .into_par_iter()
+        .map(|idx| {
+            let mut seg_points = Vec::new();
+            let mut seg_uv_a = Vec::new();
+            let mut seg_uv_b = Vec::new();
+            refine_surface_surface_segment_recursive(
+                surface_a,
+                surface_b,
+                branch.points[idx - 1],
+                branch.uv_a[idx - 1],
+                branch.uv_b[idx - 1],
+                branch.points[idx],
+                branch.uv_a[idx],
+                branch.uv_b[idx],
+                chord_tol,
+                tol,
+                0,
+                &mut seg_points,
+                &mut seg_uv_a,
+                &mut seg_uv_b,
+            );
+            (seg_points, seg_uv_a, seg_uv_b)
+        })
+        .collect();
+
+    #[cfg(target_arch = "wasm32")]
+    let segment_results: Vec<(Vec<RgmPoint3>, Vec<RgmUv2>, Vec<RgmUv2>)> = (1..n)
+        .map(|idx| {
+            let mut seg_points = Vec::new();
+            let mut seg_uv_a = Vec::new();
+            let mut seg_uv_b = Vec::new();
+            refine_surface_surface_segment_recursive(
+                surface_a,
+                surface_b,
+                branch.points[idx - 1],
+                branch.uv_a[idx - 1],
+                branch.uv_b[idx - 1],
+                branch.points[idx],
+                branch.uv_a[idx],
+                branch.uv_b[idx],
+                chord_tol,
+                tol,
+                0,
+                &mut seg_points,
+                &mut seg_uv_a,
+                &mut seg_uv_b,
+            );
+            (seg_points, seg_uv_a, seg_uv_b)
+        })
+        .collect();
+
+    let cap = segment_results.iter().map(|(p, _, _)| p.len()).sum::<usize>() + 1;
+    let mut points = Vec::with_capacity(cap);
+    let mut uv_a = Vec::with_capacity(cap);
+    let mut uv_b = Vec::with_capacity(cap);
     points.push(branch.points[0]);
     uv_a.push(branch.uv_a[0]);
     uv_b.push(branch.uv_b[0]);
-    for idx in 1..branch.points.len() {
-        refine_surface_surface_segment_recursive(
-            surface_a,
-            surface_b,
-            branch.points[idx - 1],
-            branch.uv_a[idx - 1],
-            branch.uv_b[idx - 1],
-            branch.points[idx],
-            branch.uv_a[idx],
-            branch.uv_b[idx],
-            chord_tol,
-            tol,
-            0,
-            &mut points,
-            &mut uv_a,
-            &mut uv_b,
-        );
+    for (seg_pts, seg_uva, seg_uvb) in segment_results {
+        points.extend(seg_pts);
+        uv_a.extend(seg_uva);
+        uv_b.extend(seg_uvb);
     }
     IntersectionBranchData {
         points,
@@ -532,6 +606,8 @@ fn refine_surface_curve_hit(
     let mut t = t_seed.clamp(0.0, 1.0);
     let mut lambda = 1e-12;
     let mut best: Option<(f64, RgmPoint3, RgmUv2, f64)> = None;
+    let mut stagnation: u8 = 0;
+    let mut prev_best = f64::INFINITY;
 
     for _ in 0..24 {
         let frame = eval_surface_data_uv(surface, uv).ok()?;
@@ -549,6 +625,16 @@ fn refine_surface_curve_hit(
                     t,
                 ))
             }
+        }
+        let improvement = (prev_best - residual_norm) / prev_best.max(1e-30);
+        if improvement < 0.01 {
+            stagnation += 1;
+        } else {
+            stagnation = 0;
+        }
+        prev_best = prev_best.min(residual_norm);
+        if stagnation >= 3 {
+            break;
         }
         if residual_norm <= tol {
             return Some((midpoint(frame.point, curve_eval.point), uv, t));
@@ -662,6 +748,8 @@ fn project_point_to_surface(
     let mut uv = clamp_surface_uv(surface, uv_seed);
     let mut lambda = 1e-12;
     let mut best: Option<(f64, RgmPoint3, RgmUv2)> = None;
+    let mut stagnation: u8 = 0;
+    let mut prev_best = f64::INFINITY;
     for _ in 0..24 {
         let frame = eval_surface_data_uv(surface, uv).ok()?;
         let residual = v3::sub(frame.point, point);
@@ -669,6 +757,16 @@ fn project_point_to_surface(
         match best {
             Some((best_norm, _, _)) if residual_norm >= best_norm => {}
             _ => best = Some((residual_norm, frame.point, uv)),
+        }
+        let improvement = (prev_best - residual_norm) / prev_best.max(1e-30);
+        if improvement < 0.01 {
+            stagnation += 1;
+        } else {
+            stagnation = 0;
+        }
+        prev_best = prev_best.min(residual_norm);
+        if stagnation >= 3 {
+            break;
         }
         if residual_norm <= tol {
             return Some((frame.point, uv, residual_norm));

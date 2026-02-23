@@ -161,11 +161,14 @@ pub(crate) fn map_normalized_to_surface_uv(
     Ok(RgmUv2 { u, v })
 }
 
-pub(crate) fn eval_nurbs_surface_uv(
+/// Evaluate the surface at a raw `(u, v)` parameter without first calling
+/// [`validate_surface`].  Safe to call when the surface is known to have been
+/// validated at construction time (e.g. via `build_surface_from_desc`).
+#[inline]
+pub(crate) fn eval_nurbs_surface_uv_unchecked(
     surface: &NurbsSurfaceCore,
     uv_input: RgmUv2,
 ) -> Result<SurfaceEvalResult, RgmStatus> {
-    validate_surface(surface)?;
     let mut u = uv_input.u;
     let mut v = uv_input.v;
     let eps = surface.tol.abs_tol.max(1e-12);
@@ -259,6 +262,14 @@ pub(crate) fn eval_nurbs_surface_uv(
         dvv,
         duv,
     })
+}
+
+pub(crate) fn eval_nurbs_surface_uv(
+    surface: &NurbsSurfaceCore,
+    uv_input: RgmUv2,
+) -> Result<SurfaceEvalResult, RgmStatus> {
+    validate_surface(surface)?;
+    eval_nurbs_surface_uv_unchecked(surface, uv_input)
 }
 
 pub(crate) fn eval_nurbs_surface_normalized(

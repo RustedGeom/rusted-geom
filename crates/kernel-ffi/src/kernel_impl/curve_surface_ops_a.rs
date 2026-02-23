@@ -485,7 +485,9 @@ fn eval_surface_data_uv(
     surface: &SurfaceData,
     uv: RgmUv2,
 ) -> Result<RgmSurfaceEvalFrame, RgmStatus> {
-    let eval = eval_nurbs_surface_uv(&surface.core, uv)?;
+    // Surface is validated at construction time in `build_surface_from_desc`;
+    // skip the redundant validate_surface call on this hot intersection path.
+    let eval = eval_nurbs_surface_uv_unchecked(&surface.core, uv)?;
     surface_eval_result_to_frame(eval, surface.transform)
 }
 

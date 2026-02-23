@@ -556,7 +556,7 @@ input {
 .inspector-readout {
   display: grid;
   grid-template-columns: minmax(86px, 34%) minmax(0, 1fr);
-  align-items: center;
+  align-items: start;
   gap: 0.5rem;
   font-size: 0.74rem;
 }
@@ -592,9 +592,7 @@ input {
   color: var(--ink);
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
   font-size: 0.72rem;
-  white-space: nowrap;
-  text-overflow: ellipsis;
-  overflow: hidden;
+  word-break: break-word;
   background: var(--accent-soft);
   border-radius: 5px;
   padding: 0.1rem 0.3rem;

@@ -268,6 +268,33 @@ where
     Ok((best_a, best_b, midpoint(pa, pb), best_dist))
 }
 
+#[derive(Clone, Copy)]
+struct SegBBox {
+    min_x: f64, max_x: f64,
+    min_y: f64, max_y: f64,
+    min_z: f64, max_z: f64,
+}
+
+impl SegBBox {
+    fn from_segment(p0: RgmPoint3, p1: RgmPoint3, inflate: f64) -> Self {
+        Self {
+            min_x: p0.x.min(p1.x) - inflate,
+            max_x: p0.x.max(p1.x) + inflate,
+            min_y: p0.y.min(p1.y) - inflate,
+            max_y: p0.y.max(p1.y) + inflate,
+            min_z: p0.z.min(p1.z) - inflate,
+            max_z: p0.z.max(p1.z) + inflate,
+        }
+    }
+
+    #[inline]
+    fn overlaps(&self, other: &SegBBox) -> bool {
+        self.min_x <= other.max_x && self.max_x >= other.min_x
+            && self.min_y <= other.max_y && self.max_y >= other.min_y
+            && self.min_z <= other.max_z && self.max_z >= other.min_z
+    }
+}
+
 pub(crate) fn intersect_curve_curve_points<FA, FB>(
     mut eval_a: FA,
     mut eval_b: FB,
@@ -293,6 +320,13 @@ where
         points_b.push(eval_b(t)?);
     }
 
+    let bbox_a: Vec<SegBBox> = (0..samples_a)
+        .map(|ia| SegBBox::from_segment(points_a[ia], points_a[ia + 1], pair_tol))
+        .collect();
+    let bbox_b: Vec<SegBBox> = (0..samples_b)
+        .map(|ib| SegBBox::from_segment(points_b[ib], points_b[ib + 1], pair_tol))
+        .collect();
+
     let mut hits: Vec<HitRecord> = Vec::new();
     let mut step_a = 1.0 / samples_a as f64;
     let mut step_b = 1.0 / samples_b as f64;
@@ -301,6 +335,9 @@ where
         let a0 = points_a[ia];
         let a1 = points_a[ia + 1];
         for ib in 0..samples_b {
+            if !bbox_a[ia].overlaps(&bbox_b[ib]) {
+                continue;
+            }
             let b0 = points_b[ib];
             let b1 = points_b[ib + 1];
             let (sa, sb, _pa, _pb, dist) = closest_segment_parameters(a0, a1, b0, b1);

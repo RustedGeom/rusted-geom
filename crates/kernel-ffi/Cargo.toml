@@ -13,6 +13,7 @@ crate-type = ["rlib", "cdylib"]
 boolmesh = "0.1.9"
 kernel-abi-meta = { path = "../kernel-abi-meta" }
 once_cell.workspace = true
+rayon.workspace = true
 
 [dev-dependencies]
 serde_json.workspace = true

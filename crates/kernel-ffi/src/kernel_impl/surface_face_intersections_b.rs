@@ -8,6 +8,8 @@ fn project_point_to_curve(
     let mut t = t_seed.clamp(0.0, 1.0);
     let mut lambda = 1e-12;
     let mut best: Option<(f64, RgmPoint3, f64)> = None;
+    let mut stagnation: u8 = 0;
+    let mut prev_best = f64::INFINITY;
     for _ in 0..24 {
         let eval = evaluate_curve_at_normalized_data(state, curve, t).ok()?;
         let residual = v3::sub(eval.point, point);
@@ -15,6 +17,16 @@ fn project_point_to_curve(
         match best {
             Some((best_norm, _, _)) if residual_norm >= best_norm => {}
             _ => best = Some((residual_norm, eval.point, t)),
+        }
+        let improvement = (prev_best - residual_norm) / prev_best.max(1e-30);
+        if improvement < 0.01 {
+            stagnation += 1;
+        } else {
+            stagnation = 0;
+        }
+        prev_best = prev_best.min(residual_norm);
+        if stagnation >= 3 {
+            break;
         }
         if residual_norm <= tol {
             return Some((eval.point, t, residual_norm));
@@ -111,6 +123,66 @@ fn build_surface_projection_seed_grid(
     out
 }
 
+/// Spatial acceleration structure for O(1) nearest-seed UV lookup.
+/// Seeds are binned into 3-D world-space cells for fast neighbor queries.
+struct SurfaceSeedGrid {
+    seeds: Vec<SurfaceProjectionSeed>,
+    cells: std::collections::HashMap<(i32, i32, i32), Vec<usize>>,
+    inv_cell: f64,
+    #[allow(dead_code)]
+    tol: f64,
+}
+
+impl SurfaceSeedGrid {
+    fn build(seeds: Vec<SurfaceProjectionSeed>, cell_size: f64) -> Self {
+        let cell = cell_size.max(1e-12);
+        let inv_cell = 1.0 / cell;
+        let mut cells: std::collections::HashMap<(i32, i32, i32), Vec<usize>> =
+            std::collections::HashMap::new();
+        for (idx, seed) in seeds.iter().enumerate() {
+            let key = (
+                (seed.point.x * inv_cell).floor() as i32,
+                (seed.point.y * inv_cell).floor() as i32,
+                (seed.point.z * inv_cell).floor() as i32,
+            );
+            cells.entry(key).or_default().push(idx);
+        }
+        Self { seeds, cells, inv_cell, tol: cell }
+    }
+
+    fn nearest_k(&self, point: RgmPoint3, k: usize) -> Vec<RgmUv2> {
+        let kx = (point.x * self.inv_cell).floor() as i32;
+        let ky = (point.y * self.inv_cell).floor() as i32;
+        let kz = (point.z * self.inv_cell).floor() as i32;
+
+        let mut candidates: Vec<(f64, RgmUv2)> = Vec::with_capacity(k * 4);
+        for dx in -1_i32..=1 {
+            for dy in -1_i32..=1 {
+                for dz in -1_i32..=1 {
+                    if let Some(indices) = self.cells.get(&(kx + dx, ky + dy, kz + dz)) {
+                        for &idx in indices {
+                            let d = v3::distance(self.seeds[idx].point, point);
+                            candidates.push((d, self.seeds[idx].uv));
+                        }
+                    }
+                }
+            }
+        }
+
+        // If no neighbors in 3x3x3 neighborhood, fall back to full scan
+        if candidates.is_empty() {
+            candidates = self
+                .seeds
+                .iter()
+                .map(|s| (v3::distance(s.point, point), s.uv))
+                .collect();
+        }
+
+        candidates.sort_by(|a, b| a.0.total_cmp(&b.0));
+        candidates.into_iter().take(k.max(1)).map(|(_, uv)| uv).collect()
+    }
+}
+
 fn nearest_surface_seed_uvs(
     seeds: &[SurfaceProjectionSeed],
     point: RgmPoint3,
@@ -190,7 +262,8 @@ fn push_unique_t_seed(seeds: &mut Vec<f64>, t: f64, tol: f64) {
 fn collect_surface_surface_projection_seeds(
     source: &SurfaceData,
     target: &SurfaceData,
-    target_seed_grid: &[SurfaceProjectionSeed],
+    _target_seed_grid: &[SurfaceProjectionSeed],
+    target_seed_grid_index: &SurfaceSeedGrid,
     source_is_a: bool,
     u_steps: usize,
     v_steps: usize,
@@ -199,80 +272,91 @@ fn collect_surface_surface_projection_seeds(
     out: &mut Vec<(RgmPoint3, RgmUv2, RgmUv2)>,
     deduper: &mut BranchSpatialDeduper,
 ) {
-    let mut last_uv_target = target_seed_grid
-        .first()
-        .map(|seed| seed.uv)
-        .unwrap_or(RgmUv2 {
-            u: 0.5 * (target.core.u_start + target.core.u_end),
-            v: 0.5 * (target.core.v_start + target.core.v_end),
-        });
-    for iu in 0..=u_steps {
-        let u_norm = iu as f64 / u_steps.max(1) as f64;
-        for iv in 0..=v_steps {
-            let v_norm = iv as f64 / v_steps.max(1) as f64;
-            let uv_norm = RgmUv2 {
-                u: u_norm,
-                v: v_norm,
-            };
-            let Ok(uv_src) =
-                math::nurbs_surface_eval::map_normalized_to_surface_uv(&source.core, uv_norm)
-            else {
-                continue;
-            };
-            let Ok(frame_src) = eval_surface_data_uv(source, uv_src) else {
-                continue;
-            };
+    // Build flat list of (iu, iv) positions
+    let positions: Vec<(usize, usize)> = (0..=u_steps)
+        .flat_map(|iu| (0..=v_steps).map(move |iv| (iu, iv)))
+        .collect();
 
-            let mut seeds = Vec::new();
-            push_unique_uv_seed(&mut seeds, last_uv_target, tol * 2.0);
-            for nearest in nearest_surface_seed_uvs(target_seed_grid, frame_src.point, 6) {
-                push_unique_uv_seed(&mut seeds, nearest, tol * 2.0);
-            }
-            if let Ok(mapped) =
-                math::nurbs_surface_eval::map_normalized_to_surface_uv(&target.core, uv_norm)
-            {
-                push_unique_uv_seed(&mut seeds, mapped, tol * 2.0);
-            }
-            if let Ok(mapped_swapped) = math::nurbs_surface_eval::map_normalized_to_surface_uv(
-                &target.core,
-                RgmUv2 {
-                    u: v_norm,
-                    v: u_norm,
-                },
-            ) {
-                push_unique_uv_seed(&mut seeds, mapped_swapped, tol * 2.0);
-            }
-            if seeds.is_empty() {
-                continue;
-            }
+    // On native targets run in parallel; on WASM single-threaded avoids rayon overhead.
+    macro_rules! map_seed_cell {
+        ($iter:expr) => {
+            $iter
+                .map(|&(iu, iv)| {
+                    let u_norm = iu as f64 / u_steps.max(1) as f64;
+                    let v_norm = iv as f64 / v_steps.max(1) as f64;
+                    let uv_norm = RgmUv2 { u: u_norm, v: v_norm };
+                    let uv_src = math::nurbs_surface_eval::map_normalized_to_surface_uv(
+                        &source.core, uv_norm,
+                    ).ok()?;
+                    let frame_src = eval_surface_data_uv(source, uv_src).ok()?;
 
-            let Some((_, uv_target, residual)) =
-                project_point_to_surface_multi_seed(target, frame_src.point, &seeds, tol)
-            else {
-                continue;
-            };
-            if residual > seed_tol {
-                continue;
-            }
-            last_uv_target = uv_target;
+                    let mut seeds = Vec::new();
+                    for nearest in target_seed_grid_index.nearest_k(frame_src.point, 6) {
+                        push_unique_uv_seed(&mut seeds, nearest, tol * 2.0);
+                    }
+                    if let Ok(mapped) = math::nurbs_surface_eval::map_normalized_to_surface_uv(
+                        &target.core, uv_norm,
+                    ) {
+                        push_unique_uv_seed(&mut seeds, mapped, tol * 2.0);
+                    }
+                    if let Ok(mapped_swapped) = math::nurbs_surface_eval::map_normalized_to_surface_uv(
+                        &target.core,
+                        RgmUv2 { u: v_norm, v: u_norm },
+                    ) {
+                        push_unique_uv_seed(&mut seeds, mapped_swapped, tol * 2.0);
+                    }
+                    if seeds.is_empty() {
+                        return None;
+                    }
 
-            let seed_uv_a = if source_is_a { uv_src } else { uv_target };
-            let seed_uv_b = if source_is_a { uv_target } else { uv_src };
-            let refined = if source_is_a {
-                refine_surface_surface_uv_pair(source, target, seed_uv_a, seed_uv_b, tol)
-            } else {
-                refine_surface_surface_uv_pair(target, source, seed_uv_a, seed_uv_b, tol)
-            };
-            let Some((point, uv_a, uv_b)) = refined else {
-                continue;
-            };
-            if deduper.has_duplicate(point) {
-                continue;
-            }
-            deduper.insert(point);
-            out.push((point, uv_a, uv_b));
-        }
+                    let (_, uv_target, residual) =
+                        project_point_to_surface_multi_seed(target, frame_src.point, &seeds, tol)?;
+                    if residual > seed_tol {
+                        return None;
+                    }
+
+                    let (seed_uv_a, seed_uv_b) = if source_is_a {
+                        (uv_src, uv_target)
+                    } else {
+                        (uv_target, uv_src)
+                    };
+                    let (point, uv_a, uv_b) = if source_is_a {
+                        refine_surface_surface_uv_pair(source, target, seed_uv_a, seed_uv_b, tol)?
+                    } else {
+                        refine_surface_surface_uv_pair(target, source, seed_uv_a, seed_uv_b, tol)?
+                    };
+                    Some((point, uv_a, uv_b))
+                })
+                .collect::<Vec<_>>()
+        };
     }
+    #[cfg(not(target_arch = "wasm32"))]
+    let candidates: Vec<Option<(RgmPoint3, RgmUv2, RgmUv2)>> = map_seed_cell!(positions.par_iter());
+    #[cfg(target_arch = "wasm32")]
+    let candidates: Vec<Option<(RgmPoint3, RgmUv2, RgmUv2)>> = map_seed_cell!(positions.iter());
+
+    // Sequential dedup pass
+    for candidate in candidates.into_iter().flatten() {
+        let (point, uv_a, uv_b) = candidate;
+        if deduper.has_duplicate(point) {
+            continue;
+        }
+        deduper.insert(point);
+        out.push((point, uv_a, uv_b));
+    }
+}
+
+fn estimate_seed_grid_cell_size(seeds: &[SurfaceProjectionSeed]) -> f64 {
+    if seeds.len() < 2 {
+        return 1.0;
+    }
+    // Compute average spacing as a rough cell size
+    let mut total = 0.0;
+    let count = (seeds.len() - 1).min(20);
+    for i in 0..count {
+        total += v3::distance(seeds[i].point, seeds[i + 1].point);
+    }
+    (total / count as f64 * 2.0).max(1e-6)
 }
 
 fn generate_surface_surface_seeds(
@@ -313,10 +397,16 @@ fn generate_surface_surface_seeds(
             build_surface_projection_seed_grid(surface_a, u_steps.min(12), v_steps.min(12));
         let seed_grid_b =
             build_surface_projection_seed_grid(surface_b, u_steps.min(12), v_steps.min(12));
+        // Compute cell size from typical point spacing
+        let cell_size_a = estimate_seed_grid_cell_size(&seed_grid_a);
+        let cell_size_b = estimate_seed_grid_cell_size(&seed_grid_b);
+        let index_a = SurfaceSeedGrid::build(seed_grid_a.clone(), cell_size_a);
+        let index_b = SurfaceSeedGrid::build(seed_grid_b.clone(), cell_size_b);
         collect_surface_surface_projection_seeds(
             surface_a,
             surface_b,
             &seed_grid_b,
+            &index_b,
             true,
             u_steps,
             v_steps,
@@ -329,6 +419,7 @@ fn generate_surface_surface_seeds(
             surface_b,
             surface_a,
             &seed_grid_a,
+            &index_a,
             false,
             u_steps,
             v_steps,
@@ -459,13 +550,29 @@ fn build_surface_surface_branch_from_seed(
 ) -> Option<IntersectionBranchData> {
     let (seed_point, seed_uv_a, seed_uv_b) =
         refine_surface_surface_uv_pair(surface_a, surface_b, seed_uv_a, seed_uv_b, tol)?;
-    let (forward, closed_fwd) = march_surface_surface_direction(
-        surface_a, surface_b, seed_point, seed_uv_a, seed_uv_b, 1.0, step_min, step_max, max_steps,
-        tol,
+    // rayon::join gives real parallelism on native; WASM is single-threaded so
+    // pay no scheduling overhead — run sequentially there.
+    #[cfg(not(target_arch = "wasm32"))]
+    let ((forward, closed_fwd), (backward, closed_bwd)) = rayon::join(
+        || march_surface_surface_direction(
+            surface_a, surface_b, seed_point, seed_uv_a, seed_uv_b,
+            1.0, step_min, step_max, max_steps, tol,
+        ),
+        || march_surface_surface_direction(
+            surface_a, surface_b, seed_point, seed_uv_a, seed_uv_b,
+            -1.0, step_min, step_max, max_steps, tol,
+        ),
     );
-    let (backward, closed_bwd) = march_surface_surface_direction(
-        surface_a, surface_b, seed_point, seed_uv_a, seed_uv_b, -1.0, step_min, step_max,
-        max_steps, tol,
+    #[cfg(target_arch = "wasm32")]
+    let ((forward, closed_fwd), (backward, closed_bwd)) = (
+        march_surface_surface_direction(
+            surface_a, surface_b, seed_point, seed_uv_a, seed_uv_b,
+            1.0, step_min, step_max, max_steps, tol,
+        ),
+        march_surface_surface_direction(
+            surface_a, surface_b, seed_point, seed_uv_a, seed_uv_b,
+            -1.0, step_min, step_max, max_steps, tol,
+        ),
     );
 
     let mut points = Vec::new();

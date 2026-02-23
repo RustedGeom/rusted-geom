@@ -17,8 +17,8 @@ use crate::math::nurbs_curve_eval::{
     NurbsCurveCore,
 };
 use crate::math::nurbs_surface_eval::{
-    eval_nurbs_surface_normalized, eval_nurbs_surface_uv, validate_surface, NurbsSurfaceCore,
-    SurfaceEvalResult,
+    eval_nurbs_surface_normalized, eval_nurbs_surface_uv_unchecked, validate_surface,
+    NurbsSurfaceCore, SurfaceEvalResult,
 };
 use crate::session::objects::*;
 use crate::session::store::*;
