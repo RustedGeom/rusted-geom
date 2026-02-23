@@ -1,7 +1,10 @@
 {
-  "name": "@rusted-geom/bindings-web",
+  "name": "@cesarecaoduro/rusted-geom",
   "version": "0.1.0-alpha.1",
   "type": "module",
+  "publishConfig": {
+    "registry": "https://npm.pkg.github.com"
+  },
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "files": [
