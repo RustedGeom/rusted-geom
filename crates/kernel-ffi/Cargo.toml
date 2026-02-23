@@ -10,6 +10,7 @@ name = "rusted_geom"
 crate-type = ["rlib", "cdylib"]
 
 [dependencies]
+boolmesh = "0.1.9"
 kernel-abi-meta = { path = "../kernel-abi-meta" }
 once_cell.workspace = true
 

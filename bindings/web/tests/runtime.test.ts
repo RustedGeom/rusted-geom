@@ -117,9 +117,77 @@ describe("kernel runtime", () => {
     });
     expect(planeHits.length).toBeGreaterThanOrEqual(1);
 
+    const meshBox = session.createMeshBox(
+      { x: 0, y: 0, z: 0 },
+      { x: 4, y: 3, z: 2 },
+    );
+    expect(session.meshVertexCount(meshBox)).toBe(8);
+    expect(session.meshTriangleCount(meshBox)).toBe(12);
+
+    const translated = session.meshTranslate(meshBox, { x: 0.8, y: -0.4, z: 1.2 });
+    const transformed = session.meshRotate(
+      translated,
+      { x: 0, y: 1, z: 0.2 },
+      0.7,
+      { x: 0, y: 0, z: 0 },
+    );
+    const baked = session.meshBakeTransform(transformed);
+    const bakedBuffers = session.meshToBuffers(baked);
+    expect(bakedBuffers.vertices.length).toBe(8);
+    expect(bakedBuffers.indices.length).toBe(36);
+
+    const torus = session.createMeshTorus(
+      { x: 0, y: 0, z: 0 },
+      3.8,
+      1.1,
+      28,
+      20,
+    );
+    const meshPlaneHits = session.intersectMeshPlane(torus, {
+      origin: { x: 0, y: 0, z: 0.2 },
+      x_axis: { x: 1, y: 0, z: 0 },
+      y_axis: { x: 0, y: 1, z: 0 },
+      z_axis: { x: 0, y: 0, z: 1 },
+    });
+    expect(meshPlaneHits.length).toBeGreaterThan(0);
+    expect(meshPlaneHits.length % 2).toBe(0);
+
+    const sphere = session.createMeshUvSphere(
+      { x: 0, y: 0, z: 0 },
+      4.2,
+      24,
+      16,
+    );
+    const meshMeshHits = session.intersectMeshMesh(sphere, torus);
+    expect(meshMeshHits.length).toBeGreaterThan(0);
+    expect(meshMeshHits.length % 2).toBe(0);
+
+    const booleanHost = session.createMeshBox(
+      { x: 0, y: 0, z: 0 },
+      { x: 8.8, y: 8.8, z: 8.8 },
+    );
+    const innerTorus = session.createMeshTorus(
+      { x: 0, y: 0, z: 0 },
+      2.4,
+      0.8,
+      32,
+      24,
+    );
+    const booleanDiff = session.meshBoolean(booleanHost, innerTorus, 2);
+    expect(session.meshTriangleCount(booleanDiff)).toBeGreaterThan(0);
+
     session.releaseObject(lineB);
     session.releaseObject(lineA);
     session.releaseObject(circleHandle);
+    session.releaseObject(booleanDiff);
+    session.releaseObject(booleanHost);
+    session.releaseObject(innerTorus);
+    session.releaseObject(sphere);
+    session.releaseObject(torus);
+    session.releaseObject(baked);
+    session.releaseObject(transformed);
+    session.releaseObject(translated);
+    session.releaseObject(meshBox);
     session.releaseObject(handle);
     session.destroy();
     runtime.destroy();

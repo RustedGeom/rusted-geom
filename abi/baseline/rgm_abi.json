@@ -1,7 +1,7 @@
 {
   "crate_name": "kernel-ffi",
   "version": "4.0.0",
-  "abi_hash": "68e5031392d68a71ac39eead9dc87f5c9d7c76a55aff9c815b86a7b26479b851",
+  "abi_hash": "2ba4b1fbbf7637793717ffd317102cde48cea3295e898e8db0b748425d27a8ee",
   "functions": [
     {
       "rust_name": "rgm_alloc",
@@ -1030,6 +1030,74 @@
       ]
     },
     {
+      "rust_name": "rgm_intersect_mesh_mesh",
+      "c_name": "rgm_intersect_mesh_mesh",
+      "interop_ts_name": "interopIntersectMeshMesh",
+      "public_ts_name": null,
+      "receiver": null,
+      "return_type": "RgmStatus",
+      "params": [
+        {
+          "name": "session",
+          "ty": "RgmKernelHandle"
+        },
+        {
+          "name": "mesh_a",
+          "ty": "RgmObjectHandle"
+        },
+        {
+          "name": "mesh_b",
+          "ty": "RgmObjectHandle"
+        },
+        {
+          "name": "out_points",
+          "ty": "*mutRgmPoint3"
+        },
+        {
+          "name": "point_capacity",
+          "ty": "u32"
+        },
+        {
+          "name": "out_count",
+          "ty": "*mutu32"
+        }
+      ]
+    },
+    {
+      "rust_name": "rgm_intersect_mesh_plane",
+      "c_name": "rgm_intersect_mesh_plane",
+      "interop_ts_name": "interopIntersectMeshPlane",
+      "public_ts_name": null,
+      "receiver": null,
+      "return_type": "RgmStatus",
+      "params": [
+        {
+          "name": "session",
+          "ty": "RgmKernelHandle"
+        },
+        {
+          "name": "mesh",
+          "ty": "RgmObjectHandle"
+        },
+        {
+          "name": "plane",
+          "ty": "*constRgmPlane"
+        },
+        {
+          "name": "out_points",
+          "ty": "*mutRgmPoint3"
+        },
+        {
+          "name": "point_capacity",
+          "ty": "u32"
+        },
+        {
+          "name": "out_count",
+          "ty": "*mutu32"
+        }
+      ]
+    },
+    {
       "rust_name": "rgm_kernel_create",
       "c_name": "rgm_kernel_create",
       "interop_ts_name": "interopKernelCreate",
@@ -1098,6 +1166,572 @@
         {
           "name": "out_written",
           "ty": "*mutusize"
+        }
+      ]
+    },
+    {
+      "rust_name": "rgm_mesh_bake_transform",
+      "c_name": "rgm_mesh_bake_transform",
+      "interop_ts_name": "interopMeshBakeTransform",
+      "public_ts_name": null,
+      "receiver": null,
+      "return_type": "RgmStatus",
+      "params": [
+        {
+          "name": "session",
+          "ty": "RgmKernelHandle"
+        },
+        {
+          "name": "mesh",
+          "ty": "RgmObjectHandle"
+        },
+        {
+          "name": "out_mesh",
+          "ty": "*mutRgmObjectHandle"
+        }
+      ]
+    },
+    {
+      "rust_name": "rgm_mesh_boolean",
+      "c_name": "rgm_mesh_boolean",
+      "interop_ts_name": "interopMeshBoolean",
+      "public_ts_name": null,
+      "receiver": null,
+      "return_type": "RgmStatus",
+      "params": [
+        {
+          "name": "session",
+          "ty": "RgmKernelHandle"
+        },
+        {
+          "name": "mesh_a",
+          "ty": "RgmObjectHandle"
+        },
+        {
+          "name": "mesh_b",
+          "ty": "RgmObjectHandle"
+        },
+        {
+          "name": "op",
+          "ty": "i32"
+        },
+        {
+          "name": "out_mesh",
+          "ty": "*mutRgmObjectHandle"
+        }
+      ]
+    },
+    {
+      "rust_name": "rgm_mesh_copy_indices",
+      "c_name": "rgm_mesh_copy_indices",
+      "interop_ts_name": "interopMeshCopyIndices",
+      "public_ts_name": null,
+      "receiver": null,
+      "return_type": "RgmStatus",
+      "params": [
+        {
+          "name": "session",
+          "ty": "RgmKernelHandle"
+        },
+        {
+          "name": "mesh",
+          "ty": "RgmObjectHandle"
+        },
+        {
+          "name": "out_indices",
+          "ty": "*mutu32"
+        },
+        {
+          "name": "index_capacity",
+          "ty": "u32"
+        },
+        {
+          "name": "out_count",
+          "ty": "*mutu32"
+        }
+      ]
+    },
+    {
+      "rust_name": "rgm_mesh_copy_vertices",
+      "c_name": "rgm_mesh_copy_vertices",
+      "interop_ts_name": "interopMeshCopyVertices",
+      "public_ts_name": null,
+      "receiver": null,
+      "return_type": "RgmStatus",
+      "params": [
+        {
+          "name": "session",
+          "ty": "RgmKernelHandle"
+        },
+        {
+          "name": "mesh",
+          "ty": "RgmObjectHandle"
+        },
+        {
+          "name": "out_vertices",
+          "ty": "*mutRgmPoint3"
+        },
+        {
+          "name": "vertex_capacity",
+          "ty": "u32"
+        },
+        {
+          "name": "out_count",
+          "ty": "*mutu32"
+        }
+      ]
+    },
+    {
+      "rust_name": "rgm_mesh_create_box",
+      "c_name": "rgm_mesh_create_box",
+      "interop_ts_name": "interopMeshCreateBox",
+      "public_ts_name": null,
+      "receiver": null,
+      "return_type": "RgmStatus",
+      "params": [
+        {
+          "name": "session",
+          "ty": "RgmKernelHandle"
+        },
+        {
+          "name": "center",
+          "ty": "RgmPoint3"
+        },
+        {
+          "name": "size",
+          "ty": "RgmVec3"
+        },
+        {
+          "name": "out_object",
+          "ty": "*mutRgmObjectHandle"
+        }
+      ]
+    },
+    {
+      "rust_name": "rgm_mesh_create_box_ptr",
+      "c_name": "rgm_mesh_create_box_ptr",
+      "interop_ts_name": "interopMeshCreateBoxPtr",
+      "public_ts_name": null,
+      "receiver": null,
+      "return_type": "RgmStatus",
+      "params": [
+        {
+          "name": "session",
+          "ty": "RgmKernelHandle"
+        },
+        {
+          "name": "center",
+          "ty": "*constRgmPoint3"
+        },
+        {
+          "name": "size",
+          "ty": "*constRgmVec3"
+        },
+        {
+          "name": "out_object",
+          "ty": "*mutRgmObjectHandle"
+        }
+      ]
+    },
+    {
+      "rust_name": "rgm_mesh_create_indexed",
+      "c_name": "rgm_mesh_create_indexed",
+      "interop_ts_name": "interopMeshCreateIndexed",
+      "public_ts_name": null,
+      "receiver": null,
+      "return_type": "RgmStatus",
+      "params": [
+        {
+          "name": "session",
+          "ty": "RgmKernelHandle"
+        },
+        {
+          "name": "vertices",
+          "ty": "*constRgmPoint3"
+        },
+        {
+          "name": "vertex_count",
+          "ty": "usize"
+        },
+        {
+          "name": "indices",
+          "ty": "*constu32"
+        },
+        {
+          "name": "index_count",
+          "ty": "usize"
+        },
+        {
+          "name": "out_object",
+          "ty": "*mutRgmObjectHandle"
+        }
+      ]
+    },
+    {
+      "rust_name": "rgm_mesh_create_torus",
+      "c_name": "rgm_mesh_create_torus",
+      "interop_ts_name": "interopMeshCreateTorus",
+      "public_ts_name": null,
+      "receiver": null,
+      "return_type": "RgmStatus",
+      "params": [
+        {
+          "name": "session",
+          "ty": "RgmKernelHandle"
+        },
+        {
+          "name": "center",
+          "ty": "RgmPoint3"
+        },
+        {
+          "name": "major_radius",
+          "ty": "f64"
+        },
+        {
+          "name": "minor_radius",
+          "ty": "f64"
+        },
+        {
+          "name": "major_steps",
+          "ty": "u32"
+        },
+        {
+          "name": "minor_steps",
+          "ty": "u32"
+        },
+        {
+          "name": "out_object",
+          "ty": "*mutRgmObjectHandle"
+        }
+      ]
+    },
+    {
+      "rust_name": "rgm_mesh_create_torus_ptr",
+      "c_name": "rgm_mesh_create_torus_ptr",
+      "interop_ts_name": "interopMeshCreateTorusPtr",
+      "public_ts_name": null,
+      "receiver": null,
+      "return_type": "RgmStatus",
+      "params": [
+        {
+          "name": "session",
+          "ty": "RgmKernelHandle"
+        },
+        {
+          "name": "center",
+          "ty": "*constRgmPoint3"
+        },
+        {
+          "name": "major_radius",
+          "ty": "f64"
+        },
+        {
+          "name": "minor_radius",
+          "ty": "f64"
+        },
+        {
+          "name": "major_steps",
+          "ty": "u32"
+        },
+        {
+          "name": "minor_steps",
+          "ty": "u32"
+        },
+        {
+          "name": "out_object",
+          "ty": "*mutRgmObjectHandle"
+        }
+      ]
+    },
+    {
+      "rust_name": "rgm_mesh_create_uv_sphere",
+      "c_name": "rgm_mesh_create_uv_sphere",
+      "interop_ts_name": "interopMeshCreateUvSphere",
+      "public_ts_name": null,
+      "receiver": null,
+      "return_type": "RgmStatus",
+      "params": [
+        {
+          "name": "session",
+          "ty": "RgmKernelHandle"
+        },
+        {
+          "name": "center",
+          "ty": "RgmPoint3"
+        },
+        {
+          "name": "radius",
+          "ty": "f64"
+        },
+        {
+          "name": "u_steps",
+          "ty": "u32"
+        },
+        {
+          "name": "v_steps",
+          "ty": "u32"
+        },
+        {
+          "name": "out_object",
+          "ty": "*mutRgmObjectHandle"
+        }
+      ]
+    },
+    {
+      "rust_name": "rgm_mesh_create_uv_sphere_ptr",
+      "c_name": "rgm_mesh_create_uv_sphere_ptr",
+      "interop_ts_name": "interopMeshCreateUvSpherePtr",
+      "public_ts_name": null,
+      "receiver": null,
+      "return_type": "RgmStatus",
+      "params": [
+        {
+          "name": "session",
+          "ty": "RgmKernelHandle"
+        },
+        {
+          "name": "center",
+          "ty": "*constRgmPoint3"
+        },
+        {
+          "name": "radius",
+          "ty": "f64"
+        },
+        {
+          "name": "u_steps",
+          "ty": "u32"
+        },
+        {
+          "name": "v_steps",
+          "ty": "u32"
+        },
+        {
+          "name": "out_object",
+          "ty": "*mutRgmObjectHandle"
+        }
+      ]
+    },
+    {
+      "rust_name": "rgm_mesh_rotate",
+      "c_name": "rgm_mesh_rotate",
+      "interop_ts_name": "interopMeshRotate",
+      "public_ts_name": null,
+      "receiver": null,
+      "return_type": "RgmStatus",
+      "params": [
+        {
+          "name": "session",
+          "ty": "RgmKernelHandle"
+        },
+        {
+          "name": "mesh",
+          "ty": "RgmObjectHandle"
+        },
+        {
+          "name": "axis",
+          "ty": "RgmVec3"
+        },
+        {
+          "name": "angle_rad",
+          "ty": "f64"
+        },
+        {
+          "name": "pivot",
+          "ty": "RgmPoint3"
+        },
+        {
+          "name": "out_mesh",
+          "ty": "*mutRgmObjectHandle"
+        }
+      ]
+    },
+    {
+      "rust_name": "rgm_mesh_rotate_ptr",
+      "c_name": "rgm_mesh_rotate_ptr",
+      "interop_ts_name": "interopMeshRotatePtr",
+      "public_ts_name": null,
+      "receiver": null,
+      "return_type": "RgmStatus",
+      "params": [
+        {
+          "name": "session",
+          "ty": "RgmKernelHandle"
+        },
+        {
+          "name": "mesh",
+          "ty": "RgmObjectHandle"
+        },
+        {
+          "name": "axis",
+          "ty": "*constRgmVec3"
+        },
+        {
+          "name": "angle_rad",
+          "ty": "f64"
+        },
+        {
+          "name": "pivot",
+          "ty": "*constRgmPoint3"
+        },
+        {
+          "name": "out_mesh",
+          "ty": "*mutRgmObjectHandle"
+        }
+      ]
+    },
+    {
+      "rust_name": "rgm_mesh_scale",
+      "c_name": "rgm_mesh_scale",
+      "interop_ts_name": "interopMeshScale",
+      "public_ts_name": null,
+      "receiver": null,
+      "return_type": "RgmStatus",
+      "params": [
+        {
+          "name": "session",
+          "ty": "RgmKernelHandle"
+        },
+        {
+          "name": "mesh",
+          "ty": "RgmObjectHandle"
+        },
+        {
+          "name": "scale",
+          "ty": "RgmVec3"
+        },
+        {
+          "name": "pivot",
+          "ty": "RgmPoint3"
+        },
+        {
+          "name": "out_mesh",
+          "ty": "*mutRgmObjectHandle"
+        }
+      ]
+    },
+    {
+      "rust_name": "rgm_mesh_scale_ptr",
+      "c_name": "rgm_mesh_scale_ptr",
+      "interop_ts_name": "interopMeshScalePtr",
+      "public_ts_name": null,
+      "receiver": null,
+      "return_type": "RgmStatus",
+      "params": [
+        {
+          "name": "session",
+          "ty": "RgmKernelHandle"
+        },
+        {
+          "name": "mesh",
+          "ty": "RgmObjectHandle"
+        },
+        {
+          "name": "scale",
+          "ty": "*constRgmVec3"
+        },
+        {
+          "name": "pivot",
+          "ty": "*constRgmPoint3"
+        },
+        {
+          "name": "out_mesh",
+          "ty": "*mutRgmObjectHandle"
+        }
+      ]
+    },
+    {
+      "rust_name": "rgm_mesh_translate",
+      "c_name": "rgm_mesh_translate",
+      "interop_ts_name": "interopMeshTranslate",
+      "public_ts_name": null,
+      "receiver": null,
+      "return_type": "RgmStatus",
+      "params": [
+        {
+          "name": "session",
+          "ty": "RgmKernelHandle"
+        },
+        {
+          "name": "mesh",
+          "ty": "RgmObjectHandle"
+        },
+        {
+          "name": "delta",
+          "ty": "RgmVec3"
+        },
+        {
+          "name": "out_mesh",
+          "ty": "*mutRgmObjectHandle"
+        }
+      ]
+    },
+    {
+      "rust_name": "rgm_mesh_translate_ptr",
+      "c_name": "rgm_mesh_translate_ptr",
+      "interop_ts_name": "interopMeshTranslatePtr",
+      "public_ts_name": null,
+      "receiver": null,
+      "return_type": "RgmStatus",
+      "params": [
+        {
+          "name": "session",
+          "ty": "RgmKernelHandle"
+        },
+        {
+          "name": "mesh",
+          "ty": "RgmObjectHandle"
+        },
+        {
+          "name": "delta",
+          "ty": "*constRgmVec3"
+        },
+        {
+          "name": "out_mesh",
+          "ty": "*mutRgmObjectHandle"
+        }
+      ]
+    },
+    {
+      "rust_name": "rgm_mesh_triangle_count",
+      "c_name": "rgm_mesh_triangle_count",
+      "interop_ts_name": "interopMeshTriangleCount",
+      "public_ts_name": null,
+      "receiver": null,
+      "return_type": "RgmStatus",
+      "params": [
+        {
+          "name": "session",
+          "ty": "RgmKernelHandle"
+        },
+        {
+          "name": "mesh",
+          "ty": "RgmObjectHandle"
+        },
+        {
+          "name": "out_count",
+          "ty": "*mutu32"
+        }
+      ]
+    },
+    {
+      "rust_name": "rgm_mesh_vertex_count",
+      "c_name": "rgm_mesh_vertex_count",
+      "interop_ts_name": "interopMeshVertexCount",
+      "public_ts_name": null,
+      "receiver": null,
+      "return_type": "RgmStatus",
+      "params": [
+        {
+          "name": "session",
+          "ty": "RgmKernelHandle"
+        },
+        {
+          "name": "mesh",
+          "ty": "RgmObjectHandle"
+        },
+        {
+          "name": "out_count",
+          "ty": "*mutu32"
         }
       ]
     },

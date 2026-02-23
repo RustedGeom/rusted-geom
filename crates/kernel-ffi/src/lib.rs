@@ -1,5 +1,6 @@
 mod math;
 
+use boolmesh::{compute_boolean, prelude::{Manifold, OpType as BoolOpType}};
 use kernel_abi_meta::{rgm_export, rgm_ffi_type};
 use math::arc_length::{build_arc_length_cache, length_from_u, u_from_length, ArcLengthCache};
 use math::frame::{
@@ -174,6 +175,13 @@ struct PolycurveData {
 }
 
 #[derive(Clone, Debug)]
+struct MeshData {
+    vertices: Vec<RgmPoint3>,
+    triangles: Vec<[u32; 3]>,
+    transform: [[f64; 4]; 4],
+}
+
+#[derive(Clone, Debug)]
 enum CurveData {
     NurbsCurve(NurbsCurveData),
     Line(LineData),
@@ -186,6 +194,7 @@ enum CurveData {
 #[derive(Clone, Debug)]
 enum GeometryObject {
     Curve(CurveData),
+    Mesh(MeshData),
 }
 
 #[derive(Default)]
@@ -285,6 +294,19 @@ fn write_object_handle(out: *mut RgmObjectHandle, value: RgmObjectHandle) -> Res
 }
 
 fn write_f64(out: *mut f64, value: f64) -> Result<(), RgmStatus> {
+    if out.is_null() {
+        return Err(RgmStatus::InvalidInput);
+    }
+
+    // SAFETY: pointer nullability checked above.
+    unsafe {
+        *out = value;
+    }
+
+    Ok(())
+}
+
+fn write_u32(out: *mut u32, value: u32) -> Result<(), RgmStatus> {
     if out.is_null() {
         return Err(RgmStatus::InvalidInput);
     }
@@ -410,6 +432,83 @@ fn point_add_vec(p: RgmPoint3, v: RgmVec3) -> RgmPoint3 {
         x: p.x + v.x,
         y: p.y + v.y,
         z: p.z + v.z,
+    }
+}
+
+fn matrix_identity() -> [[f64; 4]; 4] {
+    [
+        [1.0, 0.0, 0.0, 0.0],
+        [0.0, 1.0, 0.0, 0.0],
+        [0.0, 0.0, 1.0, 0.0],
+        [0.0, 0.0, 0.0, 1.0],
+    ]
+}
+
+fn matrix_mul(a: [[f64; 4]; 4], b: [[f64; 4]; 4]) -> [[f64; 4]; 4] {
+    let mut result = [[0.0; 4]; 4];
+    for r in 0..4 {
+        for c in 0..4 {
+            result[r][c] = a[r][0] * b[0][c]
+                + a[r][1] * b[1][c]
+                + a[r][2] * b[2][c]
+                + a[r][3] * b[3][c];
+        }
+    }
+    result
+}
+
+fn matrix_translation(delta: RgmVec3) -> [[f64; 4]; 4] {
+    let mut m = matrix_identity();
+    m[0][3] = delta.x;
+    m[1][3] = delta.y;
+    m[2][3] = delta.z;
+    m
+}
+
+fn matrix_scale(scale: RgmVec3) -> [[f64; 4]; 4] {
+    [
+        [scale.x, 0.0, 0.0, 0.0],
+        [0.0, scale.y, 0.0, 0.0],
+        [0.0, 0.0, scale.z, 0.0],
+        [0.0, 0.0, 0.0, 1.0],
+    ]
+}
+
+fn matrix_rotation(axis: RgmVec3, angle_rad: f64) -> Result<[[f64; 4]; 4], RgmStatus> {
+    let unit = vec_normalize(axis).ok_or(RgmStatus::InvalidInput)?;
+    let c = angle_rad.cos();
+    let s = angle_rad.sin();
+    let t = 1.0 - c;
+    let x = unit.x;
+    let y = unit.y;
+    let z = unit.z;
+    Ok([
+        [t * x * x + c, t * x * y - s * z, t * x * z + s * y, 0.0],
+        [t * x * y + s * z, t * y * y + c, t * y * z - s * x, 0.0],
+        [t * x * z - s * y, t * y * z + s * x, t * z * z + c, 0.0],
+        [0.0, 0.0, 0.0, 1.0],
+    ])
+}
+
+fn matrix_about_pivot(transform: [[f64; 4]; 4], pivot: RgmPoint3) -> [[f64; 4]; 4] {
+    let to_pivot = matrix_translation(RgmVec3 {
+        x: pivot.x,
+        y: pivot.y,
+        z: pivot.z,
+    });
+    let from_pivot = matrix_translation(RgmVec3 {
+        x: -pivot.x,
+        y: -pivot.y,
+        z: -pivot.z,
+    });
+    matrix_mul(to_pivot, matrix_mul(transform, from_pivot))
+}
+
+fn matrix_apply_point(matrix: [[f64; 4]; 4], point: RgmPoint3) -> RgmPoint3 {
+    RgmPoint3 {
+        x: matrix[0][0] * point.x + matrix[0][1] * point.y + matrix[0][2] * point.z + matrix[0][3],
+        y: matrix[1][0] * point.x + matrix[1][1] * point.y + matrix[1][2] * point.z + matrix[1][3],
+        z: matrix[2][0] * point.x + matrix[2][1] * point.y + matrix[2][2] * point.z + matrix[2][3],
     }
 }
 
@@ -1313,6 +1412,15 @@ fn find_curve<'a>(
 ) -> Result<&'a CurveData, RgmStatus> {
     match state.objects.get(&object.0) {
         Some(GeometryObject::Curve(curve)) => Ok(curve),
+        Some(_) => Err(RgmStatus::InvalidInput),
+        None => Err(RgmStatus::NotFound),
+    }
+}
+
+fn find_mesh<'a>(state: &'a SessionState, object: RgmObjectHandle) -> Result<&'a MeshData, RgmStatus> {
+    match state.objects.get(&object.0) {
+        Some(GeometryObject::Mesh(mesh)) => Ok(mesh),
+        Some(_) => Err(RgmStatus::InvalidInput),
         None => Err(RgmStatus::NotFound),
     }
 }
@@ -1519,6 +1627,548 @@ fn insert_curve(state: &mut SessionState, curve: CurveData) -> RgmObjectHandle {
     RgmObjectHandle(object_id)
 }
 
+fn insert_mesh(state: &mut SessionState, mesh: MeshData) -> RgmObjectHandle {
+    let object_id = NEXT_OBJECT_ID.fetch_add(1, Ordering::Relaxed);
+    state.objects.insert(object_id, GeometryObject::Mesh(mesh));
+    RgmObjectHandle(object_id)
+}
+
+fn mesh_world_vertices(mesh: &MeshData) -> Vec<RgmPoint3> {
+    mesh.vertices
+        .iter()
+        .copied()
+        .map(|point| matrix_apply_point(mesh.transform, point))
+        .collect()
+}
+
+fn build_mesh_from_indexed(
+    vertices: &[RgmPoint3],
+    flat_indices: &[u32],
+) -> Result<MeshData, RgmStatus> {
+    if vertices.len() < 3 || flat_indices.len() < 3 || flat_indices.len() % 3 != 0 {
+        return Err(RgmStatus::InvalidInput);
+    }
+
+    let mut triangles = Vec::with_capacity(flat_indices.len() / 3);
+    for tri in flat_indices.chunks_exact(3) {
+        if tri[0] as usize >= vertices.len()
+            || tri[1] as usize >= vertices.len()
+            || tri[2] as usize >= vertices.len()
+        {
+            return Err(RgmStatus::OutOfRange);
+        }
+        triangles.push([tri[0], tri[1], tri[2]]);
+    }
+
+    if triangles.is_empty() {
+        return Err(RgmStatus::InvalidInput);
+    }
+
+    Ok(MeshData {
+        vertices: vertices.to_vec(),
+        triangles,
+        transform: matrix_identity(),
+    })
+}
+
+fn build_box_mesh(center: RgmPoint3, size: RgmVec3) -> Result<MeshData, RgmStatus> {
+    if size.x <= 0.0 || size.y <= 0.0 || size.z <= 0.0 {
+        return Err(RgmStatus::InvalidInput);
+    }
+
+    let hx = size.x * 0.5;
+    let hy = size.y * 0.5;
+    let hz = size.z * 0.5;
+    let vertices = vec![
+        RgmPoint3 {
+            x: center.x - hx,
+            y: center.y - hy,
+            z: center.z - hz,
+        },
+        RgmPoint3 {
+            x: center.x + hx,
+            y: center.y - hy,
+            z: center.z - hz,
+        },
+        RgmPoint3 {
+            x: center.x + hx,
+            y: center.y + hy,
+            z: center.z - hz,
+        },
+        RgmPoint3 {
+            x: center.x - hx,
+            y: center.y + hy,
+            z: center.z - hz,
+        },
+        RgmPoint3 {
+            x: center.x - hx,
+            y: center.y - hy,
+            z: center.z + hz,
+        },
+        RgmPoint3 {
+            x: center.x + hx,
+            y: center.y - hy,
+            z: center.z + hz,
+        },
+        RgmPoint3 {
+            x: center.x + hx,
+            y: center.y + hy,
+            z: center.z + hz,
+        },
+        RgmPoint3 {
+            x: center.x - hx,
+            y: center.y + hy,
+            z: center.z + hz,
+        },
+    ];
+    let flat_indices: [u32; 36] = [
+        0, 2, 1, 0, 3, 2, 4, 5, 6, 4, 6, 7, 0, 1, 5, 0, 5, 4, 1, 2, 6, 1, 6, 5, 2, 3, 7, 2, 7,
+        6, 3, 0, 4, 3, 4, 7,
+    ];
+    build_mesh_from_indexed(&vertices, &flat_indices)
+}
+
+fn build_uv_sphere_mesh(
+    center: RgmPoint3,
+    radius: f64,
+    u_steps: u32,
+    v_steps: u32,
+) -> Result<MeshData, RgmStatus> {
+    if radius <= 0.0 || u_steps < 8 || v_steps < 4 {
+        return Err(RgmStatus::InvalidInput);
+    }
+    let u_steps = u_steps as usize;
+    let v_steps = v_steps as usize;
+    let mut vertices = Vec::with_capacity((u_steps + 1) * (v_steps + 1));
+    for v in 0..=v_steps {
+        let vv = v as f64 / v_steps as f64;
+        let phi = std::f64::consts::PI * vv;
+        let sin_phi = phi.sin();
+        let cos_phi = phi.cos();
+        for u in 0..=u_steps {
+            let uu = u as f64 / u_steps as f64;
+            let theta = 2.0 * std::f64::consts::PI * uu;
+            let x = radius * theta.cos() * sin_phi;
+            let y = radius * theta.sin() * sin_phi;
+            let z = radius * cos_phi;
+            vertices.push(RgmPoint3 {
+                x: center.x + x,
+                y: center.y + y,
+                z: center.z + z,
+            });
+        }
+    }
+
+    let ring = u_steps + 1;
+    let mut indices = Vec::with_capacity(u_steps * v_steps * 6);
+    for v in 0..v_steps {
+        for u in 0..u_steps {
+            let a = (v * ring + u) as u32;
+            let b = a + 1;
+            let c = ((v + 1) * ring + u) as u32;
+            let d = c + 1;
+            if v != 0 {
+                indices.extend_from_slice(&[a, c, b]);
+            }
+            if v != v_steps - 1 {
+                indices.extend_from_slice(&[b, c, d]);
+            }
+        }
+    }
+
+    build_mesh_from_indexed(&vertices, &indices)
+}
+
+fn build_torus_mesh(
+    center: RgmPoint3,
+    major_radius: f64,
+    minor_radius: f64,
+    major_steps: u32,
+    minor_steps: u32,
+) -> Result<MeshData, RgmStatus> {
+    if major_radius <= 0.0 || minor_radius <= 0.0 || major_steps < 8 || minor_steps < 6 {
+        return Err(RgmStatus::InvalidInput);
+    }
+
+    let major_steps = major_steps as usize;
+    let minor_steps = minor_steps as usize;
+    let mut vertices = Vec::with_capacity(major_steps * minor_steps);
+    for i in 0..major_steps {
+        let u = i as f64 / major_steps as f64;
+        let theta = 2.0 * std::f64::consts::PI * u;
+        let cos_t = theta.cos();
+        let sin_t = theta.sin();
+        for j in 0..minor_steps {
+            let v = j as f64 / minor_steps as f64;
+            let phi = 2.0 * std::f64::consts::PI * v;
+            let cos_p = phi.cos();
+            let sin_p = phi.sin();
+            let r = major_radius + minor_radius * cos_p;
+            vertices.push(RgmPoint3 {
+                x: center.x + r * cos_t,
+                y: center.y + r * sin_t,
+                z: center.z + minor_radius * sin_p,
+            });
+        }
+    }
+
+    let idx = |i: usize, j: usize| -> u32 { ((i % major_steps) * minor_steps + (j % minor_steps)) as u32 };
+    let mut indices = Vec::with_capacity(major_steps * minor_steps * 6);
+    for i in 0..major_steps {
+        for j in 0..minor_steps {
+            let a = idx(i, j);
+            let b = idx(i + 1, j);
+            let c = idx(i, j + 1);
+            let d = idx(i + 1, j + 1);
+            indices.extend_from_slice(&[a, b, c, c, b, d]);
+        }
+    }
+    build_mesh_from_indexed(&vertices, &indices)
+}
+
+fn mesh_copy_vertices_world(
+    mesh: &MeshData,
+    out_vertices: *mut RgmPoint3,
+    vertex_capacity: u32,
+    out_count: *mut u32,
+) -> Result<(), RgmStatus> {
+    let points = mesh_world_vertices(mesh);
+    write_intersection_points(out_vertices, vertex_capacity, &points, out_count)
+}
+
+fn mesh_copy_indices(
+    mesh: &MeshData,
+    out_indices: *mut u32,
+    index_capacity: u32,
+    out_count: *mut u32,
+) -> Result<(), RgmStatus> {
+    if out_count.is_null() {
+        return Err(RgmStatus::InvalidInput);
+    }
+    let flat_count = mesh.triangles.len().saturating_mul(3);
+    // SAFETY: out_count validated above.
+    unsafe {
+        *out_count = flat_count.try_into().unwrap_or(u32::MAX);
+    }
+
+    if index_capacity == 0 {
+        return Ok(());
+    }
+    if out_indices.is_null() {
+        return Err(RgmStatus::InvalidInput);
+    }
+    let copy_count = flat_count.min(index_capacity as usize);
+    for idx in 0..copy_count {
+        let tri = idx / 3;
+        let lane = idx % 3;
+        // SAFETY: out_indices has capacity guaranteed by caller.
+        unsafe {
+            *out_indices.add(idx) = mesh.triangles[tri][lane];
+        }
+    }
+    Ok(())
+}
+
+fn plane_unit_normal(plane: RgmPlane) -> Option<RgmVec3> {
+    vec_normalize(plane.z_axis).or_else(|| vec_normalize(vec_cross(plane.x_axis, plane.y_axis)))
+}
+
+fn push_unique_point(points: &mut Vec<RgmPoint3>, candidate: RgmPoint3, tol: f64) {
+    if points.iter().any(|point| distance(*point, candidate) <= tol) {
+        return;
+    }
+    points.push(candidate);
+}
+
+fn intersect_triangle_plane_segment(
+    a: RgmPoint3,
+    b: RgmPoint3,
+    c: RgmPoint3,
+    plane_origin: RgmPoint3,
+    plane_normal: RgmVec3,
+    tol: f64,
+) -> Option<(RgmPoint3, RgmPoint3)> {
+    let d0 = vec_dot(point_sub(a, plane_origin), plane_normal);
+    let d1 = vec_dot(point_sub(b, plane_origin), plane_normal);
+    let d2 = vec_dot(point_sub(c, plane_origin), plane_normal);
+    if d0.abs() <= tol && d1.abs() <= tol && d2.abs() <= tol {
+        return None;
+    }
+
+    let mut points = Vec::new();
+    let mut edge_hit = |p0: RgmPoint3, p1: RgmPoint3, s0: f64, s1: f64| {
+        if s0.abs() <= tol {
+            push_unique_point(&mut points, p0, tol);
+        }
+        if s1.abs() <= tol {
+            push_unique_point(&mut points, p1, tol);
+        }
+        if (s0 > tol && s1 < -tol) || (s0 < -tol && s1 > tol) {
+            let t = s0 / (s0 - s1);
+            let segment = point_sub(p1, p0);
+            let hit = point_add_vec(p0, vec_scale(segment, t));
+            push_unique_point(&mut points, hit, tol);
+        }
+    };
+
+    edge_hit(a, b, d0, d1);
+    edge_hit(b, c, d1, d2);
+    edge_hit(c, a, d2, d0);
+
+    if points.len() < 2 {
+        return None;
+    }
+
+    let mut best = (points[0], points[1]);
+    let mut best_len = distance(points[0], points[1]);
+    for i in 0..points.len() {
+        for j in (i + 1)..points.len() {
+            let len = distance(points[i], points[j]);
+            if len > best_len {
+                best_len = len;
+                best = (points[i], points[j]);
+            }
+        }
+    }
+    if best_len <= tol {
+        None
+    } else {
+        Some(best)
+    }
+}
+
+fn triangle_aabb(points: [RgmPoint3; 3]) -> (RgmPoint3, RgmPoint3) {
+    let mut min = points[0];
+    let mut max = points[0];
+    for point in points.iter().skip(1) {
+        min.x = min.x.min(point.x);
+        min.y = min.y.min(point.y);
+        min.z = min.z.min(point.z);
+        max.x = max.x.max(point.x);
+        max.y = max.y.max(point.y);
+        max.z = max.z.max(point.z);
+    }
+    (min, max)
+}
+
+#[derive(Clone, Copy, Debug)]
+struct TriangleRecord {
+    points: [RgmPoint3; 3],
+    min: RgmPoint3,
+    max: RgmPoint3,
+}
+
+impl TriangleRecord {
+    fn from_mesh(vertices: &[RgmPoint3], tri: [u32; 3]) -> Self {
+        let points = [
+            vertices[tri[0] as usize],
+            vertices[tri[1] as usize],
+            vertices[tri[2] as usize],
+        ];
+        let (min, max) = triangle_aabb(points);
+        Self { points, min, max }
+    }
+}
+
+struct TriangleGrid {
+    min: RgmPoint3,
+    inv_cell: RgmVec3,
+    dims: [i32; 3],
+    cells: HashMap<(i32, i32, i32), Vec<usize>>,
+}
+
+impl TriangleGrid {
+    fn build(records: &[TriangleRecord]) -> Option<Self> {
+        if records.is_empty() {
+            return None;
+        }
+
+        let mut grid_min = records[0].min;
+        let mut grid_max = records[0].max;
+        for record in records.iter().skip(1) {
+            grid_min.x = grid_min.x.min(record.min.x);
+            grid_min.y = grid_min.y.min(record.min.y);
+            grid_min.z = grid_min.z.min(record.min.z);
+            grid_max.x = grid_max.x.max(record.max.x);
+            grid_max.y = grid_max.y.max(record.max.y);
+            grid_max.z = grid_max.z.max(record.max.z);
+        }
+
+        let extent = [
+            (grid_max.x - grid_min.x).max(1e-9),
+            (grid_max.y - grid_min.y).max(1e-9),
+            (grid_max.z - grid_min.z).max(1e-9),
+        ];
+        let max_extent = extent[0].max(extent[1]).max(extent[2]).max(1e-9);
+        let base_res = ((records.len() as f64).cbrt().round() as i32).clamp(6, 48);
+        let dims = [
+            ((extent[0] / max_extent * base_res as f64).round() as i32).clamp(1, base_res * 2),
+            ((extent[1] / max_extent * base_res as f64).round() as i32).clamp(1, base_res * 2),
+            ((extent[2] / max_extent * base_res as f64).round() as i32).clamp(1, base_res * 2),
+        ];
+        let inv_cell = RgmVec3 {
+            x: dims[0] as f64 / extent[0],
+            y: dims[1] as f64 / extent[1],
+            z: dims[2] as f64 / extent[2],
+        };
+
+        let mut cells: HashMap<(i32, i32, i32), Vec<usize>> = HashMap::new();
+        for (tri_idx, record) in records.iter().enumerate() {
+            let min_idx = Self::coord(record.min, grid_min, inv_cell, dims);
+            let max_idx = Self::coord(record.max, grid_min, inv_cell, dims);
+            for ix in min_idx[0]..=max_idx[0] {
+                for iy in min_idx[1]..=max_idx[1] {
+                    for iz in min_idx[2]..=max_idx[2] {
+                        cells.entry((ix, iy, iz)).or_default().push(tri_idx);
+                    }
+                }
+            }
+        }
+
+        Some(Self {
+            min: grid_min,
+            inv_cell,
+            dims,
+            cells,
+        })
+    }
+
+    fn coord(point: RgmPoint3, min: RgmPoint3, inv_cell: RgmVec3, dims: [i32; 3]) -> [i32; 3] {
+        let x = ((point.x - min.x) * inv_cell.x).floor() as i32;
+        let y = ((point.y - min.y) * inv_cell.y).floor() as i32;
+        let z = ((point.z - min.z) * inv_cell.z).floor() as i32;
+        [
+            x.clamp(0, dims[0] - 1),
+            y.clamp(0, dims[1] - 1),
+            z.clamp(0, dims[2] - 1),
+        ]
+    }
+
+    fn collect_candidates(
+        &self,
+        min: RgmPoint3,
+        max: RgmPoint3,
+        marks: &mut [u32],
+        stamp: &mut u32,
+        out: &mut Vec<usize>,
+    ) {
+        out.clear();
+        if *stamp == u32::MAX {
+            marks.fill(0);
+            *stamp = 1;
+        }
+        *stamp += 1;
+        let marker = *stamp;
+
+        let min_idx = Self::coord(min, self.min, self.inv_cell, self.dims);
+        let max_idx = Self::coord(max, self.min, self.inv_cell, self.dims);
+        for ix in min_idx[0]..=max_idx[0] {
+            for iy in min_idx[1]..=max_idx[1] {
+                for iz in min_idx[2]..=max_idx[2] {
+                    let Some(triangles) = self.cells.get(&(ix, iy, iz)) else {
+                        continue;
+                    };
+                    for &tri_idx in triangles {
+                        if marks[tri_idx] == marker {
+                            continue;
+                        }
+                        marks[tri_idx] = marker;
+                        out.push(tri_idx);
+                    }
+                }
+            }
+        }
+    }
+}
+
+fn aabb_overlap(a_min: RgmPoint3, a_max: RgmPoint3, b_min: RgmPoint3, b_max: RgmPoint3, tol: f64) -> bool {
+    !(a_max.x < b_min.x - tol
+        || b_max.x < a_min.x - tol
+        || a_max.y < b_min.y - tol
+        || b_max.y < a_min.y - tol
+        || a_max.z < b_min.z - tol
+        || b_max.z < a_min.z - tol)
+}
+
+fn segment_triangle_intersection(
+    p0: RgmPoint3,
+    p1: RgmPoint3,
+    t0: RgmPoint3,
+    t1: RgmPoint3,
+    t2: RgmPoint3,
+    tol: f64,
+) -> Option<RgmPoint3> {
+    let dir = point_sub(p1, p0);
+    let edge1 = point_sub(t1, t0);
+    let edge2 = point_sub(t2, t0);
+    let pvec = vec_cross(dir, edge2);
+    let det = vec_dot(edge1, pvec);
+    if det.abs() <= tol {
+        return None;
+    }
+    let inv_det = 1.0 / det;
+    let tvec = point_sub(p0, t0);
+    let u = vec_dot(tvec, pvec) * inv_det;
+    if u < -tol || u > 1.0 + tol {
+        return None;
+    }
+    let qvec = vec_cross(tvec, edge1);
+    let v = vec_dot(dir, qvec) * inv_det;
+    if v < -tol || u + v > 1.0 + tol {
+        return None;
+    }
+    let t = vec_dot(edge2, qvec) * inv_det;
+    if t < -tol || t > 1.0 + tol {
+        return None;
+    }
+
+    Some(point_add_vec(p0, vec_scale(dir, t)))
+}
+
+fn tri_tri_intersection_segment(
+    a0: RgmPoint3,
+    a1: RgmPoint3,
+    a2: RgmPoint3,
+    b0: RgmPoint3,
+    b1: RgmPoint3,
+    b2: RgmPoint3,
+    tol: f64,
+) -> Option<(RgmPoint3, RgmPoint3)> {
+    let mut points = Vec::new();
+    let mut collect = |hit: Option<RgmPoint3>| {
+        if let Some(point) = hit {
+            push_unique_point(&mut points, point, tol * 4.0);
+        }
+    };
+
+    collect(segment_triangle_intersection(a0, a1, b0, b1, b2, tol));
+    collect(segment_triangle_intersection(a1, a2, b0, b1, b2, tol));
+    collect(segment_triangle_intersection(a2, a0, b0, b1, b2, tol));
+    collect(segment_triangle_intersection(b0, b1, a0, a1, a2, tol));
+    collect(segment_triangle_intersection(b1, b2, a0, a1, a2, tol));
+    collect(segment_triangle_intersection(b2, b0, a0, a1, a2, tol));
+
+    if points.len() < 2 {
+        return None;
+    }
+    let mut best = (points[0], points[1]);
+    let mut best_len = distance(points[0], points[1]);
+    for i in 0..points.len() {
+        for j in (i + 1)..points.len() {
+            let len = distance(points[i], points[j]);
+            if len > best_len {
+                best_len = len;
+                best = (points[i], points[j]);
+            }
+        }
+    }
+    if best_len <= tol {
+        None
+    } else {
+        Some(best)
+    }
+}
+
 fn rgm_nurbs_interpolate_fit_points_impl(
     session: RgmKernelHandle,
     points: *const RgmPoint3,
@@ -1594,6 +2244,226 @@ fn create_curve_object(
         }
         Err(status) => map_err_with_session(session, status, message),
     }
+}
+
+fn create_mesh_object(
+    session: RgmKernelHandle,
+    out_object: *mut RgmObjectHandle,
+    build: impl FnOnce(&SessionState) -> Result<MeshData, RgmStatus>,
+    message: &str,
+) -> RgmStatus {
+    if out_object.is_null() {
+        return map_err_with_session(session, RgmStatus::InvalidInput, "Null out_object pointer");
+    }
+
+    let result = with_session_mut(session, |state| {
+        let mesh = build(state)?;
+        let handle = insert_mesh(state, mesh);
+        write_object_handle(out_object, handle)
+    });
+
+    match result {
+        Ok(()) => {
+            clear_error(session.0);
+            RgmStatus::Ok
+        }
+        Err(status) => map_err_with_session(session, status, message),
+    }
+}
+
+fn rgm_mesh_create_indexed_impl(
+    session: RgmKernelHandle,
+    vertices: *const RgmPoint3,
+    vertex_count: usize,
+    indices: *const u32,
+    index_count: usize,
+    out_object: *mut RgmObjectHandle,
+) -> RgmStatus {
+    if vertices.is_null() || indices.is_null() {
+        return map_err_with_session(session, RgmStatus::InvalidInput, "Null mesh buffer pointer");
+    }
+
+    // SAFETY: pointers and lengths come from caller.
+    let vertices = unsafe { std::slice::from_raw_parts(vertices, vertex_count) };
+    // SAFETY: pointers and lengths come from caller.
+    let indices = unsafe { std::slice::from_raw_parts(indices, index_count) };
+
+    create_mesh_object(
+        session,
+        out_object,
+        |_| build_mesh_from_indexed(vertices, indices),
+        "Mesh construction failed",
+    )
+}
+
+fn rgm_mesh_create_box_impl(
+    session: RgmKernelHandle,
+    center: RgmPoint3,
+    size: RgmVec3,
+    out_object: *mut RgmObjectHandle,
+) -> RgmStatus {
+    create_mesh_object(
+        session,
+        out_object,
+        |_| build_box_mesh(center, size),
+        "Mesh box construction failed",
+    )
+}
+
+fn rgm_mesh_create_uv_sphere_impl(
+    session: RgmKernelHandle,
+    center: RgmPoint3,
+    radius: f64,
+    u_steps: u32,
+    v_steps: u32,
+    out_object: *mut RgmObjectHandle,
+) -> RgmStatus {
+    create_mesh_object(
+        session,
+        out_object,
+        |_| build_uv_sphere_mesh(center, radius, u_steps, v_steps),
+        "Mesh UV sphere construction failed",
+    )
+}
+
+fn rgm_mesh_create_torus_impl(
+    session: RgmKernelHandle,
+    center: RgmPoint3,
+    major_radius: f64,
+    minor_radius: f64,
+    major_steps: u32,
+    minor_steps: u32,
+    out_object: *mut RgmObjectHandle,
+) -> RgmStatus {
+    create_mesh_object(
+        session,
+        out_object,
+        |_| build_torus_mesh(center, major_radius, minor_radius, major_steps, minor_steps),
+        "Mesh torus construction failed",
+    )
+}
+
+fn rgm_mesh_transform_impl(
+    session: RgmKernelHandle,
+    mesh: RgmObjectHandle,
+    transform: [[f64; 4]; 4],
+    out_object: *mut RgmObjectHandle,
+    message: &str,
+) -> RgmStatus {
+    create_mesh_object(
+        session,
+        out_object,
+        |state| {
+            let source = find_mesh(state, mesh)?;
+            let mut next = source.clone();
+            next.transform = matrix_mul(transform, source.transform);
+            Ok(next)
+        },
+        message,
+    )
+}
+
+fn rgm_mesh_bake_transform_impl(
+    session: RgmKernelHandle,
+    mesh: RgmObjectHandle,
+    out_object: *mut RgmObjectHandle,
+) -> RgmStatus {
+    create_mesh_object(
+        session,
+        out_object,
+        |state| {
+            let source = find_mesh(state, mesh)?;
+            let vertices = mesh_world_vertices(source);
+            Ok(MeshData {
+                vertices,
+                triangles: source.triangles.clone(),
+                transform: matrix_identity(),
+            })
+        },
+        "Mesh bake transform failed",
+    )
+}
+
+fn rgm_mesh_boolean_impl(
+    session: RgmKernelHandle,
+    mesh_a: RgmObjectHandle,
+    mesh_b: RgmObjectHandle,
+    op: i32,
+    out_object: *mut RgmObjectHandle,
+) -> RgmStatus {
+    create_mesh_object(
+        session,
+        out_object,
+        |state| {
+            let a = find_mesh(state, mesh_a)?;
+            let b = find_mesh(state, mesh_b)?;
+            let a_vertices = mesh_world_vertices(a);
+            let b_vertices = mesh_world_vertices(b);
+            let mut a_pos = Vec::with_capacity(a_vertices.len() * 3);
+            for vertex in &a_vertices {
+                a_pos.push(vertex.x);
+                a_pos.push(vertex.y);
+                a_pos.push(vertex.z);
+            }
+            let mut b_pos = Vec::with_capacity(b_vertices.len() * 3);
+            for vertex in &b_vertices {
+                b_pos.push(vertex.x);
+                b_pos.push(vertex.y);
+                b_pos.push(vertex.z);
+            }
+            let mut a_indices = Vec::with_capacity(a.triangles.len() * 3);
+            for tri in &a.triangles {
+                a_indices.push(tri[0] as usize);
+                a_indices.push(tri[1] as usize);
+                a_indices.push(tri[2] as usize);
+            }
+            let mut b_indices = Vec::with_capacity(b.triangles.len() * 3);
+            for tri in &b.triangles {
+                b_indices.push(tri[0] as usize);
+                b_indices.push(tri[1] as usize);
+                b_indices.push(tri[2] as usize);
+            }
+
+            let manifold_a = Manifold::new(&a_pos, &a_indices).map_err(|_| RgmStatus::DegenerateGeometry)?;
+            let manifold_b = Manifold::new(&b_pos, &b_indices).map_err(|_| RgmStatus::DegenerateGeometry)?;
+            let op = match op {
+                0 => BoolOpType::Add,
+                1 => BoolOpType::Intersect,
+                2 => BoolOpType::Subtract,
+                _ => return Err(RgmStatus::InvalidInput),
+            };
+            let result = compute_boolean(&manifold_a, &manifold_b, op)
+                .map_err(|_| RgmStatus::NumericalFailure)?;
+
+            let out_vertices = result
+                .ps
+                .iter()
+                .map(|vertex| RgmPoint3 {
+                    x: vertex.x as f64,
+                    y: vertex.y as f64,
+                    z: vertex.z as f64,
+                })
+                .collect::<Vec<_>>();
+            let out_triangles = result
+                .get_indices()
+                .iter()
+                .map(|tri| {
+                    Ok([
+                        u32::try_from(tri.x).map_err(|_| RgmStatus::OutOfRange)?,
+                        u32::try_from(tri.y).map_err(|_| RgmStatus::OutOfRange)?,
+                        u32::try_from(tri.z).map_err(|_| RgmStatus::OutOfRange)?,
+                    ])
+                })
+                .collect::<Result<Vec<[u32; 3]>, RgmStatus>>()?;
+
+            Ok(MeshData {
+                vertices: out_vertices,
+                triangles: out_triangles,
+                transform: matrix_identity(),
+            })
+        },
+        "Mesh boolean failed",
+    )
 }
 
 fn rgm_curve_create_line_impl(
@@ -2415,6 +3285,619 @@ pub extern "C" fn rgm_curve_create_polycurve_ptr_tol(
     rgm_curve_create_polycurve_impl(session, segments, segment_count, out_object)
 }
 
+#[rgm_export]
+#[no_mangle]
+pub extern "C" fn rgm_mesh_create_indexed(
+    session: RgmKernelHandle,
+    vertices: *const RgmPoint3,
+    vertex_count: usize,
+    indices: *const u32,
+    index_count: usize,
+    out_object: *mut RgmObjectHandle,
+) -> RgmStatus {
+    rgm_mesh_create_indexed_impl(
+        session,
+        vertices,
+        vertex_count,
+        indices,
+        index_count,
+        out_object,
+    )
+}
+
+#[rgm_export]
+#[no_mangle]
+#[cfg(not(target_arch = "wasm32"))]
+pub extern "C" fn rgm_mesh_create_box(
+    session: RgmKernelHandle,
+    center: RgmPoint3,
+    size: RgmVec3,
+    out_object: *mut RgmObjectHandle,
+) -> RgmStatus {
+    rgm_mesh_create_box_impl(session, center, size, out_object)
+}
+
+#[cfg(target_arch = "wasm32")]
+#[no_mangle]
+pub extern "C" fn rgm_mesh_create_box(
+    session: RgmKernelHandle,
+    center: *const RgmPoint3,
+    size: *const RgmVec3,
+    out_object: *mut RgmObjectHandle,
+) -> RgmStatus {
+    if center.is_null() || size.is_null() {
+        return map_err_with_session(session, RgmStatus::InvalidInput, "Null mesh box pointer");
+    }
+    // SAFETY: pointers validated above.
+    rgm_mesh_create_box_impl(session, unsafe { *center }, unsafe { *size }, out_object)
+}
+
+#[rgm_export]
+#[no_mangle]
+pub extern "C" fn rgm_mesh_create_box_ptr(
+    session: RgmKernelHandle,
+    center: *const RgmPoint3,
+    size: *const RgmVec3,
+    out_object: *mut RgmObjectHandle,
+) -> RgmStatus {
+    if center.is_null() || size.is_null() {
+        return map_err_with_session(session, RgmStatus::InvalidInput, "Null mesh box pointer");
+    }
+    // SAFETY: pointers validated above.
+    rgm_mesh_create_box_impl(session, unsafe { *center }, unsafe { *size }, out_object)
+}
+
+#[rgm_export]
+#[no_mangle]
+#[cfg(not(target_arch = "wasm32"))]
+pub extern "C" fn rgm_mesh_create_uv_sphere(
+    session: RgmKernelHandle,
+    center: RgmPoint3,
+    radius: f64,
+    u_steps: u32,
+    v_steps: u32,
+    out_object: *mut RgmObjectHandle,
+) -> RgmStatus {
+    rgm_mesh_create_uv_sphere_impl(session, center, radius, u_steps, v_steps, out_object)
+}
+
+#[cfg(target_arch = "wasm32")]
+#[no_mangle]
+pub extern "C" fn rgm_mesh_create_uv_sphere(
+    session: RgmKernelHandle,
+    center: *const RgmPoint3,
+    radius: f64,
+    u_steps: u32,
+    v_steps: u32,
+    out_object: *mut RgmObjectHandle,
+) -> RgmStatus {
+    if center.is_null() {
+        return map_err_with_session(
+            session,
+            RgmStatus::InvalidInput,
+            "Null mesh UV sphere center pointer",
+        );
+    }
+    // SAFETY: pointer validated above.
+    rgm_mesh_create_uv_sphere_impl(
+        session,
+        unsafe { *center },
+        radius,
+        u_steps,
+        v_steps,
+        out_object,
+    )
+}
+
+#[rgm_export]
+#[no_mangle]
+pub extern "C" fn rgm_mesh_create_uv_sphere_ptr(
+    session: RgmKernelHandle,
+    center: *const RgmPoint3,
+    radius: f64,
+    u_steps: u32,
+    v_steps: u32,
+    out_object: *mut RgmObjectHandle,
+) -> RgmStatus {
+    if center.is_null() {
+        return map_err_with_session(
+            session,
+            RgmStatus::InvalidInput,
+            "Null mesh UV sphere center pointer",
+        );
+    }
+    // SAFETY: pointer validated above.
+    rgm_mesh_create_uv_sphere_impl(
+        session,
+        unsafe { *center },
+        radius,
+        u_steps,
+        v_steps,
+        out_object,
+    )
+}
+
+#[rgm_export]
+#[no_mangle]
+#[cfg(not(target_arch = "wasm32"))]
+pub extern "C" fn rgm_mesh_create_torus(
+    session: RgmKernelHandle,
+    center: RgmPoint3,
+    major_radius: f64,
+    minor_radius: f64,
+    major_steps: u32,
+    minor_steps: u32,
+    out_object: *mut RgmObjectHandle,
+) -> RgmStatus {
+    rgm_mesh_create_torus_impl(
+        session,
+        center,
+        major_radius,
+        minor_radius,
+        major_steps,
+        minor_steps,
+        out_object,
+    )
+}
+
+#[cfg(target_arch = "wasm32")]
+#[no_mangle]
+pub extern "C" fn rgm_mesh_create_torus(
+    session: RgmKernelHandle,
+    center: *const RgmPoint3,
+    major_radius: f64,
+    minor_radius: f64,
+    major_steps: u32,
+    minor_steps: u32,
+    out_object: *mut RgmObjectHandle,
+) -> RgmStatus {
+    if center.is_null() {
+        return map_err_with_session(
+            session,
+            RgmStatus::InvalidInput,
+            "Null mesh torus center pointer",
+        );
+    }
+    // SAFETY: pointer validated above.
+    rgm_mesh_create_torus_impl(
+        session,
+        unsafe { *center },
+        major_radius,
+        minor_radius,
+        major_steps,
+        minor_steps,
+        out_object,
+    )
+}
+
+#[rgm_export]
+#[no_mangle]
+pub extern "C" fn rgm_mesh_create_torus_ptr(
+    session: RgmKernelHandle,
+    center: *const RgmPoint3,
+    major_radius: f64,
+    minor_radius: f64,
+    major_steps: u32,
+    minor_steps: u32,
+    out_object: *mut RgmObjectHandle,
+) -> RgmStatus {
+    if center.is_null() {
+        return map_err_with_session(
+            session,
+            RgmStatus::InvalidInput,
+            "Null mesh torus center pointer",
+        );
+    }
+    // SAFETY: pointer validated above.
+    rgm_mesh_create_torus_impl(
+        session,
+        unsafe { *center },
+        major_radius,
+        minor_radius,
+        major_steps,
+        minor_steps,
+        out_object,
+    )
+}
+
+#[rgm_export]
+#[no_mangle]
+#[cfg(not(target_arch = "wasm32"))]
+pub extern "C" fn rgm_mesh_translate(
+    session: RgmKernelHandle,
+    mesh: RgmObjectHandle,
+    delta: RgmVec3,
+    out_mesh: *mut RgmObjectHandle,
+) -> RgmStatus {
+    let transform = matrix_translation(delta);
+    rgm_mesh_transform_impl(session, mesh, transform, out_mesh, "Mesh translation failed")
+}
+
+#[cfg(target_arch = "wasm32")]
+#[no_mangle]
+pub extern "C" fn rgm_mesh_translate(
+    session: RgmKernelHandle,
+    mesh: RgmObjectHandle,
+    delta: *const RgmVec3,
+    out_mesh: *mut RgmObjectHandle,
+) -> RgmStatus {
+    if delta.is_null() {
+        return map_err_with_session(
+            session,
+            RgmStatus::InvalidInput,
+            "Null mesh translation pointer",
+        );
+    }
+    // SAFETY: pointer validated above.
+    let transform = matrix_translation(unsafe { *delta });
+    rgm_mesh_transform_impl(session, mesh, transform, out_mesh, "Mesh translation failed")
+}
+
+#[rgm_export]
+#[no_mangle]
+pub extern "C" fn rgm_mesh_translate_ptr(
+    session: RgmKernelHandle,
+    mesh: RgmObjectHandle,
+    delta: *const RgmVec3,
+    out_mesh: *mut RgmObjectHandle,
+) -> RgmStatus {
+    if delta.is_null() {
+        return map_err_with_session(
+            session,
+            RgmStatus::InvalidInput,
+            "Null mesh translation pointer",
+        );
+    }
+    // SAFETY: pointer validated above.
+    let transform = matrix_translation(unsafe { *delta });
+    rgm_mesh_transform_impl(session, mesh, transform, out_mesh, "Mesh translation failed")
+}
+
+#[rgm_export]
+#[no_mangle]
+#[cfg(not(target_arch = "wasm32"))]
+pub extern "C" fn rgm_mesh_rotate(
+    session: RgmKernelHandle,
+    mesh: RgmObjectHandle,
+    axis: RgmVec3,
+    angle_rad: f64,
+    pivot: RgmPoint3,
+    out_mesh: *mut RgmObjectHandle,
+) -> RgmStatus {
+    let Ok(rotation) = matrix_rotation(axis, angle_rad) else {
+        return map_err_with_session(session, RgmStatus::InvalidInput, "Mesh rotation failed");
+    };
+    let transform = matrix_about_pivot(rotation, pivot);
+    rgm_mesh_transform_impl(session, mesh, transform, out_mesh, "Mesh rotation failed")
+}
+
+#[cfg(target_arch = "wasm32")]
+#[no_mangle]
+pub extern "C" fn rgm_mesh_rotate(
+    session: RgmKernelHandle,
+    mesh: RgmObjectHandle,
+    axis: *const RgmVec3,
+    angle_rad: f64,
+    pivot: *const RgmPoint3,
+    out_mesh: *mut RgmObjectHandle,
+) -> RgmStatus {
+    if axis.is_null() || pivot.is_null() {
+        return map_err_with_session(session, RgmStatus::InvalidInput, "Null mesh rotate pointer");
+    }
+    // SAFETY: pointers validated above.
+    let Ok(rotation) = matrix_rotation(unsafe { *axis }, angle_rad) else {
+        return map_err_with_session(session, RgmStatus::InvalidInput, "Mesh rotation failed");
+    };
+    let transform = matrix_about_pivot(rotation, unsafe { *pivot });
+    rgm_mesh_transform_impl(session, mesh, transform, out_mesh, "Mesh rotation failed")
+}
+
+#[rgm_export]
+#[no_mangle]
+pub extern "C" fn rgm_mesh_rotate_ptr(
+    session: RgmKernelHandle,
+    mesh: RgmObjectHandle,
+    axis: *const RgmVec3,
+    angle_rad: f64,
+    pivot: *const RgmPoint3,
+    out_mesh: *mut RgmObjectHandle,
+) -> RgmStatus {
+    if axis.is_null() || pivot.is_null() {
+        return map_err_with_session(session, RgmStatus::InvalidInput, "Null mesh rotate pointer");
+    }
+    // SAFETY: pointers validated above.
+    let Ok(rotation) = matrix_rotation(unsafe { *axis }, angle_rad) else {
+        return map_err_with_session(session, RgmStatus::InvalidInput, "Mesh rotation failed");
+    };
+    let transform = matrix_about_pivot(rotation, unsafe { *pivot });
+    rgm_mesh_transform_impl(session, mesh, transform, out_mesh, "Mesh rotation failed")
+}
+
+#[rgm_export]
+#[no_mangle]
+#[cfg(not(target_arch = "wasm32"))]
+pub extern "C" fn rgm_mesh_scale(
+    session: RgmKernelHandle,
+    mesh: RgmObjectHandle,
+    scale: RgmVec3,
+    pivot: RgmPoint3,
+    out_mesh: *mut RgmObjectHandle,
+) -> RgmStatus {
+    if scale.x.abs() <= 1e-12 || scale.y.abs() <= 1e-12 || scale.z.abs() <= 1e-12 {
+        return map_err_with_session(session, RgmStatus::DegenerateGeometry, "Zero mesh scale");
+    }
+    let transform = matrix_about_pivot(matrix_scale(scale), pivot);
+    rgm_mesh_transform_impl(session, mesh, transform, out_mesh, "Mesh scale failed")
+}
+
+#[cfg(target_arch = "wasm32")]
+#[no_mangle]
+pub extern "C" fn rgm_mesh_scale(
+    session: RgmKernelHandle,
+    mesh: RgmObjectHandle,
+    scale: *const RgmVec3,
+    pivot: *const RgmPoint3,
+    out_mesh: *mut RgmObjectHandle,
+) -> RgmStatus {
+    if scale.is_null() || pivot.is_null() {
+        return map_err_with_session(session, RgmStatus::InvalidInput, "Null mesh scale pointer");
+    }
+    // SAFETY: pointers validated above.
+    let scale_value = unsafe { *scale };
+    if scale_value.x.abs() <= 1e-12 || scale_value.y.abs() <= 1e-12 || scale_value.z.abs() <= 1e-12 {
+        return map_err_with_session(session, RgmStatus::DegenerateGeometry, "Zero mesh scale");
+    }
+    let transform = matrix_about_pivot(matrix_scale(scale_value), unsafe { *pivot });
+    rgm_mesh_transform_impl(session, mesh, transform, out_mesh, "Mesh scale failed")
+}
+
+#[rgm_export]
+#[no_mangle]
+pub extern "C" fn rgm_mesh_scale_ptr(
+    session: RgmKernelHandle,
+    mesh: RgmObjectHandle,
+    scale: *const RgmVec3,
+    pivot: *const RgmPoint3,
+    out_mesh: *mut RgmObjectHandle,
+) -> RgmStatus {
+    if scale.is_null() || pivot.is_null() {
+        return map_err_with_session(session, RgmStatus::InvalidInput, "Null mesh scale pointer");
+    }
+    // SAFETY: pointers validated above.
+    let scale_value = unsafe { *scale };
+    if scale_value.x.abs() <= 1e-12 || scale_value.y.abs() <= 1e-12 || scale_value.z.abs() <= 1e-12 {
+        return map_err_with_session(session, RgmStatus::DegenerateGeometry, "Zero mesh scale");
+    }
+    let transform = matrix_about_pivot(matrix_scale(scale_value), unsafe { *pivot });
+    rgm_mesh_transform_impl(session, mesh, transform, out_mesh, "Mesh scale failed")
+}
+
+#[rgm_export]
+#[no_mangle]
+pub extern "C" fn rgm_mesh_bake_transform(
+    session: RgmKernelHandle,
+    mesh: RgmObjectHandle,
+    out_mesh: *mut RgmObjectHandle,
+) -> RgmStatus {
+    rgm_mesh_bake_transform_impl(session, mesh, out_mesh)
+}
+
+#[rgm_export]
+#[no_mangle]
+pub extern "C" fn rgm_mesh_vertex_count(
+    session: RgmKernelHandle,
+    mesh: RgmObjectHandle,
+    out_count: *mut u32,
+) -> RgmStatus {
+    let result = with_session_mut(session, |state| {
+        let mesh = find_mesh(state, mesh)?;
+        write_u32(out_count, mesh.vertices.len().try_into().unwrap_or(u32::MAX))
+    });
+    match result {
+        Ok(()) => {
+            clear_error(session.0);
+            RgmStatus::Ok
+        }
+        Err(status) => map_err_with_session(session, status, "Mesh vertex count failed"),
+    }
+}
+
+#[rgm_export]
+#[no_mangle]
+pub extern "C" fn rgm_mesh_triangle_count(
+    session: RgmKernelHandle,
+    mesh: RgmObjectHandle,
+    out_count: *mut u32,
+) -> RgmStatus {
+    let result = with_session_mut(session, |state| {
+        let mesh = find_mesh(state, mesh)?;
+        write_u32(out_count, mesh.triangles.len().try_into().unwrap_or(u32::MAX))
+    });
+    match result {
+        Ok(()) => {
+            clear_error(session.0);
+            RgmStatus::Ok
+        }
+        Err(status) => map_err_with_session(session, status, "Mesh triangle count failed"),
+    }
+}
+
+#[rgm_export]
+#[no_mangle]
+pub extern "C" fn rgm_mesh_copy_vertices(
+    session: RgmKernelHandle,
+    mesh: RgmObjectHandle,
+    out_vertices: *mut RgmPoint3,
+    vertex_capacity: u32,
+    out_count: *mut u32,
+) -> RgmStatus {
+    let result = with_session_mut(session, |state| {
+        let mesh = find_mesh(state, mesh)?;
+        mesh_copy_vertices_world(mesh, out_vertices, vertex_capacity, out_count)
+    });
+    match result {
+        Ok(()) => {
+            clear_error(session.0);
+            RgmStatus::Ok
+        }
+        Err(status) => map_err_with_session(session, status, "Mesh vertex copy failed"),
+    }
+}
+
+#[rgm_export]
+#[no_mangle]
+pub extern "C" fn rgm_mesh_copy_indices(
+    session: RgmKernelHandle,
+    mesh: RgmObjectHandle,
+    out_indices: *mut u32,
+    index_capacity: u32,
+    out_count: *mut u32,
+) -> RgmStatus {
+    let result = with_session_mut(session, |state| {
+        let mesh = find_mesh(state, mesh)?;
+        mesh_copy_indices(mesh, out_indices, index_capacity, out_count)
+    });
+    match result {
+        Ok(()) => {
+            clear_error(session.0);
+            RgmStatus::Ok
+        }
+        Err(status) => map_err_with_session(session, status, "Mesh index copy failed"),
+    }
+}
+
+#[rgm_export]
+#[no_mangle]
+pub extern "C" fn rgm_intersect_mesh_plane(
+    session: RgmKernelHandle,
+    mesh: RgmObjectHandle,
+    plane: *const RgmPlane,
+    out_points: *mut RgmPoint3,
+    point_capacity: u32,
+    out_count: *mut u32,
+) -> RgmStatus {
+    if plane.is_null() {
+        return map_err_with_session(session, RgmStatus::InvalidInput, "Null plane pointer");
+    }
+    if out_count.is_null() {
+        return map_err_with_session(session, RgmStatus::InvalidInput, "Null out_count pointer");
+    }
+    // SAFETY: plane is non-null by guard above.
+    let plane = unsafe { *plane };
+    let Some(normal) = plane_unit_normal(plane) else {
+        return map_err_with_session(session, RgmStatus::InvalidInput, "Invalid plane normal");
+    };
+
+    let result = with_session_mut(session, |state| {
+        let mesh = find_mesh(state, mesh)?;
+        let vertices = mesh_world_vertices(mesh);
+        let mut segments = Vec::new();
+        let tol = 1e-7;
+        for tri in &mesh.triangles {
+            let a = vertices[tri[0] as usize];
+            let b = vertices[tri[1] as usize];
+            let c = vertices[tri[2] as usize];
+            if let Some((p0, p1)) =
+                intersect_triangle_plane_segment(a, b, c, plane.origin, normal, tol)
+            {
+                segments.push(p0);
+                segments.push(p1);
+            }
+        }
+        write_intersection_points(out_points, point_capacity, &segments, out_count)
+    });
+
+    match result {
+        Ok(()) => {
+            clear_error(session.0);
+            RgmStatus::Ok
+        }
+        Err(status) => map_err_with_session(session, status, "Mesh-plane intersection failed"),
+    }
+}
+
+#[rgm_export]
+#[no_mangle]
+pub extern "C" fn rgm_intersect_mesh_mesh(
+    session: RgmKernelHandle,
+    mesh_a: RgmObjectHandle,
+    mesh_b: RgmObjectHandle,
+    out_points: *mut RgmPoint3,
+    point_capacity: u32,
+    out_count: *mut u32,
+) -> RgmStatus {
+    if out_count.is_null() {
+        return map_err_with_session(session, RgmStatus::InvalidInput, "Null out_count pointer");
+    }
+    let result = with_session_mut(session, |state| {
+        let mesh_a = find_mesh(state, mesh_a)?;
+        let mesh_b = find_mesh(state, mesh_b)?;
+        let vertices_a = mesh_world_vertices(mesh_a);
+        let vertices_b = mesh_world_vertices(mesh_b);
+        let tol = 1e-7;
+        let mut segments = Vec::new();
+        let triangles_a = mesh_a
+            .triangles
+            .iter()
+            .map(|tri| TriangleRecord::from_mesh(&vertices_a, *tri))
+            .collect::<Vec<_>>();
+        let triangles_b = mesh_b
+            .triangles
+            .iter()
+            .map(|tri| TriangleRecord::from_mesh(&vertices_b, *tri))
+            .collect::<Vec<_>>();
+
+        let Some(grid) = TriangleGrid::build(&triangles_b) else {
+            return write_intersection_points(out_points, point_capacity, &segments, out_count);
+        };
+        let mut marks = vec![0_u32; triangles_b.len()];
+        let mut stamp = 0_u32;
+        let mut candidates = Vec::<usize>::new();
+
+        for tri_a in &triangles_a {
+            grid.collect_candidates(tri_a.min, tri_a.max, &mut marks, &mut stamp, &mut candidates);
+            for &candidate in &candidates {
+                let tri_b = triangles_b[candidate];
+                if !aabb_overlap(tri_a.min, tri_a.max, tri_b.min, tri_b.max, tol) {
+                    continue;
+                }
+                if let Some((p0, p1)) = tri_tri_intersection_segment(
+                    tri_a.points[0],
+                    tri_a.points[1],
+                    tri_a.points[2],
+                    tri_b.points[0],
+                    tri_b.points[1],
+                    tri_b.points[2],
+                    tol,
+                ) {
+                    segments.push(p0);
+                    segments.push(p1);
+                }
+            }
+        }
+        write_intersection_points(out_points, point_capacity, &segments, out_count)
+    });
+    match result {
+        Ok(()) => {
+            clear_error(session.0);
+            RgmStatus::Ok
+        }
+        Err(status) => map_err_with_session(session, status, "Mesh-mesh intersection failed"),
+    }
+}
+
+#[rgm_export]
+#[no_mangle]
+pub extern "C" fn rgm_mesh_boolean(
+    session: RgmKernelHandle,
+    mesh_a: RgmObjectHandle,
+    mesh_b: RgmObjectHandle,
+    op: i32,
+    out_mesh: *mut RgmObjectHandle,
+) -> RgmStatus {
+    rgm_mesh_boolean_impl(session, mesh_a, mesh_b, op, out_mesh)
+}
+
 fn polycurve_to_nurbs(
     state: &SessionState,
     poly: &PolycurveData,
@@ -3077,6 +4560,7 @@ fn debug_get_curve(session: RgmKernelHandle, object: RgmObjectHandle) -> Option<
     let state = sessions.get(&session.0)?;
     match state.objects.get(&object.0)? {
         GeometryObject::Curve(curve) => Some(curve.clone()),
+        GeometryObject::Mesh(_) => None,
     }
 }
 

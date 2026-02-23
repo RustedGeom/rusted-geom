@@ -83,6 +83,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "boolmesh"
+version = "0.1.9"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0ede2e53d77b54cd1aae2a8641693c4c65b0ecd0d423194ca4ef78278b53313a"
+dependencies = [
+ "glam",
+]
+
+[[package]]
 name = "cfg-if"
 version = "1.0.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -180,6 +189,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "glam"
+version = "0.30.10"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "19fc433e8437a212d1b6f1e68c7824af3aed907da60afa994e7f542d18d12aa9"
+
+[[package]]
 name = "hashbrown"
 version = "0.16.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -226,6 +241,7 @@ dependencies = [
 name = "kernel-ffi"
 version = "4.0.0"
 dependencies = [
+ "boolmesh",
  "kernel-abi-meta",
  "once_cell",
  "serde_json",

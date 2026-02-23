@@ -59,17 +59,21 @@ input {
   position: absolute;
   z-index: 40;
   top: max(0.7rem, env(safe-area-inset-top));
-  left: max(0.7rem, env(safe-area-inset-left));
-  right: max(0.7rem, env(safe-area-inset-right));
+  left: 50%;
   display: flex;
+  justify-content: center;
   align-items: center;
   gap: 0.42rem;
   padding: 0.45rem;
+  width: fit-content;
+  max-width: calc(100vw - 1.4rem);
   border-radius: 16px;
   border: 1px solid var(--line);
-  background: var(--panel);
-  backdrop-filter: blur(18px) saturate(135%);
+  background: var(--panel-strong);
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
   box-shadow: var(--shadow-1);
+  transform: translateX(-50%);
   overflow-x: auto;
 }
 
@@ -97,18 +101,20 @@ input {
   color: var(--ink);
   background: transparent;
   cursor: pointer;
+  touch-action: manipulation;
   transition:
-    background-color 0.2s ease,
-    border-color 0.2s ease,
-    transform 0.16s ease,
-    box-shadow 0.2s ease;
+    background-color 0.12s ease,
+    border-color 0.12s ease;
 }
 
 .tool-btn:hover:not(:disabled) {
-  transform: translateY(-1px);
   border-color: var(--line-strong);
   background: rgba(242, 246, 255, 0.82);
-  box-shadow: 0 6px 14px rgba(36, 53, 81, 0.12);
+}
+
+.tool-btn:active:not(:disabled) {
+  border-color: rgba(41, 72, 125, 0.3);
+  background: rgba(227, 236, 252, 0.9);
 }
 
 .tool-btn:disabled {
@@ -134,23 +140,6 @@ input {
   stroke-linecap: round;
   stroke-linejoin: round;
   pointer-events: none;
-}
-
-.status-pill {
-  flex: 0 0 auto;
-  margin-left: auto;
-  min-width: 180px;
-  max-width: min(30vw, 460px);
-  padding: 0.42rem 0.72rem;
-  border-radius: 10px;
-  border: 1px solid rgba(25, 39, 58, 0.13);
-  background: rgba(248, 250, 255, 0.84);
-  color: var(--ink-soft);
-  font-size: 0.73rem;
-  font-weight: 500;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 .viewer-main {
@@ -291,6 +280,18 @@ input {
   color: #60718a;
 }
 
+.gizmo-mode-row {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.4rem;
+}
+
+.gizmo-mode-row .tool-btn {
+  width: 100%;
+  justify-content: center;
+  min-height: 2rem;
+}
+
 .kernel-console {
   position: absolute;
   z-index: 32;
@@ -416,10 +417,6 @@ input {
     padding: 0.42rem;
   }
 
-  .status-pill {
-    max-width: min(36vw, 360px);
-  }
-
   .inspector-panel {
     max-height: calc(100vh - 5.9rem - max(215px, 28vh));
   }
@@ -435,20 +432,17 @@ input {
     gap: 0.32rem;
     left: max(0.5rem, env(safe-area-inset-left));
     right: max(0.5rem, env(safe-area-inset-right));
+    width: auto;
+    max-width: none;
     top: max(0.5rem, env(safe-area-inset-top));
     padding: 0.36rem;
+    transform: none;
   }
 
   .toolbar-group {
     width: 100%;
     overflow-x: auto;
     justify-content: flex-start;
-  }
-
-  .status-pill {
-    width: 100%;
-    max-width: none;
-    margin-left: 0;
   }
 
   .inspector-panel {

@@ -31,6 +31,18 @@ test.describe("viewer shell", () => {
     await page.getByRole("button", { name: "Clear Logs" }).click();
     await expect(page.locator(".kernel-log")).toHaveCount(0);
     await expect(page.locator(".kernel-console-empty")).toBeVisible();
+
+    const exampleSelect = page.locator(".inspector-field select").first();
+    await exampleSelect.selectOption("meshLarge");
+    await expect(
+      page.locator(".inspector-readout output").filter({ hasText: "Dense Torus Benchmark" }),
+    ).toBeVisible();
+    await exampleSelect.selectOption("meshBoolean");
+    await expect(
+      page
+        .locator(".inspector-readout output")
+        .filter({ hasText: "Boolean Difference (Box - Torus)" }),
+    ).toBeVisible();
   });
 
   test("saves and loads a session json", async ({ page, isMobile }) => {
