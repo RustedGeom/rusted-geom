@@ -7787,6 +7787,113 @@ mod tests {
     }
 
     #[test]
+    fn circle_length_matches_two_pi_r_and_point_at_length_wraps() {
+        let session = create_session();
+        let mut circle = RgmObjectHandle(0);
+
+        let radius = 2.5_f64;
+        assert_eq!(
+            rgm_curve_create_circle(
+                session,
+                RgmCircle3 {
+                    plane: RgmPlane {
+                        origin: RgmPoint3 {
+                            x: 0.0,
+                            y: 0.0,
+                            z: 0.0,
+                        },
+                        x_axis: RgmVec3 {
+                            x: 1.0,
+                            y: 0.0,
+                            z: 0.0,
+                        },
+                        y_axis: RgmVec3 {
+                            x: 0.0,
+                            y: 1.0,
+                            z: 0.0,
+                        },
+                        z_axis: RgmVec3 {
+                            x: 0.0,
+                            y: 0.0,
+                            z: 1.0,
+                        },
+                    },
+                    radius,
+                },
+                tol(),
+                &mut circle as *mut _,
+            ),
+            RgmStatus::Ok
+        );
+
+        let mut total_length = 0.0_f64;
+        assert_eq!(
+            rgm_curve_length(session, circle, &mut total_length as *mut _),
+            RgmStatus::Ok
+        );
+        assert!((total_length - 2.0 * PI * radius).abs() < 1e-7);
+
+        let mut start = RgmPoint3 {
+            x: 0.0,
+            y: 0.0,
+            z: 0.0,
+        };
+        let mut wrapped = start;
+        assert_eq!(
+            rgm_curve_point_at_length(session, circle, 0.0, &mut start as *mut _),
+            RgmStatus::Ok
+        );
+        assert_eq!(
+            rgm_curve_point_at_length(session, circle, total_length, &mut wrapped as *mut _),
+            RgmStatus::Ok
+        );
+        assert!(distance(start, wrapped) < 1e-6);
+
+        assert_eq!(rgm_object_release(session, circle), RgmStatus::Ok);
+        assert_eq!(rgm_kernel_destroy(session), RgmStatus::Ok);
+    }
+
+    #[test]
+    fn circle_constructor_rejects_non_positive_radius() {
+        let session = create_session();
+        let mut circle = RgmObjectHandle(0);
+
+        let status = rgm_curve_create_circle(
+            session,
+            RgmCircle3 {
+                plane: RgmPlane {
+                    origin: RgmPoint3 {
+                        x: 0.0,
+                        y: 0.0,
+                        z: 0.0,
+                    },
+                    x_axis: RgmVec3 {
+                        x: 1.0,
+                        y: 0.0,
+                        z: 0.0,
+                    },
+                    y_axis: RgmVec3 {
+                        x: 0.0,
+                        y: 1.0,
+                        z: 0.0,
+                    },
+                    z_axis: RgmVec3 {
+                        x: 0.0,
+                        y: 0.0,
+                        z: 1.0,
+                    },
+                },
+                radius: 0.0,
+            },
+            tol(),
+            &mut circle as *mut _,
+        );
+
+        assert_eq!(status, RgmStatus::InvalidInput);
+        assert_eq!(rgm_kernel_destroy(session), RgmStatus::Ok);
+    }
+
+    #[test]
     fn arc_constructor_preserves_radius_and_endpoints() {
         let session = create_session();
         let mut arc = RgmObjectHandle(0);
@@ -7873,6 +7980,103 @@ mod tests {
         }
 
         assert_eq!(rgm_object_release(session, arc), RgmStatus::Ok);
+        assert_eq!(rgm_kernel_destroy(session), RgmStatus::Ok);
+    }
+
+    #[test]
+    fn arc_by_3_points_rejects_collinear_input() {
+        let session = create_session();
+        let mut arc = RgmObjectHandle(0);
+
+        let status = rgm_curve_create_arc_by_3_points(
+            session,
+            RgmPoint3 {
+                x: 0.0,
+                y: 0.0,
+                z: 0.0,
+            },
+            RgmPoint3 {
+                x: 1.0,
+                y: 0.0,
+                z: 0.0,
+            },
+            RgmPoint3 {
+                x: 2.0,
+                y: 0.0,
+                z: 0.0,
+            },
+            tol(),
+            &mut arc as *mut _,
+        );
+
+        assert_eq!(status, RgmStatus::InvalidInput);
+        assert_eq!(rgm_kernel_destroy(session), RgmStatus::Ok);
+    }
+
+    #[test]
+    fn closed_interpolated_nurbs_is_periodic_at_domain_ends() {
+        let session = create_session();
+        let mut nurbs = RgmObjectHandle(0);
+        let points = [
+            RgmPoint3 {
+                x: 1.0,
+                y: 0.0,
+                z: 0.0,
+            },
+            RgmPoint3 {
+                x: 0.0,
+                y: 1.0,
+                z: 0.0,
+            },
+            RgmPoint3 {
+                x: -1.0,
+                y: 0.0,
+                z: 0.0,
+            },
+            RgmPoint3 {
+                x: 0.0,
+                y: -1.0,
+                z: 0.0,
+            },
+        ];
+
+        assert_eq!(
+            rgm_nurbs_interpolate_fit_points(
+                session,
+                points.as_ptr(),
+                points.len(),
+                2,
+                true,
+                tol(),
+                &mut nurbs as *mut _,
+            ),
+            RgmStatus::Ok
+        );
+
+        let mut p0 = RgmPoint3 {
+            x: 0.0,
+            y: 0.0,
+            z: 0.0,
+        };
+        let mut p1 = p0;
+        assert_eq!(
+            rgm_curve_point_at(session, nurbs, 0.0, &mut p0 as *mut _),
+            RgmStatus::Ok
+        );
+        assert_eq!(
+            rgm_curve_point_at(session, nurbs, 1.0, &mut p1 as *mut _),
+            RgmStatus::Ok
+        );
+        assert!(distance(p0, p1) < 1e-6);
+
+        let mut total = 0.0_f64;
+        assert_eq!(
+            rgm_curve_length(session, nurbs, &mut total as *mut _),
+            RgmStatus::Ok
+        );
+        assert!(total > 0.0);
+
+        assert_eq!(rgm_object_release(session, nurbs), RgmStatus::Ok);
         assert_eq!(rgm_kernel_destroy(session), RgmStatus::Ok);
     }
 
