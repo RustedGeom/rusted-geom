@@ -1,71 +1,50 @@
 # Kernel Module Map
 
-This document tracks the current split of the kernel FFI surface by domain and the high-level flow from Rust ABI to web runtime consumers.
+This document tracks the current split of the kernel FFI surface by domain and the high-level flow from Rust to web runtime consumers.
 
 ## High-Level Architecture
 
 ```mermaid
 flowchart LR
-  subgraph Rust["Rust Workspace"]
-    ABI_META["crates/kernel-abi-meta"]
-    KERNEL["crates/kernel-ffi"]
-    ABI_META --> KERNEL
+  subgraph Rust["crates/kernel-ffi (Rust)"]
+    MATH["math/*.rs\nNURBS basis & evaluation"]
+    IMPL["kernel_impl/*.rs\nKernel operations (include!)"]
+    WASM_API["wasm/*.rs\n#[wasm_bindgen] public API"]
+    MATH --> IMPL
+    IMPL --> WASM_API
   end
 
-  KERNEL --> ABIGEN["tools/abi-gen"]
-  ABIGEN --> ABI_JSON["target/abi/rgm_abi.json"]
-  ABIGEN --> TS_GEN["bindings/web/src/generated/*"]
-  KERNEL --> WASM["target/.../rusted_geom.wasm"]
-
-  TS_GEN --> WEBPKG["bindings/web package"]
-  WASM --> WEBPKG
-  WEBPKG --> SHOWCASE["showcase app"]
-
-  ABI_JSON --> BASELINE["abi/baseline/rgm_abi.json"]
-  BASELINE --> CI["CI checks"]
-  TS_GEN --> CI
+  WASM_API --> WASMPACK["wasm-pack build"]
+  WASMPACK --> PKG["crates/kernel-ffi/pkg/\nrusted_geom_bg.wasm\nrusted_geom.js\nrusted_geom.d.ts"]
+  PKG --> WEBPKG["bindings/web\n@rusted-geom/bindings-web"]
+  WEBPKG --> SHOWCASE["showcase\nNext.js + Three.js viewer"]
 ```
 
-## FFI export files
+## wasm/ module split
 
-- `crates/kernel-ffi/src/ffi/exports/kernel.rs`
-  - kernel lifecycle, object release, last-error access
-- `crates/kernel-ffi/src/ffi/exports/memory.rs`
-  - allocator/deallocator exports
-- `crates/kernel-ffi/src/ffi/exports/curve.rs`
-  - curve constructors and interpolation exports
-- `crates/kernel-ffi/src/ffi/exports/mesh.rs`
-  - mesh constructors, transforms, access, boolean, mesh intersections
-- `crates/kernel-ffi/src/ffi/exports/surface.rs`
-  - NURBS surface construction/evaluation/tessellation exports
-- `crates/kernel-ffi/src/ffi/exports/face.rs`
-  - trim/face editing, validation/heal, tessellation exports
-- `crates/kernel-ffi/src/ffi/exports/brep.rs`
-  - BREP creation, shell/solid lifecycle, validation/heal, tessellation, native I/O
-- `crates/kernel-ffi/src/ffi/exports/intersection.rs`
-  - curve evaluation exports and intersection object/branch exports
+| File | Responsibility |
+|------|---------------|
+| `wasm/mod.rs` | `KernelSession` struct, handle macros (`CurveHandle`, `SurfaceHandle`, …) |
+| `wasm/curve.rs` | Curve constructors (line, circle, arc, polyline, polycurve, NURBS fit) and evaluation |
+| `wasm/surface.rs` | NURBS surface construction, evaluation, tessellation |
+| `wasm/mesh.rs` | Mesh construction, transforms, access, boolean operations |
+| `wasm/face.rs` | Trimmed face creation, loop editing, validation, heal, tessellation |
+| `wasm/brep.rs` | B-rep assembly, shell/solid lifecycle, validation, native I/O |
+| `wasm/intersection.rs` | Curve/surface/mesh intersection, branch access, intersection curve evaluation |
+| `wasm/bounds.rs` | Bounding box computation (AABB + OBB) |
+| `wasm/error.rs` | `Result<T, JsValue>` helper (maps `RgmStatus` → JS `Error`) |
 
-## Runtime session files
+## kernel_impl/ C ABI layer
 
-- `bindings/web/src/runtime/session/core.ts`
-  - low-level bridge to native exports and memory operations
-- `bindings/web/src/runtime/session/index.ts`
-  - public runtime/session facade
-- `bindings/web/src/runtime/session/kernel.ts`
-- `bindings/web/src/runtime/session/curve.ts`
-- `bindings/web/src/runtime/session/mesh.ts`
-- `bindings/web/src/runtime/session/surface.ts`
-- `bindings/web/src/runtime/session/face.ts`
-- `bindings/web/src/runtime/session/brep.ts`
-- `bindings/web/src/runtime/session/intersection.ts`
+The `ffi_*.rs` files in `kernel_impl/` implement the `extern "C"` export layer used by
+native Rust tests and as the internal implementation behind the wasm-bindgen API.
+These are included via `include!` in `kernel_impl.rs`.
 
-## CI/guardrails
+## CI
 
-- `scripts/check_modularity.sh`
-  - protects entry-facade file growth
-- `scripts/check_bindings.sh`
-  - verifies generated outputs are up to date
-- `scripts/check_abi_compat.sh`
-  - enforces ABI compatibility against baseline with semver policy
 - `.github/workflows/ci.yml`
-  - runs Rust, binding, ABI, and web runtime checks
+  - Rust: `cargo test -p kernel-ffi`
+  - WASM: `wasm-pack build --target web --release`
+  - TypeScript: `npm run typecheck` in `bindings/web`
+  - Web runtime: `npm run test` in `bindings/web`
+  - E2E: `npx playwright test` in `showcase`

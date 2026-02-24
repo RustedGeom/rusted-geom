@@ -26,20 +26,6 @@ pub(crate) fn write_out<T: Copy>(out: *mut T, value: T) -> Result<(), RgmStatus>
     Ok(())
 }
 
-/// Read a `Copy` value through a non-null C input pointer.
-///
-/// Returns `Err(InvalidInput)` if `ptr` is null; otherwise reads and returns
-/// the value.
-#[allow(dead_code)]
-#[inline]
-pub(crate) fn read_in<T: Copy>(ptr: *const T) -> Result<T, RgmStatus> {
-    if ptr.is_null() {
-        return Err(RgmStatus::InvalidInput);
-    }
-    // SAFETY: non-null checked above; caller guarantees alignment and lifetime.
-    Ok(unsafe { *ptr })
-}
-
 /// Write a slice of `Copy` values into a caller-provided output buffer.
 ///
 /// Always writes the total count into `*out_count` (even when `capacity == 0`).

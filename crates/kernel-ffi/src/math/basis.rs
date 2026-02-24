@@ -55,7 +55,6 @@ pub(crate) fn find_span(
     Ok(mid)
 }
 
-#[allow(dead_code)]
 pub(crate) fn basis_funs(
     span: usize,
     u: f64,

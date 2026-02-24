@@ -258,37 +258,3 @@ pub(crate) fn eval_nurbs_normalized(
     eval_nurbs_u(curve, u)
 }
 
-#[allow(dead_code)]
-pub(crate) fn evaluate_point_basis(
-    curve: &NurbsCurveCore,
-    u_input: f64,
-) -> Result<RgmPoint3, RgmStatus> {
-    validate_curve(curve)?;
-
-    let mut u = if curve.periodic {
-        normalize_periodic_u(curve, u_input)
-    } else {
-        u_input
-    };
-
-    if !curve.periodic {
-        if u < curve.u_start || u > curve.u_end {
-            return Err(RgmStatus::OutOfRange);
-        }
-        if u == curve.u_end {
-            u = curve.u_end;
-        }
-    }
-
-    let n = curve.control_points.len() - 1;
-    let span = find_span(n, curve.degree, u, &curve.knots)?;
-    let basis = basis_funs(span, u, curve.degree, &curve.knots)?;
-
-    let mut c0w = H4::zero();
-    for (j, value) in basis.iter().enumerate().take(curve.degree + 1) {
-        let idx = span - curve.degree + j;
-        c0w.add_scaled(to_h4(curve.control_points[idx], curve.weights[idx]), *value);
-    }
-
-    point_from_h4(c0w, curve.tol.abs_tol.max(1e-14))
-}

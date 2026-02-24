@@ -1,31 +1,27 @@
 # rusted-geom
 
-Metadata-driven geometry kernel binding pipeline in Rust.
+NURBS geometry kernel compiled to WASM, with `wasm-bindgen` TypeScript bindings.
 
 ## Project Status
 
 `rusted-geom` is currently in alpha release stage (`0.1.0-alpha.1`).
-APIs, generated artifacts, and package shape are expected to evolve quickly.
+APIs and package shape are expected to evolve quickly.
 
 ## Workspace Layout
 
-- `crates/kernel-abi-meta`: ABI annotation proc macros.
-- `crates/kernel-ffi`: session-scoped C ABI surface and geometry runtime.
-- `tools/abi-gen`: metadata extractor and binding generator.
-- `bindings/web`: generated TypeScript facade + typed WASM runtime bridge.
+- `crates/kernel-ffi`: NURBS geometry kernel + `wasm-bindgen` public API.
+- `bindings/web`: Thin TypeScript wrapper around the wasm-pack output.
 - `showcase`: Next.js full-page Three.js kernel viewer.
 
 ## Prerequisites
 
 - Rust stable toolchain
-- Rust target: `wasm32-unknown-unknown`
-- Node.js and npm
-- `pnpm` (the repo uses a pnpm workspace for local app workflows)
-
-Install pnpm if needed:
+- [`wasm-pack`](https://rustwasm.github.io/wasm-pack/installer/) ≥ 0.13
+- Node.js and `pnpm`
 
 ```bash
 npm install -g pnpm
+cargo install wasm-pack
 ```
 
 ## Quickstart (Local Run)
@@ -34,191 +30,141 @@ From a clean checkout, run these commands from repo root:
 
 ```bash
 pnpm install
-rustup target add wasm32-unknown-unknown
-./scripts/generate_bindings.sh
-./scripts/build_kernel_wasm.sh
+./scripts/build_kernel_wasm.sh    # compile Rust → WASM, stage to showcase/public/wasm/
+./scripts/stage_web_wasm.sh       # copy WASM binary into bindings/web dist
+cd bindings/web && npm run build  # generate dist/ for TypeScript module resolution
 pnpm --dir showcase dev
 ```
 
 Open [http://localhost:3000](http://localhost:3000).
 
-## Validate Local Setup
-
-```bash
-./scripts/check_bindings.sh
-./scripts/check_abi_compat.sh
-cargo test --workspace
-npm --prefix ./bindings/web run typecheck
-npm --prefix ./bindings/web run test
-```
-
 ## Common Workflows
 
 | Workflow | Command |
 | --- | --- |
-| Generate ABI + TS bindings | `./scripts/generate_bindings.sh` |
-| Verify generated files are current | `./scripts/check_bindings.sh` |
-| Enforce ABI compatibility against baseline | `./scripts/check_abi_compat.sh` |
-| Update committed ABI baseline | `./scripts/update_abi_baseline.sh` |
-| Build kernel wasm for showcase | `./scripts/build_kernel_wasm.sh` |
-| Stage wasm into web bindings dist | `./scripts/stage_web_wasm.sh` |
+| Build kernel WASM for showcase | `./scripts/build_kernel_wasm.sh` |
+| Stage WASM into web bindings | `./scripts/stage_web_wasm.sh` |
 | Build + pack `@rusted-geom/bindings-web` | `./scripts/pack_web.sh` |
+| Run all Rust unit tests | `cargo test -p kernel-ffi` |
+| TypeScript typecheck | `npm --prefix ./bindings/web run typecheck` |
+| Web runtime tests | `npm --prefix ./bindings/web run test` |
+| E2E tests | `npx --prefix showcase playwright test` |
 
-## TypeScript Usage Examples
+## TypeScript Usage
 
-### 1. Runtime + session + curve evaluation
+### 1. Session + curve evaluation
 
 ```ts
-import {
-  createKernelRuntime,
-  type CurvePresetInput,
-} from "@rusted-geom/bindings-web";
-import wasmUrl from "@rusted-geom/bindings-web/wasm/rusted_geom.wasm";
+import { loadKernel, KernelSession } from "@rusted-geom/bindings-web";
+import wasmUrl from "@rusted-geom/bindings-web/wasm/rusted_geom_bg.wasm";
 
-const preset: CurvePresetInput = {
-  degree: 2,
-  closed: false,
-  points: [
-    { x: 0, y: 0, z: 0 },
-    { x: 1, y: 0.25, z: 0 },
-    { x: 2, y: 1.0, z: 0 },
-    { x: 3, y: 1.25, z: 0 },
-  ],
-  tolerance: { abs_tol: 1e-9, rel_tol: 1e-9, angle_tol: 1e-9 },
-};
+await loadKernel(wasmUrl);          // one-time WASM initialisation
+const session = new KernelSession();
 
-const runtime = await createKernelRuntime(wasmUrl);
-const session = runtime.createSession();
+const curve = session.interpolate_nurbs_fit_points(
+  new Float64Array([0, 0, 0, 1, 0.25, 0, 2, 1, 0, 3, 1.25, 0]),
+  /*degree*/ 2,
+  /*closed*/ false,
+);
+const [x, y, z] = session.curve_point_at(curve, 0.35);
+const length = session.curve_length(curve);
 
-const curve = session.curve.buildCurveFromPreset(preset);
-const point = session.curve.curvePointAt(curve, 0.35);
-const length = session.curve.curveLength(curve);
+console.log({ x, y, z }, length);
 
-console.log(point, length);
-
-session.kernel.releaseObject(curve);
-session.destroy();
-runtime.destroy();
+curve.free();
+session.free();
 ```
 
-### 2. Mesh transform + boolean
+### 2. Mesh boolean
 
 ```ts
-const runtime = await createKernelRuntime(wasmUrl);
-const session = runtime.createSession();
+await loadKernel(wasmUrl);
+const session = new KernelSession();
 
-const host = session.mesh.createMeshBox({ x: 0, y: 0, z: 0 }, { x: 8, y: 8, z: 8 });
-const tool = session.mesh.createMeshTorus({ x: 2, y: 0, z: 0 }, 2.5, 0.8, 64, 48);
-const movedTool = session.mesh.meshTranslate(tool, { x: -0.4, y: 0.3, z: 0.2 });
+const box   = session.create_mesh_box(0, 0, 0, 8, 8, 8);
+const torus = session.create_mesh_torus(2, 0, 0, 2.5, 0.8, 64, 48);
 
-// Boolean op: 2 = difference
-const result = session.mesh.meshBoolean(host, movedTool, 2);
-const triCount = session.mesh.meshTriangleCount(result);
-console.log("Result triangles:", triCount);
+// Boolean op: 0 = union, 1 = intersection, 2 = difference
+const result = session.mesh_boolean(box, torus, 2);
+console.log("triangles:", session.mesh_triangle_count(result));
 
-session.kernel.releaseObject(result);
-session.kernel.releaseObject(movedTool);
-session.kernel.releaseObject(tool);
-session.kernel.releaseObject(host);
-session.destroy();
-runtime.destroy();
+result.free();
+torus.free();
+box.free();
+session.free();
 ```
 
-### 3. Surface + face + intersection branch inspection
+### 3. Surface + bounding box
 
 ```ts
-const runtime = await createKernelRuntime(wasmUrl);
-const session = runtime.createSession();
+await loadKernel(wasmUrl);
+const session = new KernelSession();
 
-const tol = { abs_tol: 1e-9, rel_tol: 1e-9, angle_tol: 1e-9 };
-
-const surface = session.surface.createNurbsSurface(
-  {
-    degree_u: 1,
-    degree_v: 1,
-    periodic_u: false,
-    periodic_v: false,
-    control_u_count: 2,
-    control_v_count: 2,
-  },
-  [
-    { x: 0, y: 0, z: 0 },
-    { x: 0, y: 1, z: 0 },
-    { x: 1, y: 0, z: 0.1 },
-    { x: 1, y: 1, z: 0.1 },
-  ],
-  [1, 1, 1, 1],
-  [0, 0, 1, 1],
-  [0, 0, 1, 1],
-  tol,
+const surface = session.create_nurbs_surface(
+  1, 1,                              // degree_u, degree_v
+  false, false,                      // periodic_u, periodic_v
+  2, 2,                              // control_u_count, control_v_count
+  new Float64Array([0,0,0, 0,1,0, 1,0,0.1, 1,1,0.1]), // control points [x,y,z,…]
+  new Float64Array([1, 1, 1, 1]),    // weights
+  new Float64Array([0, 0, 1, 1]),    // knots_u
+  new Float64Array([0, 0, 1, 1]),    // knots_v
 );
 
-const face = session.face.createFaceFromSurface(surface);
-session.face.faceAddLoop(
-  face,
-  [
-    { u: 0.05, v: 0.05 },
-    { u: 0.95, v: 0.05 },
-    { u: 0.95, v: 0.95 },
-    { u: 0.05, v: 0.95 },
-  ],
-  true,
-);
-session.face.faceHeal(face);
-console.log("Face valid:", session.face.faceValidate(face));
+// mode 0 = Fast (control-point hull), 1 = Optimal (PCA + OBB)
+const b = session.compute_bounds(surface.object_id(), 1, 0, 0.0);
+console.log("AABB min:", b.aabb_min_x, b.aabb_min_y, b.aabb_min_z);
+console.log("AABB max:", b.aabb_max_x, b.aabb_max_y, b.aabb_max_z);
 
-const inter = session.intersection.intersectSurfacePlane(surface, {
-  origin: { x: 0.5, y: 0.5, z: 0.05 },
-  x_axis: { x: 1, y: 0, z: 0 },
-  y_axis: { x: 0, y: 1, z: 0 },
-  z_axis: { x: 0, y: 0, z: 1 },
-});
+b.free();
+surface.free();
+session.free();
+```
 
-const branchCount = session.intersection.intersectionBranchCount(inter);
-for (let i = 0; i < branchCount; i += 1) {
-  const summary = session.intersection.intersectionBranchSummary(inter, i);
-  const points = session.intersection.intersectionBranchPoints(inter, i);
-  console.log(i, summary, points.length);
+### 4. Surface–surface intersection
+
+```ts
+await loadKernel(wasmUrl);
+const session = new KernelSession();
+
+// … create surfaceA, surfaceB …
+
+const result = session.intersect_surface_surface(surfaceA, surfaceB);
+const branchCount = session.intersection_branch_count(result);
+
+for (let i = 0; i < branchCount; i++) {
+  const summary = session.intersection_branch_summary(result, i);
+  const pts     = session.intersection_branch_points(result, i);
+  console.log(`branch ${i}: ${summary.point_count} points, closed=${summary.closed}`);
 }
 
-session.kernel.releaseObject(inter);
-session.kernel.releaseObject(face);
-session.kernel.releaseObject(surface);
-session.destroy();
-runtime.destroy();
+result.free();
 ```
 
 ## High-Level Architecture
 
-```mermaid
-flowchart LR
-  A["crates/kernel-abi-meta"] --> B["crates/kernel-ffi"]
-  B --> C["tools/abi-gen"]
-  C --> D["target/abi/rgm_abi.json"]
-  C --> E["bindings/web/src/generated/*"]
-  B --> F["rusted_geom.wasm"]
-  E --> G["@rusted-geom/bindings-web"]
-  F --> G
-  G --> H["showcase (Next.js + Three.js)"]
 ```
-
-## ABI Compatibility Rule
-
-`./scripts/check_abi_compat.sh` requires zero breaking ABI changes versus the committed baseline unless you intentionally advance the version policy and refresh baseline artifacts.
-
-If a breaking change is intentional, update baseline artifacts in the same change:
-
-```bash
-./scripts/update_abi_baseline.sh
+crates/kernel-ffi (Rust)
+  ├── kernel_impl/*.rs    — NURBS math + kernel operations (include! flat module)
+  ├── math/*.rs           — basis functions, surface evaluation
+  ├── elements/brep/      — B-rep data structures
+  ├── session/            — session store + object registry
+  └── wasm/               — #[wasm_bindgen] public API
+         ↓  wasm-pack build
+crates/kernel-ffi/pkg/
+  ├── rusted_geom_bg.wasm
+  ├── rusted_geom.js      — ESM glue (auto-generated)
+  └── rusted_geom.d.ts    — TypeScript declarations (auto-generated)
+         ↓
+bindings/web/             — thin re-export + loader
+         ↓
+showcase/                 — Next.js + Three.js viewer + developer test lab
 ```
 
 ## Algorithm Documents
-
-Available algorithm docs in this repository:
 
 - [NURBS Fit-Point Constructor RFC (M1)](docs/algorithms/nurbs-fit-point-interpolation-rfc.md)
 
 ## Additional Documentation
 
-- [ABI Stability](docs/architecture/abi-stability.md)
+- [Architecture Overview](ARCHITECTURE.md)
 - [Kernel Module Map](docs/architecture/kernel-module-map.md)
