@@ -19,42 +19,27 @@ jobs:
       - name: Add wasm32 target
         run: rustup target add wasm32-unknown-unknown
 
+      - name: Install wasm-pack
+        run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
+
       - name: Rust tests
-        run: cargo test --workspace
+        run: cargo test -p kernel-ffi
 
       - name: Modularity guard
         run: ./scripts/check_modularity.sh
-
-      - name: Check generated bindings are up to date
-        run: ./scripts/check_bindings.sh
-
-      - name: Check ABI compatibility
-        run: ./scripts/check_abi_compat.sh
-
-      - name: Stage ABI/API snapshots
-        run: |
-          mkdir -p dist/ci
-          cp ./target/abi/rgm_abi.json ./dist/ci/rgm_abi.json
-          cp ./bindings/web/src/generated/function_catalog.json ./dist/ci/function_catalog.json
-
-      - name: Upload ABI/API snapshots
-        uses: actions/upload-artifact@v4
-        with:
-          name: abi-api-snapshots
-          path: ./dist/ci
 
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: '20'
 
+      - name: Build WASM for tests
+        run: wasm-pack build --target web --release --out-dir crates/kernel-ffi/pkg crates/kernel-ffi
+
       - name: Web smoke typecheck
         run: |
           npm --prefix ./bindings/web ci --include=dev
           npm --prefix ./bindings/web run typecheck
-
-      - name: Build WASM for tests
-        run: cargo build -p kernel-ffi --target wasm32-unknown-unknown
 
       - name: Web runtime tests
         run: npm --prefix ./bindings/web run test

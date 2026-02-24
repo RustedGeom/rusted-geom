@@ -1,1 +1,0 @@
-//! Surface tessellation extraction target.

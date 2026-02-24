@@ -1,1 +1,0 @@
-//! Curve constructor extraction target.

@@ -725,3 +725,60 @@
         (e.x * 2.0) * (e.y * 2.0) * (e.z * 2.0)
     }
 
+    // ── Debug inspectors ──────────────────────────────────────────────────────
+
+    fn debug_get_curve(session: RgmKernelHandle, object: RgmObjectHandle) -> Option<CurveData> {
+        let session_entry = super::SESSIONS.get(&session.0)?;
+        let state = session_entry.value().read();
+        match state.objects.get(&object.0)? {
+            GeometryObject::Curve(curve) => Some(curve.clone()),
+            GeometryObject::Mesh(_)
+            | GeometryObject::Surface(_)
+            | GeometryObject::Face(_)
+            | GeometryObject::Intersection(_)
+            | GeometryObject::Brep(_) => None,
+        }
+    }
+
+    fn debug_get_face(session: RgmKernelHandle, object: RgmObjectHandle) -> Option<FaceData> {
+        let session_entry = super::SESSIONS.get(&session.0)?;
+        let state = session_entry.value().read();
+        match state.objects.get(&object.0)? {
+            GeometryObject::Face(face) => Some(face.clone()),
+            GeometryObject::Curve(_)
+            | GeometryObject::Mesh(_)
+            | GeometryObject::Surface(_)
+            | GeometryObject::Intersection(_)
+            | GeometryObject::Brep(_) => None,
+        }
+    }
+
+    fn debug_get_mesh(session: RgmKernelHandle, object: RgmObjectHandle) -> Option<MeshData> {
+        let session_entry = super::SESSIONS.get(&session.0)?;
+        let state = session_entry.value().read();
+        match state.objects.get(&object.0)? {
+            GeometryObject::Mesh(mesh) => Some(mesh.clone()),
+            GeometryObject::Curve(_)
+            | GeometryObject::Surface(_)
+            | GeometryObject::Face(_)
+            | GeometryObject::Intersection(_)
+            | GeometryObject::Brep(_) => None,
+        }
+    }
+
+    fn debug_get_intersection(
+        session: RgmKernelHandle,
+        object: RgmObjectHandle,
+    ) -> Option<IntersectionData> {
+        let session_entry = super::SESSIONS.get(&session.0)?;
+        let state = session_entry.value().read();
+        match state.objects.get(&object.0)? {
+            GeometryObject::Intersection(data) => Some(data.clone()),
+            GeometryObject::Curve(_)
+            | GeometryObject::Mesh(_)
+            | GeometryObject::Surface(_)
+            | GeometryObject::Face(_)
+            | GeometryObject::Brep(_) => None,
+        }
+    }
+

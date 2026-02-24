@@ -1,22 +1,24 @@
 #!/usr/bin/env bash
 # ---
 # script: stage_web_wasm.sh
-# description: Build the wasm kernel artifact and stage it into bindings/web/dist for npm packaging.
+# description: Build the kernel WASM via wasm-pack and stage artifacts for both
+#              the bindings package and the showcase.
 # usage: ./scripts/stage_web_wasm.sh
-# prerequisites:
-#   - Rust toolchain with cargo available
-#   - wasm32-unknown-unknown target installed
+# prerequisites: wasm-pack installed (https://rustwasm.github.io/wasm-pack/)
 # ---
 set -euo pipefail
 
 repo_root="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$repo_root"
 
-rustup target add wasm32-unknown-unknown >/dev/null
-cargo build -p kernel-ffi --target wasm32-unknown-unknown --release
+wasm-pack build --target web --release \
+  --out-dir "$repo_root/crates/kernel-ffi/pkg" \
+  "$repo_root/crates/kernel-ffi"
 
-mkdir -p "$repo_root/bindings/web/dist/wasm"
-cp "$repo_root/target/wasm32-unknown-unknown/release/rusted_geom.wasm" \
-  "$repo_root/bindings/web/dist/wasm/rusted_geom.wasm"
+# Stage the WASM binary for showcase public assets.
+mkdir -p "$repo_root/showcase/public/wasm"
+cp "$repo_root/crates/kernel-ffi/pkg/rusted_geom_bg.wasm" \
+   "$repo_root/showcase/public/wasm/rusted_geom.wasm"
 
-echo "staged web wasm: $repo_root/bindings/web/dist/wasm/rusted_geom.wasm"
+echo "Staged wasm to showcase/public/wasm/rusted_geom.wasm"
+echo "Bindings pkg available at crates/kernel-ffi/pkg/"

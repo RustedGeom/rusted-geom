@@ -1,1 +1,0 @@
-//! Surface constructor extraction target.

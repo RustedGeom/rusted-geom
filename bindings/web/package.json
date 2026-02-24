@@ -1,6 +1,6 @@
 {
-  "name": "@cesarecaoduro/rusted-geom",
-  "version": "0.1.0-alpha.1",
+  "name": "@rusted-geom/bindings-web",
+  "version": "0.1.0-alpha.2",
   "type": "module",
   "publishConfig": {
     "registry": "https://npm.pkg.github.com"
@@ -16,44 +16,11 @@
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
     },
-    "./generated/native": {
-      "types": "./dist/generated/native.d.ts",
-      "import": "./dist/generated/native.js"
-    },
-    "./generated/types": {
-      "types": "./dist/generated/types.d.ts",
-      "import": "./dist/generated/types.js"
-    },
-    "./runtime/errors": {
-      "types": "./dist/runtime/errors.d.ts",
-      "import": "./dist/runtime/errors.js"
-    },
-    "./runtime/kernel-session": {
-      "types": "./dist/runtime/kernel-session.d.ts",
-      "import": "./dist/runtime/kernel-session.js"
-    },
-    "./runtime/memory": {
-      "types": "./dist/runtime/memory.d.ts",
-      "import": "./dist/runtime/memory.js"
-    },
-    "./runtime/scene-sampler": {
-      "types": "./dist/runtime/scene-sampler.d.ts",
-      "import": "./dist/runtime/scene-sampler.js"
-    },
-    "./runtime/wasm-loader": {
-      "types": "./dist/runtime/wasm-loader.d.ts",
-      "import": "./dist/runtime/wasm-loader.js"
-    },
-    "./generated/function_catalog.json": "./dist/generated/function_catalog.json",
-    "./wasm/rusted_geom.wasm": "./dist/wasm/rusted_geom.wasm",
     "./package.json": "./package.json"
   },
   "scripts": {
     "clean": "rm -rf dist",
-    "build": "npm run clean && tsc -p tsconfig.build.json && npm run stage:catalog && npm run stage:wasm",
-    "stage:catalog": "cp src/generated/function_catalog.json dist/generated/function_catalog.json",
-    "stage:wasm": "../../scripts/stage_web_wasm.sh",
-    "pack:local": "mkdir -p ../../dist/npm && npm pack --pack-destination ../../dist/npm",
+    "build": "npm run clean && tsc -p tsconfig.build.json",
     "typecheck": "tsc --noEmit",
     "test": "vitest run"
   },

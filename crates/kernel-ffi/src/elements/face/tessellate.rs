@@ -1,1 +1,0 @@
-//! Face tessellation extraction target.

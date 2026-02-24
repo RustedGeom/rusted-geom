@@ -3,7 +3,6 @@ use boolmesh::{
     compute_boolean,
     prelude::{Manifold, OpType as BoolOpType},
 };
-use kernel_abi_meta::{rgm_export, rgm_ffi_type};
 use crate::math;
 use crate::math::arc_length::{build_arc_length_cache, length_from_u, u_from_length};
 use crate::math::vec3 as v3;
@@ -31,7 +30,6 @@ use std::f64::consts::{FRAC_PI_2, PI};
 /// Every exported function returns `RgmStatus::Ok` on success.  On failure the
 /// per-session error is also written via [`set_error`] so callers can retrieve a
 /// human-readable description with `rgm_last_error_message`.
-#[rgm_ffi_type]
 #[repr(i32)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum RgmStatus {
@@ -64,7 +62,6 @@ pub enum RgmStatus {
 /// released automatically.
 ///
 /// The zero value (`RgmKernelHandle(0)`) is never a valid handle.
-#[rgm_ffi_type]
 #[repr(transparent)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct RgmKernelHandle(pub u64);
@@ -77,14 +74,12 @@ pub struct RgmKernelHandle(pub u64);
 /// from a different session is `InvalidInput`.
 ///
 /// The zero value (`RgmObjectHandle(0)`) is never a valid handle.
-#[rgm_ffi_type]
 #[repr(transparent)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct RgmObjectHandle(pub u64);
 
 /// A point in 3-D world space.  Coordinates are in the same linear unit as the
 /// session tolerance (typically metres or millimetres — see [`RgmToleranceContext`]).
-#[rgm_ffi_type]
 #[repr(C)]
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct RgmPoint3 {
@@ -98,7 +93,6 @@ pub struct RgmPoint3 {
 /// Unlike [`RgmPoint3`], `RgmVec3` has no position; it represents a displacement
 /// or direction.  The same linear unit as the session tolerance applies to the
 /// magnitude.
-#[rgm_ffi_type]
 #[repr(C)]
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct RgmVec3 {
@@ -113,7 +107,6 @@ pub struct RgmVec3 {
 /// right-handed triad (`z = x × y`).  `origin` is the frame origin in world
 /// space.  Several APIs accept a `RgmPlane` as an input frame and will
 /// orthonormalize it if the axes are not perfectly unit/orthogonal.
-#[rgm_ffi_type]
 #[repr(C)]
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct RgmPlane {
@@ -137,7 +130,6 @@ pub struct RgmPlane {
 /// The kernel stores a copy alongside each created object so that subsequent
 /// operations (arc-length caching, intersection, tessellation) use consistent
 /// tolerances without requiring the caller to re-specify them.
-#[rgm_ffi_type]
 #[repr(C)]
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct RgmToleranceContext {
@@ -149,7 +141,6 @@ pub struct RgmToleranceContext {
     pub angle_tol: f64,
 }
 
-#[rgm_ffi_type]
 #[repr(i32)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum RgmAlignmentCoordinateSystem {
@@ -157,7 +148,6 @@ pub enum RgmAlignmentCoordinateSystem {
     NorthingEasting = 1,
 }
 
-#[rgm_ffi_type]
 #[repr(C)]
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct RgmLine3 {
@@ -165,7 +155,6 @@ pub struct RgmLine3 {
     pub end: RgmPoint3,
 }
 
-#[rgm_ffi_type]
 #[repr(C)]
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct RgmCircle3 {
@@ -173,7 +162,6 @@ pub struct RgmCircle3 {
     pub radius: f64,
 }
 
-#[rgm_ffi_type]
 #[repr(C)]
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct RgmArc3 {
@@ -183,7 +171,6 @@ pub struct RgmArc3 {
     pub sweep_angle: f64,
 }
 
-#[rgm_ffi_type]
 #[repr(C)]
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct RgmPolycurveSegment {
@@ -191,7 +178,6 @@ pub struct RgmPolycurveSegment {
     pub reversed: bool,
 }
 
-#[rgm_ffi_type]
 #[repr(C)]
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct RgmPoint2 {
@@ -199,7 +185,6 @@ pub struct RgmPoint2 {
     pub y: f64,
 }
 
-#[rgm_ffi_type]
 #[repr(C)]
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct RgmVec2 {
@@ -207,7 +192,6 @@ pub struct RgmVec2 {
     pub y: f64,
 }
 
-#[rgm_ffi_type]
 #[repr(C)]
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct RgmUv2 {
@@ -215,7 +199,6 @@ pub struct RgmUv2 {
     pub v: f64,
 }
 
-#[rgm_ffi_type]
 #[repr(C)]
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct RgmNurbsSurfaceDesc {
@@ -237,7 +220,6 @@ pub struct RgmNurbsSurfaceDesc {
 /// * `dv`     — First partial derivative with respect to `v` (un-normalized).
 /// * `normal` — Unit surface normal (`du × dv`, normalized).  Returned as a
 ///              zero vector if the surface is degenerate at this point.
-#[rgm_ffi_type]
 #[repr(C)]
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct RgmSurfaceEvalFrame {
@@ -255,7 +237,6 @@ pub struct RgmSurfaceEvalFrame {
 /// same session; the kernel samples it when building the edge UV polyline.
 /// If `has_curve_3d` is `false`, the `curve_3d` field is ignored and the edge
 /// is interpolated linearly in UV space.
-#[rgm_ffi_type]
 #[repr(C)]
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct RgmTrimEdgeInput {
@@ -265,7 +246,6 @@ pub struct RgmTrimEdgeInput {
     pub has_curve_3d: bool,
 }
 
-#[rgm_ffi_type]
 #[repr(C)]
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct RgmTrimLoopInput {
@@ -274,7 +254,6 @@ pub struct RgmTrimLoopInput {
 }
 
 // S6: Named constants for entity_kind field in RgmValidationIssue, replacing magic integers.
-#[rgm_ffi_type]
 #[repr(u32)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum RgmBrepEntityKind {
@@ -286,7 +265,6 @@ pub enum RgmBrepEntityKind {
     Solid = 6,
 }
 
-#[rgm_ffi_type]
 #[repr(i32)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum RgmValidationSeverity {
@@ -295,7 +273,6 @@ pub enum RgmValidationSeverity {
     Error = 2,
 }
 
-#[rgm_ffi_type]
 #[repr(C)]
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct RgmValidationIssue {
@@ -320,7 +297,6 @@ impl Default for RgmValidationIssue {
     }
 }
 
-#[rgm_ffi_type]
 #[repr(C)]
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct RgmBrepValidationReport {
@@ -341,7 +317,6 @@ impl Default for RgmBrepValidationReport {
     }
 }
 
-#[rgm_ffi_type]
 #[repr(C)]
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct RgmSurfaceTessellationOptions {
@@ -353,7 +328,6 @@ pub struct RgmSurfaceTessellationOptions {
     pub normal_tol_rad: f64,
 }
 
-#[rgm_ffi_type]
 #[repr(C)]
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct RgmIntersectionBranchSummary {
@@ -365,7 +339,6 @@ pub struct RgmIntersectionBranchSummary {
     pub flags: u32,
 }
 
-#[rgm_ffi_type]
 #[repr(i32)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum RgmBoundsMode {
@@ -373,7 +346,6 @@ pub enum RgmBoundsMode {
     Optimal = 1,
 }
 
-#[rgm_ffi_type]
 #[repr(C)]
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct RgmAabb3 {
@@ -381,7 +353,6 @@ pub struct RgmAabb3 {
     pub max: RgmPoint3,
 }
 
-#[rgm_ffi_type]
 #[repr(C)]
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct RgmObb3 {
@@ -392,7 +363,6 @@ pub struct RgmObb3 {
     pub half_extents: RgmVec3,
 }
 
-#[rgm_ffi_type]
 #[repr(C)]
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct RgmBoundsOptions {
@@ -401,7 +371,6 @@ pub struct RgmBoundsOptions {
     pub padding: f64,
 }
 
-#[rgm_ffi_type]
 #[repr(C)]
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct RgmBounds3 {

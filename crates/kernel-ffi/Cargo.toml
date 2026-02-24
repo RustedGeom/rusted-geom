@@ -22,11 +22,12 @@ bincode = "2.0.1"
 boolmesh = "0.1.9"
 dashmap = "6.1"
 index_vec = "0.1.4"
-kernel-abi-meta = { path = "../kernel-abi-meta" }
+js-sys = "0.3"
 once_cell.workspace = true
 parking_lot = "0.12"
 rayon.workspace = true
 smallvec = { version = "1.15", features = ["union"] }
+wasm-bindgen = "0.2"
 
 [dev-dependencies]
 codspeed-criterion-compat = "2.10"
