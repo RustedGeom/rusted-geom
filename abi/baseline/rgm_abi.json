@@ -1,7 +1,7 @@
 {
   "crate_name": "kernel-ffi",
   "version": "0.1.0-alpha.1",
-  "abi_hash": "a955dd5e126e02f1f15d7c984134b3e1633facaa6dcd81d3d56c3a81903b3abb",
+  "abi_hash": "47c8e2b1c057d73055c872d5d4ccc670713d6f4ffba0e7cd2b3a234feb2c2523",
   "functions": [
     {
       "rust_name": "rgm_alloc",
@@ -2844,6 +2844,37 @@
         {
           "name": "sweep_angle",
           "ty": "f64"
+        }
+      ]
+    },
+    {
+      "kind": "Enum",
+      "name": "RgmBrepEntityKind",
+      "repr": "u32",
+      "variants": [
+        {
+          "name": "Edge",
+          "value": "1"
+        },
+        {
+          "name": "Trim",
+          "value": "2"
+        },
+        {
+          "name": "Loop",
+          "value": "3"
+        },
+        {
+          "name": "Face",
+          "value": "4"
+        },
+        {
+          "name": "Shell",
+          "value": "5"
+        },
+        {
+          "name": "Solid",
+          "value": "6"
         }
       ]
     },
