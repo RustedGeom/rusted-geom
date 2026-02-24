@@ -41,7 +41,7 @@ jobs:
 
       - name: Web smoke typecheck
         run: |
-          npm --prefix ./bindings/web install
+          npm --prefix ./bindings/web install --include=dev
           npm --prefix ./bindings/web run typecheck
 
       - name: Build WASM for tests
@@ -71,7 +71,7 @@ jobs:
 
       - name: Build npm package
         run: |
-          npm --prefix ./bindings/web install
+          npm --prefix ./bindings/web install --include=dev
           npm --prefix ./bindings/web run build
 
       - name: Pack npm tarball
