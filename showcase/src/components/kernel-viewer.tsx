@@ -2,6 +2,7 @@
 
 import {
   createKernelRuntime,
+  RgmBoundsMode,
   type BrepFaceId,
   type CurveHandle,
   type CurvePresetInput,
@@ -13,7 +14,9 @@ import {
   type SurfaceHandle,
 } from "@rusted-geom/bindings-web";
 import type {
+  RgmAabb3,
   RgmArc3,
+  RgmBounds3,
   RgmCircle3,
   RgmLine3,
   RgmNurbsSurfaceDesc,
@@ -101,6 +104,7 @@ interface BuiltExample {
       }
     | null;
   intersectionMs: number;
+  boundsMs?: number;
   logs: string[];
 }
 
@@ -629,12 +633,14 @@ function shouldShowProbeForExample(example: ExampleKey): boolean {
     example !== "meshIntersectMeshMesh" &&
     example !== "meshIntersectMeshPlane" &&
     example !== "meshBoolean" &&
+    example !== "bboxMeshBooleanAssembly" &&
     example !== "surfaceLarge" &&
     example !== "surfaceTransform" &&
     example !== "surfaceUvEval" &&
     example !== "surfaceIntersectSurface" &&
     example !== "surfaceIntersectPlane" &&
     example !== "surfaceIntersectCurve" &&
+    example !== "bboxSurfaceWarped" &&
     example !== "trimEditWorkflow" &&
     example !== "trimValidationFailures" &&
     example !== "trimMultiLoopSurgery" &&
@@ -643,7 +649,8 @@ function shouldShowProbeForExample(example: ExampleKey): boolean {
     example !== "brepSolidRoundtripAudit" &&
     example !== "brepSolidFaceSurgery" &&
     example !== "brepFaceBridgeRoundtrip" &&
-    example !== "brepNativeRoundtrip"
+    example !== "brepNativeRoundtrip" &&
+    example !== "bboxBrepSolidLifecycle"
   );
 }
 
@@ -803,6 +810,187 @@ function planeVisualSize(points: RgmPoint3[]): number {
   return Math.max(10, diagonal * 1.6);
 }
 
+function aabbExtents(aabb: RgmAabb3): RgmVec3 {
+  return {
+    x: Math.max(0, aabb.max.x - aabb.min.x),
+    y: Math.max(0, aabb.max.y - aabb.min.y),
+    z: Math.max(0, aabb.max.z - aabb.min.z),
+  };
+}
+
+function pointInsideAabb(aabb: RgmAabb3, point: RgmPoint3, eps = 1e-7): boolean {
+  return (
+    point.x >= aabb.min.x - eps &&
+    point.x <= aabb.max.x + eps &&
+    point.y >= aabb.min.y - eps &&
+    point.y <= aabb.max.y + eps &&
+    point.z >= aabb.min.z - eps &&
+    point.z <= aabb.max.z + eps
+  );
+}
+
+function obbExtents(bounds: RgmBounds3): RgmVec3 {
+  const half = bounds.world_obb.half_extents;
+  return { x: half.x * 2, y: half.y * 2, z: half.z * 2 };
+}
+
+function extentsVolume(extents: RgmVec3): number {
+  return extents.x * extents.y * extents.z;
+}
+
+function formatExtents(extents: RgmVec3): string {
+  return `${extents.x.toFixed(3)} × ${extents.y.toFixed(3)} × ${extents.z.toFixed(3)}`;
+}
+
+function obbLocalToWorld(bounds: RgmBounds3, x: number, y: number, z: number): RgmPoint3 {
+  return {
+    x:
+      bounds.world_obb.center.x +
+      bounds.world_obb.x_axis.x * x +
+      bounds.world_obb.y_axis.x * y +
+      bounds.world_obb.z_axis.x * z,
+    y:
+      bounds.world_obb.center.y +
+      bounds.world_obb.x_axis.y * x +
+      bounds.world_obb.y_axis.y * y +
+      bounds.world_obb.z_axis.y * z,
+    z:
+      bounds.world_obb.center.z +
+      bounds.world_obb.x_axis.z * x +
+      bounds.world_obb.y_axis.z * y +
+      bounds.world_obb.z_axis.z * z,
+  };
+}
+
+function aabbWireSegments(aabb: RgmAabb3): RgmPoint3[] {
+  const corners: RgmPoint3[] = [
+    { x: aabb.min.x, y: aabb.min.y, z: aabb.min.z },
+    { x: aabb.max.x, y: aabb.min.y, z: aabb.min.z },
+    { x: aabb.max.x, y: aabb.max.y, z: aabb.min.z },
+    { x: aabb.min.x, y: aabb.max.y, z: aabb.min.z },
+    { x: aabb.min.x, y: aabb.min.y, z: aabb.max.z },
+    { x: aabb.max.x, y: aabb.min.y, z: aabb.max.z },
+    { x: aabb.max.x, y: aabb.max.y, z: aabb.max.z },
+    { x: aabb.min.x, y: aabb.max.y, z: aabb.max.z },
+  ];
+  const edgeIndices = [
+    [0, 1], [1, 2], [2, 3], [3, 0],
+    [4, 5], [5, 6], [6, 7], [7, 4],
+    [0, 4], [1, 5], [2, 6], [3, 7],
+  ] as const;
+  const segments: RgmPoint3[] = [];
+  for (const [a, b] of edgeIndices) {
+    segments.push(corners[a], corners[b]);
+  }
+  return segments;
+}
+
+function obbWireSegments(bounds: RgmBounds3): RgmPoint3[] {
+  const h = bounds.world_obb.half_extents;
+  const corners: RgmPoint3[] = [
+    obbLocalToWorld(bounds, -h.x, -h.y, -h.z),
+    obbLocalToWorld(bounds, h.x, -h.y, -h.z),
+    obbLocalToWorld(bounds, h.x, h.y, -h.z),
+    obbLocalToWorld(bounds, -h.x, h.y, -h.z),
+    obbLocalToWorld(bounds, -h.x, -h.y, h.z),
+    obbLocalToWorld(bounds, h.x, -h.y, h.z),
+    obbLocalToWorld(bounds, h.x, h.y, h.z),
+    obbLocalToWorld(bounds, -h.x, h.y, h.z),
+  ];
+  const edgeIndices = [
+    [0, 1], [1, 2], [2, 3], [3, 0],
+    [4, 5], [5, 6], [6, 7], [7, 4],
+    [0, 4], [1, 5], [2, 6], [3, 7],
+  ] as const;
+  const segments: RgmPoint3[] = [];
+  for (const [a, b] of edgeIndices) {
+    segments.push(corners[a], corners[b]);
+  }
+  return segments;
+}
+
+function localAabbWireSegments(bounds: RgmBounds3): RgmPoint3[] {
+  const min = bounds.local_aabb.min;
+  const max = bounds.local_aabb.max;
+  const corners: RgmPoint3[] = [
+    obbLocalToWorld(bounds, min.x, min.y, min.z),
+    obbLocalToWorld(bounds, max.x, min.y, min.z),
+    obbLocalToWorld(bounds, max.x, max.y, min.z),
+    obbLocalToWorld(bounds, min.x, max.y, min.z),
+    obbLocalToWorld(bounds, min.x, min.y, max.z),
+    obbLocalToWorld(bounds, max.x, min.y, max.z),
+    obbLocalToWorld(bounds, max.x, max.y, max.z),
+    obbLocalToWorld(bounds, min.x, max.y, max.z),
+  ];
+  const edgeIndices = [
+    [0, 1], [1, 2], [2, 3], [3, 0],
+    [4, 5], [5, 6], [6, 7], [7, 4],
+    [0, 4], [1, 5], [2, 6], [3, 7],
+  ] as const;
+  const segments: RgmPoint3[] = [];
+  for (const [a, b] of edgeIndices) {
+    segments.push(corners[a], corners[b]);
+  }
+  return segments;
+}
+
+function obbAxisSegments(bounds: RgmBounds3, axisScale = 1.12): SegmentOverlayVisual[] {
+  const c = bounds.world_obb.center;
+  const hx = Math.max(1e-6, bounds.world_obb.half_extents.x * axisScale);
+  const hy = Math.max(1e-6, bounds.world_obb.half_extents.y * axisScale);
+  const hz = Math.max(1e-6, bounds.world_obb.half_extents.z * axisScale);
+  return [
+    {
+      points: [c, addScaled(c, bounds.world_obb.x_axis, hx)],
+      color: "#ff7070",
+      opacity: 0.96,
+      width: 2.9,
+      name: "obb-x-axis",
+    },
+    {
+      points: [c, addScaled(c, bounds.world_obb.y_axis, hy)],
+      color: "#7cff9a",
+      opacity: 0.96,
+      width: 2.9,
+      name: "obb-y-axis",
+    },
+    {
+      points: [c, addScaled(c, bounds.world_obb.z_axis, hz)],
+      color: "#77b4ff",
+      opacity: 0.96,
+      width: 2.9,
+      name: "obb-z-axis",
+    },
+  ];
+}
+
+function boundsOverlaySegments(bounds: RgmBounds3): SegmentOverlayVisual[] {
+  return [
+    {
+      points: aabbWireSegments(bounds.world_aabb),
+      color: "#ffc658",
+      opacity: 0.96,
+      width: 3.1,
+      name: "world-aabb",
+    },
+    {
+      points: obbWireSegments(bounds),
+      color: "#67d9ff",
+      opacity: 0.9,
+      width: 2.6,
+      name: "world-obb",
+    },
+    {
+      points: localAabbWireSegments(bounds),
+      color: "#a9ffb2",
+      opacity: 0.86,
+      width: 2.4,
+      name: "local-aabb",
+    },
+    ...obbAxisSegments(bounds),
+  ];
+}
+
 function fitViewToPoints(
   camera: THREE.PerspectiveCamera,
   controls: OrbitControls,
@@ -919,7 +1107,11 @@ export function KernelViewer() {
   );
   const [transformTargetKey, setTransformTargetKey] = useState<string>("");
   const [meshPlaneTarget, setMeshPlaneTarget] = useState<"mesh" | "plane">("mesh");
-  const [perfStats, setPerfStats] = useState<ViewerPerformance>({ loadMs: 0, intersectionMs: 0 });
+  const [perfStats, setPerfStats] = useState<ViewerPerformance>({
+    loadMs: 0,
+    intersectionMs: 0,
+    boundsMs: 0,
+  });
   const [logs, setLogs] = useState<LogEntry[]>([]);
   const [, setStatusMessage] = useState("Booting kernel runtime...");
   const [, setErrorMessage] = useState<string | null>(null);
@@ -1048,6 +1240,7 @@ export function KernelViewer() {
         defaultTransformTargetKey: null,
         booleanState: null,
         intersectionMs: 0,
+        boundsMs: 0,
         logs,
       });
 
@@ -1148,6 +1341,126 @@ export function KernelViewer() {
           2400,
           [`Circle radius=${circle.radius}`],
         );
+      }
+
+      if (example === "bboxCurveNonTrivial") {
+        const builtHandles: ObjectHandle[] = [];
+        try {
+          const lineA = session.curve.createLine(
+            {
+              start: { x: -8.2, y: -2.6, z: 1.4 },
+              end: { x: -4.8, y: 0.9, z: 3.0 },
+            },
+            tol,
+          );
+          builtHandles.push(lineA);
+          const arcA = session.curve.createArc(
+            {
+              plane: {
+                origin: { x: -4.8, y: 0.9, z: 3.0 },
+                x_axis: { x: 0.7, y: 0.2, z: 0.68 },
+                y_axis: { x: -0.12, y: 0.97, z: -0.2 },
+                z_axis: { x: -0.71, y: 0.11, z: 0.69 },
+              },
+              radius: 2.4,
+              start_angle: 0.0,
+              sweep_angle: 1.6,
+            },
+            tol,
+          );
+          builtHandles.push(arcA);
+          const lineB = session.curve.createLine(
+            {
+              start: { x: -2.1, y: 3.1, z: 1.8 },
+              end: { x: 3.8, y: 1.4, z: -2.4 },
+            },
+            tol,
+          );
+          builtHandles.push(lineB);
+          const arcB = session.curve.createArc(
+            {
+              plane: {
+                origin: { x: 3.8, y: 1.4, z: -2.4 },
+                x_axis: { x: 0.54, y: 0.84, z: 0.02 },
+                y_axis: { x: -0.22, y: 0.12, z: 0.97 },
+                z_axis: { x: 0.81, y: -0.53, z: 0.23 },
+              },
+              radius: 2.1,
+              start_angle: 0.0,
+              sweep_angle: -1.18,
+            },
+            tol,
+          );
+          builtHandles.push(arcB);
+
+          const polycurve = session.curve.createPolycurve(
+            [
+              { curve: lineA, reversed: false },
+              { curve: arcA, reversed: false },
+              { curve: lineB, reversed: false },
+              { curve: arcB, reversed: false },
+            ],
+            tol,
+          );
+          builtHandles.push(polycurve);
+
+          const fastStart = performance.now();
+          const fast = session.curve.bounds(polycurve, {
+            mode: RgmBoundsMode.Fast,
+            sample_budget: 0,
+            padding: 0,
+          });
+          const fastMs = performance.now() - fastStart;
+          const optimalStart = performance.now();
+          const optimal = session.curve.bounds(polycurve, {
+            mode: RgmBoundsMode.Optimal,
+            sample_budget: 2048,
+            padding: 0,
+          });
+          const optimalMs = performance.now() - optimalStart;
+
+          const fastSegments = boundsOverlaySegments(fast).map((segment) => ({
+            ...segment,
+            color: segment.name === "world-aabb" ? "#ff9d5a" : "#b38cff",
+            opacity: 0.46,
+            width: (segment.width ?? 2.4) - 0.55,
+            name: `fast-${segment.name}`,
+          }));
+          const optimalSegments = boundsOverlaySegments(optimal).map((segment) => ({
+            ...segment,
+            opacity: Math.min(1, segment.opacity + 0.08),
+            name: `optimal-${segment.name}`,
+          }));
+
+          const fastObbExt = obbExtents(fast);
+          const optimalObbExt = obbExtents(optimal);
+          const localExt = aabbExtents(optimal.local_aabb);
+          const base = asCurve(
+            polycurve,
+            builtHandles,
+            "Bounds Curve: Mixed Polycurve",
+            "Curve bounds (Fast vs Optimal + local frame)",
+            3,
+            3600,
+            [],
+          );
+          return {
+            ...base,
+            segmentOverlays: [...fastSegments, ...optimalSegments],
+            boundsMs: fastMs + optimalMs,
+            logs: [
+              `mode=Fast time=${fastMs.toFixed(2)}ms obb_extents=${formatExtents(fastObbExt)} volume=${extentsVolume(fastObbExt).toFixed(3)}`,
+              `mode=Optimal time=${optimalMs.toFixed(2)}ms obb_extents=${formatExtents(optimalObbExt)} volume=${extentsVolume(optimalObbExt).toFixed(3)}`,
+              `local_aabb_extents=${formatExtents(localExt)} in OBB frame`,
+              `world_aabb_extents=${formatExtents(aabbExtents(optimal.world_aabb))}`,
+            ],
+          };
+        } catch (error) {
+          for (const handle of builtHandles) {
+            session.kernel.releaseObject(handle);
+          }
+          throw error;
+        }
       }
 
       if (example === "intersectCurveCurve") {
@@ -1626,6 +1939,125 @@ export function KernelViewer() {
         }
       }
 
+      if (example === "bboxMeshBooleanAssembly") {
+        const built: ObjectHandle[] = [];
+        try {
+          const outer = session.mesh.createMeshBox({ x: 0, y: 0, z: 0 }, { x: 9.6, y: 8.6, z: 8.2 });
+          built.push(outer);
+          const torus = session.mesh.createMeshTorus({ x: 1.8, y: 0.0, z: 0.3 }, 2.7, 0.9, 78, 54);
+          built.push(torus);
+          const sphere = session.mesh.createMeshUvSphere({ x: -1.1, y: 1.0, z: -0.6 }, 2.25, 40, 30);
+          built.push(sphere);
+          const cutA = session.mesh.meshBoolean(outer, torus, 2);
+          built.push(cutA);
+          const rotated = session.mesh.meshRotate(
+            cutA,
+            { x: 0.34, y: 1.0, z: 0.18 },
+            0.74,
+            { x: 0, y: 0, z: 0 },
+          );
+          built.push(rotated);
+          const moved = session.mesh.meshTranslate(rotated, { x: 1.2, y: -0.4, z: 0.9 });
+          built.push(moved);
+
+          const firstFastStart = performance.now();
+          const fastFirst = session.mesh.bounds(moved, {
+            mode: RgmBoundsMode.Fast,
+            sample_budget: 1024,
+            padding: 0,
+          });
+          const fastFirstMs = performance.now() - firstFastStart;
+          const cachedFastStart = performance.now();
+          const fastCached = session.mesh.bounds(moved, {
+            mode: RgmBoundsMode.Fast,
+            sample_budget: 1024,
+            padding: 0,
+          });
+          const fastCachedMs = performance.now() - cachedFastStart;
+          const optimalStart = performance.now();
+          const optimal = session.mesh.bounds(moved, {
+            mode: RgmBoundsMode.Optimal,
+            sample_budget: 8192,
+            padding: 0,
+          });
+          const optimalMs = performance.now() - optimalStart;
+
+          const movedBuffers = session.mesh.meshToBuffers(moved);
+          const outerBuffers = session.mesh.meshToBuffers(outer);
+          const torusBuffers = session.mesh.meshToBuffers(torus);
+          const sphereBuffers = session.mesh.meshToBuffers(sphere);
+          const speedup = fastCachedMs > 1e-9 ? fastFirstMs / fastCachedMs : 0;
+          const optimalObbExt = obbExtents(optimal);
+          const localExt = aabbExtents(optimal.local_aabb);
+
+          return {
+            kind: "mesh",
+            curveHandle: null,
+            ownedHandles: built,
+            name: "Bounds Mesh: Boolean Assembly",
+            degreeLabel: "boolean difference + transform, with Fast cache and Optimal OBB",
+            renderDegree: 0,
+            renderSamples: 0,
+            meshVisual: {
+              vertices: movedBuffers.vertices,
+              indices: movedBuffers.indices,
+              color: "#8ac6ff",
+              opacity: 0.86,
+              wireframe: false,
+              name: "boolean assembly result",
+            },
+            overlayMeshes: [
+              {
+                vertices: outerBuffers.vertices,
+                indices: outerBuffers.indices,
+                color: "#7f8fa6",
+                opacity: 0.08,
+                wireframe: false,
+                name: "source box",
+              },
+              {
+                vertices: torusBuffers.vertices,
+                indices: torusBuffers.indices,
+                color: "#f3b06f",
+                opacity: 0.08,
+                wireframe: false,
+                name: "source torus",
+              },
+              {
+                vertices: sphereBuffers.vertices,
+                indices: sphereBuffers.indices,
+                color: "#99d9a7",
+                opacity: 0.07,
+                wireframe: false,
+                name: "fixture sphere (reference)",
+              },
+            ],
+            overlayCurves: [],
+            segmentOverlays: boundsOverlaySegments(optimal),
+            intersectionPoints: [],
+            planeVisual: null,
+            interactiveMeshHandle: null,
+            transformTargets: [],
+            defaultTransformTargetKey: null,
+            intersectionMs: 0,
+            boundsMs: fastFirstMs + fastCachedMs + optimalMs,
+            logs: [
+              `mode=Fast first=${fastFirstMs.toFixed(2)}ms cached=${fastCachedMs.toFixed(2)}ms speedup=${speedup.toFixed(2)}x`,
+              `mode=Fast world_aabb_extents=${formatExtents(aabbExtents(fastFirst.world_aabb))}`,
+              `mode=Optimal time=${optimalMs.toFixed(2)}ms obb_extents=${formatExtents(optimalObbExt)} volume=${extentsVolume(optimalObbExt).toFixed(3)}`,
+              `local_aabb_extents=${formatExtents(localExt)} in OBB frame`,
+              "robust boolean path: result = (box - torus), sphere rendered as reference fixture only",
+              `fast-repeat world_aabb delta_z=${Math.abs(fastFirst.world_aabb.max.z - fastCached.world_aabb.max.z).toExponential(2)}`,
+            ],
+          };
+        } catch (error) {
+          for (const handle of built) {
+            session.kernel.releaseObject(handle);
+          }
+          throw error;
+        }
+      }
+
       if (example === "surfaceLarge") {
         const built: ObjectHandle[] = [];
         try {
@@ -1758,6 +2190,122 @@ export function KernelViewer() {
               `base triangles=${session.mesh.meshTriangleCount(baseMesh)}`,
               `transformed triangles=${session.mesh.meshTriangleCount(transformedMesh)}`,
               "Transform APIs used: surfaceTranslate, surfaceRotate, surfaceScale",
+            ],
+          };
+        } catch (error) {
+          for (const handle of built) {
+            session.kernel.releaseObject(handle);
+          }
+          throw error;
+        }
+      }
+
+      if (example === "bboxSurfaceWarped") {
+        const built: ObjectHandle[] = [];
+        try {
+          const net = buildWarpedSurfaceNet(18, 16, 13, 11, 1.25);
+          const base = session.surface.createNurbsSurface(
+            net.desc,
+            net.points,
+            net.weights,
+            net.knotsU,
+            net.knotsV,
+            tol,
+          );
+          built.push(base);
+          const moved = session.surface.surfaceTranslate(base, { x: 0.8, y: -0.5, z: 0.7 });
+          built.push(moved);
+          const rotated = session.surface.surfaceRotate(
+            moved,
+            { x: 0.28, y: 1.0, z: 0.33 },
+            0.64,
+            { x: 0.0, y: 0.0, z: 0.0 },
+          );
+          built.push(rotated);
+          const scaled = session.surface.surfaceScale(
+            rotated,
+            { x: 1.1, y: 0.84, z: 1.22 },
+            { x: 0.2, y: -0.1, z: 0.0 },
+          );
+          built.push(scaled);
+
+          const fastStart = performance.now();
+          const fast = session.surface.bounds(scaled, {
+            mode: RgmBoundsMode.Fast,
+            sample_budget: 0,
+            padding: 0,
+          });
+          const fastMs = performance.now() - fastStart;
+          const optimalStart = performance.now();
+          const optimal = session.surface.bounds(scaled, {
+            mode: RgmBoundsMode.Optimal,
+            sample_budget: 4096,
+            padding: 0,
+          });
+          const optimalMs = performance.now() - optimalStart;
+
+          let outsideFast = 0;
+          let outsideOptimal = 0;
+          for (let iu = 0; iu <= 20; iu += 1) {
+            const u = iu / 20;
+            for (let iv = 0; iv <= 20; iv += 1) {
+              const v = iv / 20;
+              const sample = session.surface.surfacePointAt(scaled, { u, v });
+              if (!pointInsideAabb(fast.world_aabb, sample, 1e-6)) {
+                outsideFast += 1;
+              }
+              if (!pointInsideAabb(optimal.world_aabb, sample, 1e-6)) {
+                outsideOptimal += 1;
+              }
+            }
+          }
+
+          const mesh = session.surface.surfaceTessellateToMesh(scaled, {
+            min_u_segments: 24,
+            min_v_segments: 22,
+            max_u_segments: 52,
+            max_v_segments: 48,
+            chord_tol: 2.0e-4,
+            normal_tol_rad: 0.08,
+          });
+          built.push(mesh);
+          const buffers = session.mesh.meshToBuffers(mesh);
+          const fastObb = obbExtents(fast);
+          const optimalObb = obbExtents(optimal);
+          const localExt = aabbExtents(optimal.local_aabb);
+
+          return {
+            kind: "mesh",
+            curveHandle: null,
+            ownedHandles: built,
+            name: "Bounds Surface: Warped Rational",
+            degreeLabel: "transformed warped surface, Fast vs Optimal bounds",
+            renderDegree: 0,
+            renderSamples: 0,
+            meshVisual: {
+              vertices: buffers.vertices,
+              indices: buffers.indices,
+              color: "#81b8e2",
+              opacity: 0.78,
+              wireframe: false,
+              name: "warped transformed surface",
+            },
+            overlayMeshes: [],
+            overlayCurves: [],
+            segmentOverlays: boundsOverlaySegments(optimal),
+            intersectionPoints: [],
+            planeVisual: null,
+            interactiveMeshHandle: null,
+            transformTargets: [],
+            defaultTransformTargetKey: null,
+            intersectionMs: 0,
+            boundsMs: fastMs + optimalMs,
+            logs: [
+              `mode=Fast time=${fastMs.toFixed(2)}ms obb_extents=${formatExtents(fastObb)} volume=${extentsVolume(fastObb).toFixed(3)}`,
+              `mode=Optimal time=${optimalMs.toFixed(2)}ms obb_extents=${formatExtents(optimalObb)} volume=${extentsVolume(optimalObb).toFixed(3)}`,
+              `world_aabb_extents=${formatExtents(aabbExtents(optimal.world_aabb))}`,
+              `local_aabb_extents=${formatExtents(localExt)} in OBB frame`,
+              `containment sampled_uv=441 outside_fast=${outsideFast} outside_optimal=${outsideOptimal}`,
             ],
           };
         } catch (error) {
@@ -2382,6 +2930,119 @@ export function KernelViewer() {
               `valid before heal=${validBefore}`,
               `valid after heal=${validAfter}`,
               `triangles=${session.mesh.meshTriangleCount(mesh)}`,
+            ],
+          };
+        } catch (error) {
+          for (const handle of built) {
+            session.kernel.releaseObject(handle);
+          }
+          throw error;
+        }
+      }
+
+      if (example === "bboxBrepSolidLifecycle") {
+        const built: ObjectHandle[] = [];
+        try {
+          const surfaces = buildSkewedBoxSurfaces(
+            session,
+            tol,
+            { x: 0.2, y: -0.1, z: 0.0 },
+            { x: 4.6, y: 3.2, z: 2.4 },
+            0.07,
+          );
+          built.push(...surfaces);
+
+          const brep = session.brep.brepCreateEmpty();
+          built.push(brep);
+          const faceIds: BrepFaceId[] = [];
+          for (const surface of surfaces) {
+            const faceId = session.brep.brepAddFaceFromSurface(brep, surface);
+            faceIds.push(faceId);
+            session.brep.brepAddLoopUv(
+              brep,
+              faceId,
+              rectangleLoopUV(0.0, 1.0, 0.0, 1.0),
+              true,
+            );
+          }
+
+          const preStart = performance.now();
+          const preFast = session.brep.bounds(brep, {
+            mode: RgmBoundsMode.Fast,
+            sample_budget: 0,
+            padding: 0,
+          });
+          const preMs = performance.now() - preStart;
+
+          const reportBefore = session.brep.brepValidate(brep);
+          const fixed = session.brep.brepHeal(brep);
+          const shellId = session.brep.brepFinalizeShell(brep);
+          const solidId = session.brep.brepFinalizeSolid(brep);
+          const reportAfter = session.brep.brepValidate(brep);
+
+          const postFastStart = performance.now();
+          const postFast = session.brep.bounds(brep, {
+            mode: RgmBoundsMode.Fast,
+            sample_budget: 0,
+            padding: 0,
+          });
+          const postFastMs = performance.now() - postFastStart;
+          const postOptimalStart = performance.now();
+          const postOptimal = session.brep.bounds(brep, {
+            mode: RgmBoundsMode.Optimal,
+            sample_budget: 6144,
+            padding: 0,
+          });
+          const postOptimalMs = performance.now() - postOptimalStart;
+
+          const mesh = session.brep.brepTessellateToMesh(brep, {
+            min_u_segments: 12,
+            min_v_segments: 12,
+            max_u_segments: 34,
+            max_v_segments: 34,
+            chord_tol: 1.6e-4,
+            normal_tol_rad: 0.08,
+          });
+          built.push(mesh);
+          const buffers = session.mesh.meshToBuffers(mesh);
+          const preExt = obbExtents(preFast);
+          const postFastExt = obbExtents(postFast);
+          const postOptimalExt = obbExtents(postOptimal);
+
+          return {
+            kind: "mesh",
+            curveHandle: null,
+            ownedHandles: built,
+            name: "Bounds BREP: Solid Lifecycle",
+            degreeLabel: "pre-shell vs post-solid bounds, Fast/Optimal comparison",
+            renderDegree: 0,
+            renderSamples: 0,
+            meshVisual: {
+              vertices: buffers.vertices,
+              indices: buffers.indices,
+              color: "#7cb2dc",
+              opacity: 0.58,
+              wireframe: false,
+              name: "brep lifecycle solid",
+            },
+            overlayMeshes: [],
+            overlayCurves: [],
+            segmentOverlays: boundsOverlaySegments(postOptimal),
+            intersectionPoints: [],
+            planeVisual: null,
+            interactiveMeshHandle: null,
+            transformTargets: [],
+            defaultTransformTargetKey: null,
+            intersectionMs: 0,
+            boundsMs: preMs + postFastMs + postOptimalMs,
+            logs: [
+              `pre-finalize fast=${preMs.toFixed(2)}ms obb_extents=${formatExtents(preExt)} volume=${extentsVolume(preExt).toFixed(3)}`,
+              `post-finalize fast=${postFastMs.toFixed(2)}ms obb_extents=${formatExtents(postFastExt)} volume=${extentsVolume(postFastExt).toFixed(3)}`,
+              `post-finalize optimal=${postOptimalMs.toFixed(2)}ms obb_extents=${formatExtents(postOptimalExt)} volume=${extentsVolume(postOptimalExt).toFixed(3)}`,
+              `world_aabb_extents=${formatExtents(aabbExtents(postOptimal.world_aabb))}`,
+              `shell_id=${shellId} solid_id=${solidId} face_count=${faceIds.length} heal_fixed=${fixed}`,
+              ...validationReportLogLines(reportBefore, "validate(before finalize)"),
+              ...validationReportLogLines(reportAfter, "validate(after finalize)"),
             ],
           };
         } catch (error) {
@@ -3273,7 +3934,8 @@ export function KernelViewer() {
         );
       }
       const loadMs = performance.now() - loadStart;
-      setPerfStats({ loadMs, intersectionMs: built.intersectionMs });
+      const boundsMs = built.boundsMs ?? 0;
+      setPerfStats({ loadMs, intersectionMs: built.intersectionMs, boundsMs });
       const intersectionSummary =
         built.intersectionPoints.length > 0
           ? ` • intersections ${built.intersectionPoints.length}`
@@ -3282,10 +3944,9 @@ export function KernelViewer() {
         built.kind === "mesh" && built.meshVisual
           ? ` • triangles ${Math.floor(built.meshVisual.indices.length / 3)}`
           : "";
-      const perfSummary =
-        built.intersectionMs > 0
-          ? ` • load ${loadMs.toFixed(2)}ms • intersection ${built.intersectionMs.toFixed(2)}ms`
-          : ` • load ${loadMs.toFixed(2)}ms`;
+      const perfSummary = ` • load ${loadMs.toFixed(2)}ms${
+        built.intersectionMs > 0 ? ` • intersection ${built.intersectionMs.toFixed(2)}ms` : ""
+      }${boundsMs > 0 ? ` • bounds ${boundsMs.toFixed(2)}ms` : ""}`;
       setStatusMessage(
         `${successMessage} • ${built.name} • ${built.degreeLabel}${intersectionSummary}${meshSummary}${perfSummary}${
           built.kind === "curve"
@@ -3313,7 +3974,7 @@ export function KernelViewer() {
       }
       appendLog(
         "info",
-        `Built handles=${built.ownedHandles.length} intersections=${built.intersectionPoints.length} kind=${built.kind} load=${loadMs.toFixed(2)}ms`,
+        `Built handles=${built.ownedHandles.length} intersections=${built.intersectionPoints.length} kind=${built.kind} load=${loadMs.toFixed(2)}ms bounds=${boundsMs.toFixed(2)}ms`,
       );
     },
     [appendLog, buildExampleCurve, releaseOwnedCurveHandles],

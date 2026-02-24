@@ -7,6 +7,7 @@ export const EXAMPLE_OPTIONS: Record<string, ExampleKey> = {
   "Polycurve (mixed)": "polycurve",
   "Arc (tilted)": "arc",
   "Circle (tilted)": "circle",
+  "Bounds (curve, fast vs optimal)": "bboxCurveNonTrivial",
   "Intersection (curve-curve)": "intersectCurveCurve",
   "Intersection (curve-plane)": "intersectCurvePlane",
   "Mesh (large torus)": "meshLarge",
@@ -14,12 +15,14 @@ export const EXAMPLE_OPTIONS: Record<string, ExampleKey> = {
   "Mesh (mesh-mesh intersection)": "meshIntersectMeshMesh",
   "Mesh (mesh-plane section)": "meshIntersectMeshPlane",
   "Mesh (CSG difference: box - torus)": "meshBoolean",
+  "Bounds (mesh boolean assembly)": "bboxMeshBooleanAssembly",
   "Surface (large untrimmed)": "surfaceLarge",
   "Surface (transform chain)": "surfaceTransform",
   "Surface (UV evaluate D0/D1/D2)": "surfaceUvEval",
   "Surface (surface-surface intersection)": "surfaceIntersectSurface",
   "Surface (surface-plane intersection)": "surfaceIntersectPlane",
   "Surface (surface-curve intersection)": "surfaceIntersectCurve",
+  "Bounds (surface warped)": "bboxSurfaceWarped",
   "Trim (edit workflow)": "trimEditWorkflow",
   "Trim (validation failures)": "trimValidationFailures",
   "Trim (multi-loop surgery)": "trimMultiLoopSurgery",
@@ -29,6 +32,7 @@ export const EXAMPLE_OPTIONS: Record<string, ExampleKey> = {
   "BREP (solid face surgery rebuild)": "brepSolidFaceSurgery",
   "BREP (face bridge roundtrip)": "brepFaceBridgeRoundtrip",
   "BREP (native save/load roundtrip)": "brepNativeRoundtrip",
+  "Bounds (BREP solid lifecycle)": "bboxBrepSolidLifecycle",
 };
 
 export const EXAMPLE_SUMMARIES: Record<ExampleKey, string> = {
@@ -38,6 +42,8 @@ export const EXAMPLE_SUMMARIES: Record<ExampleKey, string> = {
   polycurve: "Combines line and arc segments into one chained polycurve.",
   arc: "Creates a planar arc in a tilted frame.",
   circle: "Creates a full circle in a tilted frame.",
+  bboxCurveNonTrivial:
+    "Builds a skewed polycurve and compares Fast vs Optimal bounds with world AABB, world OBB, and local-frame AABB overlays.",
   intersectCurveCurve: "Finds intersection points between two curves.",
   intersectCurvePlane: "Finds where a 3D curve crosses an oblique plane.",
   meshLarge: "Displays a dense torus mesh to inspect mesh rendering scale.",
@@ -46,6 +52,8 @@ export const EXAMPLE_SUMMARIES: Record<ExampleKey, string> = {
   meshIntersectMeshPlane: "Cuts a mesh with a plane and shows section segments.",
   meshBoolean:
     "Select A or B, move it with the gizmo, and recompute the CSG difference (A - B) on every drag commit.",
+  bboxMeshBooleanAssembly:
+    "Runs bounds on a transformed boolean mesh assembly, visualizing cached repeat-query timings and OBB frame overlays.",
   surfaceLarge: "Builds a high-density untrimmed NURBS surface and tessellates it in-kernel.",
   surfaceTransform: "Applies translation, rotation, and scaling to a surface in-kernel.",
   surfaceUvEval:
@@ -53,6 +61,8 @@ export const EXAMPLE_SUMMARIES: Record<ExampleKey, string> = {
   surfaceIntersectSurface: "Computes untrimmed surface-surface intersection branches in-kernel.",
   surfaceIntersectPlane: "Computes untrimmed surface-plane section branches in-kernel.",
   surfaceIntersectCurve: "Computes surface-curve intersections with UV and curve-parameter traces.",
+  bboxSurfaceWarped:
+    "Computes warped-surface bounds and compares sampled containment and volume between Fast and Optimal modes.",
   trimEditWorkflow: "Demonstrates trim loop edit operations and retessellation in-kernel.",
   trimValidationFailures:
     "Creates an intentionally invalid trim topology and reports validation/heal behavior.",
@@ -70,6 +80,8 @@ export const EXAMPLE_SUMMARIES: Record<ExampleKey, string> = {
     "Round-trips a trimmed face through BREP bridge APIs (face -> brep -> face) and compares extracted geometry.",
   brepNativeRoundtrip:
     "Serializes a finalized BREP to native bytes, reloads it, and verifies topology/area/tessellation continuity.",
+  bboxBrepSolidLifecycle:
+    "Tracks BREP bounds across shell/solid lifecycle steps and compares Fast/Optimal bounds extents and compute times.",
 };
 
 export interface ExampleCategoryItem {
@@ -94,6 +106,7 @@ export const EXAMPLE_CATEGORIES: ExampleCategory[] = [
       { key: "polycurve", label: "Polycurve (mixed)" },
       { key: "arc", label: "Arc (tilted)" },
       { key: "circle", label: "Circle (tilted)" },
+      { key: "bboxCurveNonTrivial", label: "Bounds: Fast vs Optimal" },
     ],
   },
   {
@@ -113,6 +126,7 @@ export const EXAMPLE_CATEGORIES: ExampleCategory[] = [
       { key: "meshIntersectMeshMesh", label: "Mesh × Mesh" },
       { key: "meshIntersectMeshPlane", label: "Mesh × Plane" },
       { key: "meshBoolean", label: "CSG Difference (A − B)" },
+      { key: "bboxMeshBooleanAssembly", label: "Bounds: Boolean Assembly" },
     ],
   },
   {
@@ -125,6 +139,7 @@ export const EXAMPLE_CATEGORIES: ExampleCategory[] = [
       { key: "surfaceIntersectSurface", label: "Surface × Surface" },
       { key: "surfaceIntersectPlane", label: "Surface × Plane" },
       { key: "surfaceIntersectCurve", label: "Surface × Curve" },
+      { key: "bboxSurfaceWarped", label: "Bounds: Warped Surface" },
     ],
   },
   {
@@ -146,6 +161,7 @@ export const EXAMPLE_CATEGORIES: ExampleCategory[] = [
       { key: "brepSolidFaceSurgery", label: "Solid Face Surgery Rebuild" },
       { key: "brepFaceBridgeRoundtrip", label: "Face Bridge Roundtrip" },
       { key: "brepNativeRoundtrip", label: "Native Save/Load Roundtrip" },
+      { key: "bboxBrepSolidLifecycle", label: "Bounds: Solid Lifecycle" },
     ],
   },
 ];
@@ -153,14 +169,14 @@ export const EXAMPLE_CATEGORIES: ExampleCategory[] = [
 export function parseExampleSelection(value: unknown): ExampleKey | null {
   const raw = String(value);
   const validKeys: ExampleKey[] = [
-    "nurbs", "line", "polyline", "polycurve", "arc", "circle",
+    "nurbs", "line", "polyline", "polycurve", "arc", "circle", "bboxCurveNonTrivial",
     "intersectCurveCurve", "intersectCurvePlane",
-    "meshLarge", "meshTransform", "meshIntersectMeshMesh", "meshIntersectMeshPlane", "meshBoolean",
-    "surfaceLarge", "surfaceTransform", "surfaceUvEval",
+    "meshLarge", "meshTransform", "meshIntersectMeshMesh", "meshIntersectMeshPlane", "meshBoolean", "bboxMeshBooleanAssembly",
+    "surfaceLarge", "surfaceTransform", "surfaceUvEval", "bboxSurfaceWarped",
     "surfaceIntersectSurface", "surfaceIntersectPlane", "surfaceIntersectCurve",
     "trimEditWorkflow", "trimValidationFailures", "trimMultiLoopSurgery",
     "brepShellAssembly", "brepSolidAssembly", "brepSolidRoundtripAudit", "brepSolidFaceSurgery",
-    "brepFaceBridgeRoundtrip", "brepNativeRoundtrip",
+    "brepFaceBridgeRoundtrip", "brepNativeRoundtrip", "bboxBrepSolidLifecycle",
   ];
   if (validKeys.includes(raw as ExampleKey)) {
     return raw as ExampleKey;

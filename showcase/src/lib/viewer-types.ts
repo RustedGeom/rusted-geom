@@ -70,6 +70,7 @@ export interface TransformTarget {
 export interface ViewerPerformance {
   loadMs: number;
   intersectionMs: number;
+  boundsMs: number;
 }
 
 export interface CameraSnapshot {
@@ -93,12 +94,14 @@ export type ExampleKey =
   | "meshIntersectMeshMesh"
   | "meshIntersectMeshPlane"
   | "meshBoolean"
+  | "bboxMeshBooleanAssembly"
   | "surfaceLarge"
   | "surfaceTransform"
   | "surfaceUvEval"
   | "surfaceIntersectSurface"
   | "surfaceIntersectPlane"
   | "surfaceIntersectCurve"
+  | "bboxSurfaceWarped"
   | "trimEditWorkflow"
   | "trimValidationFailures"
   | "trimMultiLoopSurgery"
@@ -107,4 +110,6 @@ export type ExampleKey =
   | "brepSolidRoundtripAudit"
   | "brepSolidFaceSurgery"
   | "brepFaceBridgeRoundtrip"
-  | "brepNativeRoundtrip";
+  | "brepNativeRoundtrip"
+  | "bboxCurveNonTrivial"
+  | "bboxBrepSolidLifecycle";

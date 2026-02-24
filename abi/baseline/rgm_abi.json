@@ -1,7 +1,7 @@
 {
   "crate_name": "kernel-ffi",
   "version": "0.1.0-alpha.1",
-  "abi_hash": "47c8e2b1c057d73055c872d5d4ccc670713d6f4ffba0e7cd2b3a234feb2c2523",
+  "abi_hash": "073d2403b4d98c215d304301c08bdf8101657d90ba9852d748e13bf7c67b1044",
   "functions": [
     {
       "rust_name": "rgm_alloc",
@@ -2414,6 +2414,32 @@
       ]
     },
     {
+      "rust_name": "rgm_object_compute_bounds",
+      "c_name": "rgm_object_compute_bounds",
+      "interop_ts_name": "interopObjectComputeBounds",
+      "public_ts_name": null,
+      "receiver": null,
+      "return_type": "RgmStatus",
+      "params": [
+        {
+          "name": "session",
+          "ty": "RgmKernelHandle"
+        },
+        {
+          "name": "object",
+          "ty": "RgmObjectHandle"
+        },
+        {
+          "name": "options",
+          "ty": "*constRgmBoundsOptions"
+        },
+        {
+          "name": "out_bounds",
+          "ty": "*mutRgmBounds3"
+        }
+      ]
+    },
+    {
       "rust_name": "rgm_object_release",
       "c_name": "rgm_object_release",
       "interop_ts_name": "interopObjectRelease",
@@ -2810,6 +2836,21 @@
   ],
   "ffi_types": [
     {
+      "kind": "Struct",
+      "name": "RgmAabb3",
+      "repr": "C",
+      "fields": [
+        {
+          "name": "min",
+          "ty": "RgmPoint3"
+        },
+        {
+          "name": "max",
+          "ty": "RgmPoint3"
+        }
+      ]
+    },
+    {
       "kind": "Enum",
       "name": "RgmAlignmentCoordinateSystem",
       "repr": "i32",
@@ -2843,6 +2884,59 @@
         },
         {
           "name": "sweep_angle",
+          "ty": "f64"
+        }
+      ]
+    },
+    {
+      "kind": "Struct",
+      "name": "RgmBounds3",
+      "repr": "C",
+      "fields": [
+        {
+          "name": "world_aabb",
+          "ty": "RgmAabb3"
+        },
+        {
+          "name": "world_obb",
+          "ty": "RgmObb3"
+        },
+        {
+          "name": "local_aabb",
+          "ty": "RgmAabb3"
+        }
+      ]
+    },
+    {
+      "kind": "Enum",
+      "name": "RgmBoundsMode",
+      "repr": "i32",
+      "variants": [
+        {
+          "name": "Fast",
+          "value": "0"
+        },
+        {
+          "name": "Optimal",
+          "value": "1"
+        }
+      ]
+    },
+    {
+      "kind": "Struct",
+      "name": "RgmBoundsOptions",
+      "repr": "C",
+      "fields": [
+        {
+          "name": "mode",
+          "ty": "RgmBoundsMode"
+        },
+        {
+          "name": "sample_budget",
+          "ty": "u32"
+        },
+        {
+          "name": "padding",
           "ty": "f64"
         }
       ]
@@ -3001,6 +3095,33 @@
         {
           "name": "control_v_count",
           "ty": "u32"
+        }
+      ]
+    },
+    {
+      "kind": "Struct",
+      "name": "RgmObb3",
+      "repr": "C",
+      "fields": [
+        {
+          "name": "center",
+          "ty": "RgmPoint3"
+        },
+        {
+          "name": "x_axis",
+          "ty": "RgmVec3"
+        },
+        {
+          "name": "y_axis",
+          "ty": "RgmVec3"
+        },
+        {
+          "name": "z_axis",
+          "ty": "RgmVec3"
+        },
+        {
+          "name": "half_extents",
+          "ty": "RgmVec3"
         }
       ]
     },

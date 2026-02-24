@@ -16,6 +16,10 @@ export function PerformanceSection({ perfStats }: PerformanceSectionProps) {
         <span>Intersection</span>
         <output>{perfStats.intersectionMs.toFixed(2)} ms</output>
       </div>
+      <div className="inspector-readout">
+        <span>Bounds</span>
+        <output>{perfStats.boundsMs.toFixed(2)} ms</output>
+      </div>
     </section>
   );
 }

@@ -20,6 +20,7 @@
   "lengthAt",
   "normalAt",
   "normalAtLength",
+  "objectComputeBounds",
   "planeAt",
   "planeAtLength",
   "pointAt",

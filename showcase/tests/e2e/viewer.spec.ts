@@ -49,6 +49,31 @@ test.describe("viewer shell", () => {
         .locator(".inspector-readout output")
         .filter({ hasText: "Large Trimmed NURBS Surface" }),
     ).toBeVisible();
+    await exampleSelect.selectOption("bboxCurveNonTrivial");
+    await expect(
+      page
+        .locator(".inspector-readout output")
+        .filter({ hasText: "Bounds Curve: Mixed Polycurve" }),
+    ).toBeVisible();
+    await exampleSelect.selectOption("bboxSurfaceWarped");
+    await expect(
+      page
+        .locator(".inspector-readout output")
+        .filter({ hasText: "Bounds Surface: Warped Rational" }),
+    ).toBeVisible();
+    await exampleSelect.selectOption("bboxMeshBooleanAssembly");
+    await expect(
+      page
+        .locator(".inspector-readout output")
+        .filter({ hasText: "Bounds Mesh: Boolean Assembly" }),
+    ).toBeVisible();
+    await exampleSelect.selectOption("bboxBrepSolidLifecycle");
+    await expect(
+      page
+        .locator(".inspector-readout output")
+        .filter({ hasText: "Bounds BREP: Solid Lifecycle" }),
+    ).toBeVisible();
+    await expect(page.locator(".inspector-readout span").filter({ hasText: "Bounds" })).toBeVisible();
   });
 
   test("saves and loads a session json", async ({ page, isMobile }) => {
