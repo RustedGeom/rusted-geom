@@ -273,6 +273,74 @@ pub struct RgmTrimLoopInput {
     pub is_outer: bool,
 }
 
+// S6: Named constants for entity_kind field in RgmValidationIssue, replacing magic integers.
+#[rgm_ffi_type]
+#[repr(u32)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum RgmBrepEntityKind {
+    Edge = 1,
+    Trim = 2,
+    Loop = 3,
+    Face = 4,
+    Shell = 5,
+    Solid = 6,
+}
+
+#[rgm_ffi_type]
+#[repr(i32)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum RgmValidationSeverity {
+    Info = 0,
+    Warning = 1,
+    Error = 2,
+}
+
+#[rgm_ffi_type]
+#[repr(C)]
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct RgmValidationIssue {
+    pub severity: RgmValidationSeverity,
+    pub code: u32,
+    pub entity_kind: u32,
+    pub entity_id: u32,
+    pub param_u: f64,
+    pub param_v: f64,
+}
+
+impl Default for RgmValidationIssue {
+    fn default() -> Self {
+        Self {
+            severity: RgmValidationSeverity::Info,
+            code: 0,
+            entity_kind: 0,
+            entity_id: 0,
+            param_u: f64::NAN,
+            param_v: f64::NAN,
+        }
+    }
+}
+
+#[rgm_ffi_type]
+#[repr(C)]
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct RgmBrepValidationReport {
+    pub issue_count: u32,
+    pub max_severity: RgmValidationSeverity,
+    pub overflow: bool,
+    pub issues: [RgmValidationIssue; 16],
+}
+
+impl Default for RgmBrepValidationReport {
+    fn default() -> Self {
+        Self {
+            issue_count: 0,
+            max_severity: RgmValidationSeverity::Info,
+            overflow: false,
+            issues: [RgmValidationIssue::default(); 16],
+        }
+    }
+}
+
 #[rgm_ffi_type]
 #[repr(C)]
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -302,5 +370,4 @@ impl Default for RgmStatus {
         Self::Ok
     }
 }
-
 

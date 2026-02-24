@@ -828,11 +828,22 @@ fn transparent_newtype_inner<'a>(repr: &str, fields: &'a [FfiField]) -> Option<&
 }
 
 fn map_ts_type(rust_type: &str) -> String {
+    let rust_type = rust_type.trim();
+
     if let Some(inner) = rust_type.strip_prefix("*mut") {
         return map_ts_type(inner);
     }
     if let Some(inner) = rust_type.strip_prefix("*const") {
         return map_ts_type(inner);
+    }
+
+    if let Some(inner) = rust_type
+        .strip_prefix('[')
+        .and_then(|value| value.strip_suffix(']'))
+    {
+        if let Some((elem, _len)) = inner.split_once(';') {
+            return format!("{}[]", map_ts_type(elem));
+        }
     }
 
     match rust_type {

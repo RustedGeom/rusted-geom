@@ -22,6 +22,13 @@ export const EXAMPLE_OPTIONS: Record<string, ExampleKey> = {
   "Surface (surface-curve intersection)": "surfaceIntersectCurve",
   "Trim (edit workflow)": "trimEditWorkflow",
   "Trim (validation failures)": "trimValidationFailures",
+  "Trim (multi-loop surgery)": "trimMultiLoopSurgery",
+  "BREP (shell assembly + adjacency)": "brepShellAssembly",
+  "BREP (solid assembly lifecycle)": "brepSolidAssembly",
+  "BREP (solid roundtrip audit)": "brepSolidRoundtripAudit",
+  "BREP (solid face surgery rebuild)": "brepSolidFaceSurgery",
+  "BREP (face bridge roundtrip)": "brepFaceBridgeRoundtrip",
+  "BREP (native save/load roundtrip)": "brepNativeRoundtrip",
 };
 
 export const EXAMPLE_SUMMARIES: Record<ExampleKey, string> = {
@@ -49,6 +56,20 @@ export const EXAMPLE_SUMMARIES: Record<ExampleKey, string> = {
   trimEditWorkflow: "Demonstrates trim loop edit operations and retessellation in-kernel.",
   trimValidationFailures:
     "Creates an intentionally invalid trim topology and reports validation/heal behavior.",
+  trimMultiLoopSurgery:
+    "Builds a complex trimmed face with mixed loop construction (point loops + edge loops), split edits, and healing.",
+  brepShellAssembly:
+    "Builds a multi-face BREP shell from trimmed faces, edits loops through BREP APIs, validates/heals, and inspects adjacency.",
+  brepSolidAssembly:
+    "Builds a six-face box-like BREP, promotes shell to solid, and inspects shell/solid topology diagnostics.",
+  brepSolidRoundtripAudit:
+    "Builds a skewed solid, clones + serializes/loads it, and compares topology and geometric invariants across generations.",
+  brepSolidFaceSurgery:
+    "Extracts all faces from a solid, surgically edits one face, then rebuilds and validates a new solid from modified face objects.",
+  brepFaceBridgeRoundtrip:
+    "Round-trips a trimmed face through BREP bridge APIs (face -> brep -> face) and compares extracted geometry.",
+  brepNativeRoundtrip:
+    "Serializes a finalized BREP to native bytes, reloads it, and verifies topology/area/tessellation continuity.",
 };
 
 export interface ExampleCategoryItem {
@@ -112,6 +133,19 @@ export const EXAMPLE_CATEGORIES: ExampleCategory[] = [
     items: [
       { key: "trimEditWorkflow", label: "Edit Workflow" },
       { key: "trimValidationFailures", label: "Validation Failures" },
+      { key: "trimMultiLoopSurgery", label: "Multi-Loop Surgery" },
+    ],
+  },
+  {
+    label: "BREP",
+    key: "brep",
+    items: [
+      { key: "brepShellAssembly", label: "Shell Assembly + Adjacency" },
+      { key: "brepSolidAssembly", label: "Solid Assembly Lifecycle" },
+      { key: "brepSolidRoundtripAudit", label: "Solid Roundtrip Audit" },
+      { key: "brepSolidFaceSurgery", label: "Solid Face Surgery Rebuild" },
+      { key: "brepFaceBridgeRoundtrip", label: "Face Bridge Roundtrip" },
+      { key: "brepNativeRoundtrip", label: "Native Save/Load Roundtrip" },
     ],
   },
 ];
@@ -124,7 +158,9 @@ export function parseExampleSelection(value: unknown): ExampleKey | null {
     "meshLarge", "meshTransform", "meshIntersectMeshMesh", "meshIntersectMeshPlane", "meshBoolean",
     "surfaceLarge", "surfaceTransform", "surfaceUvEval",
     "surfaceIntersectSurface", "surfaceIntersectPlane", "surfaceIntersectCurve",
-    "trimEditWorkflow", "trimValidationFailures",
+    "trimEditWorkflow", "trimValidationFailures", "trimMultiLoopSurgery",
+    "brepShellAssembly", "brepSolidAssembly", "brepSolidRoundtripAudit", "brepSolidFaceSurgery",
+    "brepFaceBridgeRoundtrip", "brepNativeRoundtrip",
   ];
   if (validKeys.includes(raw as ExampleKey)) {
     return raw as ExampleKey;

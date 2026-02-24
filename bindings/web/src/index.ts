@@ -8,6 +8,12 @@ export * from "./runtime/wasm-loader";
 // Explicit re-export resolves the CurveHandle ambiguity between generated/native (class)
 // and session/handles (branded bigint type). The type-only export wins.
 export type {
+  BrepEdgeId,
+  BrepFaceId,
+  BrepHandle,
+  BrepLoopId,
+  BrepShellId,
+  BrepSolidId,
   CurveHandle,
   FaceHandle,
   IntersectionHandle,

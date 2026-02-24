@@ -1,5 +1,6 @@
 import type { NativeExports } from "../../generated/native";
 import type {
+  RgmBrepValidationReport,
   RgmIntersectionBranchSummary,
   RgmArc3,
   RgmCircle3,
@@ -19,6 +20,11 @@ import type {
 import { RgmStatus } from "../../generated/types";
 import { KernelRuntimeError, statusToName } from "../errors";
 import type {
+  BrepFaceId,
+  BrepHandle,
+  BrepLoopId,
+  BrepShellId,
+  BrepSolidId,
   CurveHandle,
   FaceHandle,
   IntersectionHandle,
@@ -121,6 +127,37 @@ export interface KernelSession {
   faceValidate(faceHandle: FaceHandle): boolean;
   faceHeal(faceHandle: FaceHandle): void;
   faceTessellateToMesh(faceHandle: FaceHandle, options?: RgmSurfaceTessellationOptions): MeshHandle;
+  brepCreateEmpty(): BrepHandle;
+  brepCreateFromFaces(faces: FaceHandle[]): BrepHandle;
+  brepCreateFromSurface(surfaceHandle: SurfaceHandle): BrepHandle;
+  brepAddFace(brepHandle: BrepHandle, faceHandle: FaceHandle): BrepFaceId;
+  brepAddFaceFromSurface(brepHandle: BrepHandle, surfaceHandle: SurfaceHandle): BrepFaceId;
+  brepAddLoopUv(
+    brepHandle: BrepHandle,
+    faceId: BrepFaceId,
+    points: RgmUv2[],
+    isOuter: boolean,
+  ): BrepLoopId;
+  brepFinalizeShell(brepHandle: BrepHandle): BrepShellId;
+  brepFinalizeSolid(brepHandle: BrepHandle): BrepSolidId;
+  brepValidate(brepHandle: BrepHandle): RgmBrepValidationReport;
+  brepHeal(brepHandle: BrepHandle): number;
+  brepClone(brepHandle: BrepHandle): BrepHandle;
+  brepFaceCount(brepHandle: BrepHandle): number;
+  brepShellCount(brepHandle: BrepHandle): number;
+  brepSolidCount(brepHandle: BrepHandle): number;
+  brepIsSolid(brepHandle: BrepHandle): boolean;
+  brepFaceAdjacency(brepHandle: BrepHandle, faceId: BrepFaceId): BrepFaceId[];
+  brepTessellateToMesh(
+    brepHandle: BrepHandle,
+    options?: RgmSurfaceTessellationOptions,
+  ): MeshHandle;
+  brepFromFaceObject(faceHandle: FaceHandle): BrepHandle;
+  brepExtractFaceObject(brepHandle: BrepHandle, faceId: BrepFaceId): FaceHandle;
+  brepState(brepHandle: BrepHandle): 0 | 1;
+  brepEstimateArea(brepHandle: BrepHandle): number;
+  brepSaveNative(brepHandle: BrepHandle): Uint8Array;
+  brepLoadNative(bytes: Uint8Array | ArrayBuffer | ArrayBufferView): BrepHandle;
   intersectSurfaceSurface(surfaceA: SurfaceHandle, surfaceB: SurfaceHandle): IntersectionHandle;
   intersectSurfacePlane(surface: SurfaceHandle, plane: RgmPlane): IntersectionHandle;
   intersectSurfaceCurve(surface: SurfaceHandle, curve: CurveHandle): IntersectionHandle;
@@ -526,6 +563,414 @@ class KernelSessionImpl extends KernelSessionBase implements KernelSession {
     }
   }
 
+  brepCreateEmpty(): BrepHandle {
+    this.ensureAlive();
+    const outPtr = this.memory.alloc(KERNEL_LAYOUT.U64_BYTES, 8);
+    try {
+      const status = this.api.rgm_brep_create_empty(this.handle, outPtr) as RgmStatus;
+      this.assertOk(status, "BREP create empty failed");
+      return this.memory.readU64(outPtr) as BrepHandle;
+    } finally {
+      this.memory.free(outPtr, KERNEL_LAYOUT.U64_BYTES, 8);
+    }
+  }
+
+  brepCreateFromFaces(faces: FaceHandle[]): BrepHandle {
+    this.ensureAlive();
+    const outPtr = this.memory.alloc(KERNEL_LAYOUT.U64_BYTES, 8);
+    const facesPtr =
+      faces.length > 0 ? this.memory.alloc(faces.length * KERNEL_LAYOUT.U64_BYTES, 8) : 0;
+    try {
+      if (facesPtr !== 0) {
+        this.memory.writeU64Array(facesPtr, faces);
+      }
+      const status = this.api.rgm_brep_create_from_faces(
+        this.handle,
+        facesPtr,
+        faces.length,
+        outPtr,
+      ) as RgmStatus;
+      this.assertOk(status, "BREP create from faces failed");
+      return this.memory.readU64(outPtr) as BrepHandle;
+    } finally {
+      if (facesPtr !== 0) {
+        this.memory.free(facesPtr, faces.length * KERNEL_LAYOUT.U64_BYTES, 8);
+      }
+      this.memory.free(outPtr, KERNEL_LAYOUT.U64_BYTES, 8);
+    }
+  }
+
+  brepCreateFromSurface(surfaceHandle: SurfaceHandle): BrepHandle {
+    this.ensureAlive();
+    const outPtr = this.memory.alloc(KERNEL_LAYOUT.U64_BYTES, 8);
+    try {
+      const status = this.api.rgm_brep_create_from_surface(
+        this.handle,
+        surfaceHandle,
+        outPtr,
+      ) as RgmStatus;
+      this.assertOk(status, "BREP create from surface failed");
+      return this.memory.readU64(outPtr) as BrepHandle;
+    } finally {
+      this.memory.free(outPtr, KERNEL_LAYOUT.U64_BYTES, 8);
+    }
+  }
+
+  brepAddFace(brepHandle: BrepHandle, faceHandle: FaceHandle): BrepFaceId {
+    this.ensureAlive();
+    const outPtr = this.memory.alloc(KERNEL_LAYOUT.I32_BYTES, 4);
+    try {
+      const status = this.api.rgm_brep_add_face(
+        this.handle,
+        brepHandle,
+        faceHandle,
+        outPtr,
+      ) as RgmStatus;
+      this.assertOk(status, "BREP add face failed");
+      return this.memory.readU32(outPtr) as BrepFaceId;
+    } finally {
+      this.memory.free(outPtr, KERNEL_LAYOUT.I32_BYTES, 4);
+    }
+  }
+
+  brepAddFaceFromSurface(brepHandle: BrepHandle, surfaceHandle: SurfaceHandle): BrepFaceId {
+    this.ensureAlive();
+    const outPtr = this.memory.alloc(KERNEL_LAYOUT.I32_BYTES, 4);
+    try {
+      const status = this.api.rgm_brep_add_face_from_surface(
+        this.handle,
+        brepHandle,
+        surfaceHandle,
+        outPtr,
+      ) as RgmStatus;
+      this.assertOk(status, "BREP add face from surface failed");
+      return this.memory.readU32(outPtr) as BrepFaceId;
+    } finally {
+      this.memory.free(outPtr, KERNEL_LAYOUT.I32_BYTES, 4);
+    }
+  }
+
+  brepAddLoopUv(
+    brepHandle: BrepHandle,
+    faceId: BrepFaceId,
+    points: RgmUv2[],
+    isOuter: boolean,
+  ): BrepLoopId {
+    this.ensureAlive();
+    if (points.length === 0) {
+      throw new Error("BREP loop requires at least one UV point");
+    }
+    const outPtr = this.memory.alloc(KERNEL_LAYOUT.I32_BYTES, 4);
+    const pointsPtr = this.memory.alloc(points.length * KERNEL_LAYOUT.UV2_BYTES, 8);
+    try {
+      for (let idx = 0; idx < points.length; idx += 1) {
+        this.memory.writeUv(pointsPtr + idx * KERNEL_LAYOUT.UV2_BYTES, points[idx]);
+      }
+      const status = this.api.rgm_brep_add_loop_uv(
+        this.handle,
+        brepHandle,
+        faceId,
+        pointsPtr,
+        points.length,
+        isOuter,
+        outPtr,
+      ) as RgmStatus;
+      this.assertOk(status, "BREP add loop failed");
+      return this.memory.readU32(outPtr) as BrepLoopId;
+    } finally {
+      this.memory.free(pointsPtr, points.length * KERNEL_LAYOUT.UV2_BYTES, 8);
+      this.memory.free(outPtr, KERNEL_LAYOUT.I32_BYTES, 4);
+    }
+  }
+
+  brepFinalizeShell(brepHandle: BrepHandle): BrepShellId {
+    this.ensureAlive();
+    const outPtr = this.memory.alloc(KERNEL_LAYOUT.I32_BYTES, 4);
+    try {
+      const status = this.api.rgm_brep_finalize_shell(this.handle, brepHandle, outPtr) as RgmStatus;
+      this.assertOk(status, "BREP finalize shell failed");
+      return this.memory.readU32(outPtr) as BrepShellId;
+    } finally {
+      this.memory.free(outPtr, KERNEL_LAYOUT.I32_BYTES, 4);
+    }
+  }
+
+  brepFinalizeSolid(brepHandle: BrepHandle): BrepSolidId {
+    this.ensureAlive();
+    const outPtr = this.memory.alloc(KERNEL_LAYOUT.I32_BYTES, 4);
+    try {
+      const status = this.api.rgm_brep_finalize_solid(this.handle, brepHandle, outPtr) as RgmStatus;
+      this.assertOk(status, "BREP finalize solid failed");
+      return this.memory.readU32(outPtr) as BrepSolidId;
+    } finally {
+      this.memory.free(outPtr, KERNEL_LAYOUT.I32_BYTES, 4);
+    }
+  }
+
+  brepValidate(brepHandle: BrepHandle): RgmBrepValidationReport {
+    this.ensureAlive();
+    const reportPtr = this.memory.alloc(KERNEL_LAYOUT.BREP_VALIDATION_REPORT_BYTES, 8);
+    try {
+      const status = this.api.rgm_brep_validate(this.handle, brepHandle, reportPtr) as RgmStatus;
+      this.assertOk(status, "BREP validate failed");
+      return this.memory.readBrepValidationReport(reportPtr);
+    } finally {
+      this.memory.free(reportPtr, KERNEL_LAYOUT.BREP_VALIDATION_REPORT_BYTES, 8);
+    }
+  }
+
+  brepHeal(brepHandle: BrepHandle): number {
+    this.ensureAlive();
+    const outPtr = this.memory.alloc(KERNEL_LAYOUT.I32_BYTES, 4);
+    try {
+      const status = this.api.rgm_brep_heal(this.handle, brepHandle, outPtr) as RgmStatus;
+      this.assertOk(status, "BREP heal failed");
+      return this.memory.readU32(outPtr);
+    } finally {
+      this.memory.free(outPtr, KERNEL_LAYOUT.I32_BYTES, 4);
+    }
+  }
+
+  brepClone(brepHandle: BrepHandle): BrepHandle {
+    this.ensureAlive();
+    const outPtr = this.memory.alloc(KERNEL_LAYOUT.U64_BYTES, 8);
+    try {
+      const status = this.api.rgm_brep_clone(this.handle, brepHandle, outPtr) as RgmStatus;
+      this.assertOk(status, "BREP clone failed");
+      return this.memory.readU64(outPtr) as BrepHandle;
+    } finally {
+      this.memory.free(outPtr, KERNEL_LAYOUT.U64_BYTES, 8);
+    }
+  }
+
+  brepFaceCount(brepHandle: BrepHandle): number {
+    this.ensureAlive();
+    const outPtr = this.memory.alloc(KERNEL_LAYOUT.I32_BYTES, 4);
+    try {
+      const status = this.api.rgm_brep_face_count(this.handle, brepHandle, outPtr) as RgmStatus;
+      this.assertOk(status, "BREP face count failed");
+      return this.memory.readU32(outPtr);
+    } finally {
+      this.memory.free(outPtr, KERNEL_LAYOUT.I32_BYTES, 4);
+    }
+  }
+
+  brepShellCount(brepHandle: BrepHandle): number {
+    this.ensureAlive();
+    const outPtr = this.memory.alloc(KERNEL_LAYOUT.I32_BYTES, 4);
+    try {
+      const status = this.api.rgm_brep_shell_count(this.handle, brepHandle, outPtr) as RgmStatus;
+      this.assertOk(status, "BREP shell count failed");
+      return this.memory.readU32(outPtr);
+    } finally {
+      this.memory.free(outPtr, KERNEL_LAYOUT.I32_BYTES, 4);
+    }
+  }
+
+  brepSolidCount(brepHandle: BrepHandle): number {
+    this.ensureAlive();
+    const outPtr = this.memory.alloc(KERNEL_LAYOUT.I32_BYTES, 4);
+    try {
+      const status = this.api.rgm_brep_solid_count(this.handle, brepHandle, outPtr) as RgmStatus;
+      this.assertOk(status, "BREP solid count failed");
+      return this.memory.readU32(outPtr);
+    } finally {
+      this.memory.free(outPtr, KERNEL_LAYOUT.I32_BYTES, 4);
+    }
+  }
+
+  brepIsSolid(brepHandle: BrepHandle): boolean {
+    this.ensureAlive();
+    const outPtr = this.memory.alloc(1, 1);
+    try {
+      const status = this.api.rgm_brep_is_solid(this.handle, brepHandle, outPtr) as RgmStatus;
+      this.assertOk(status, "BREP solid query failed");
+      return this.memory.readBool(outPtr);
+    } finally {
+      this.memory.free(outPtr, 1, 1);
+    }
+  }
+
+  brepFaceAdjacency(brepHandle: BrepHandle, faceId: BrepFaceId): BrepFaceId[] {
+    this.ensureAlive();
+    const countPtr = this.memory.alloc(KERNEL_LAYOUT.I32_BYTES, 4);
+    try {
+      let status = this.api.rgm_brep_face_adjacency(
+        this.handle,
+        brepHandle,
+        faceId,
+        0,
+        0,
+        countPtr,
+      ) as RgmStatus;
+      this.assertOk(status, "BREP face adjacency failed");
+      const count = this.memory.readU32(countPtr);
+      if (count === 0) return [];
+      const idsPtr = this.memory.alloc(count * KERNEL_LAYOUT.I32_BYTES, 4);
+      try {
+        status = this.api.rgm_brep_face_adjacency(
+          this.handle,
+          brepHandle,
+          faceId,
+          idsPtr,
+          count,
+          countPtr,
+        ) as RgmStatus;
+        this.assertOk(status, "BREP face adjacency failed");
+        const actual = this.memory.readU32(countPtr);
+        const out: BrepFaceId[] = [];
+        for (let idx = 0; idx < actual; idx += 1) {
+          out.push(this.memory.readU32(idsPtr + idx * KERNEL_LAYOUT.I32_BYTES) as BrepFaceId);
+        }
+        return out;
+      } finally {
+        this.memory.free(idsPtr, count * KERNEL_LAYOUT.I32_BYTES, 4);
+      }
+    } finally {
+      this.memory.free(countPtr, KERNEL_LAYOUT.I32_BYTES, 4);
+    }
+  }
+
+  brepTessellateToMesh(brepHandle: BrepHandle, options?: RgmSurfaceTessellationOptions): MeshHandle {
+    this.ensureAlive();
+    const outPtr = this.memory.alloc(KERNEL_LAYOUT.U64_BYTES, 8);
+    const optionsPtr = options
+      ? this.memory.alloc(KERNEL_LAYOUT.SURFACE_TESSELLATION_OPTIONS_BYTES, 8)
+      : 0;
+    try {
+      if (options && optionsPtr !== 0) {
+        this.memory.writeSurfaceTessellationOptions(optionsPtr, options);
+      }
+      const status = this.api.rgm_brep_tessellate_to_mesh(
+        this.handle,
+        brepHandle,
+        optionsPtr,
+        outPtr,
+      ) as RgmStatus;
+      this.assertOk(status, "BREP tessellation failed");
+      return this.memory.readU64(outPtr) as MeshHandle;
+    } finally {
+      if (optionsPtr !== 0) {
+        this.memory.free(optionsPtr, KERNEL_LAYOUT.SURFACE_TESSELLATION_OPTIONS_BYTES, 8);
+      }
+      this.memory.free(outPtr, KERNEL_LAYOUT.U64_BYTES, 8);
+    }
+  }
+
+  brepFromFaceObject(faceHandle: FaceHandle): BrepHandle {
+    this.ensureAlive();
+    const outPtr = this.memory.alloc(KERNEL_LAYOUT.U64_BYTES, 8);
+    try {
+      const status = this.api.rgm_brep_from_face_object(this.handle, faceHandle, outPtr) as RgmStatus;
+      this.assertOk(status, "BREP from face object failed");
+      return this.memory.readU64(outPtr) as BrepHandle;
+    } finally {
+      this.memory.free(outPtr, KERNEL_LAYOUT.U64_BYTES, 8);
+    }
+  }
+
+  brepExtractFaceObject(brepHandle: BrepHandle, faceId: BrepFaceId): FaceHandle {
+    this.ensureAlive();
+    const outPtr = this.memory.alloc(KERNEL_LAYOUT.U64_BYTES, 8);
+    try {
+      const status = this.api.rgm_brep_extract_face_object(
+        this.handle,
+        brepHandle,
+        faceId,
+        outPtr,
+      ) as RgmStatus;
+      this.assertOk(status, "BREP extract face object failed");
+      return this.memory.readU64(outPtr) as FaceHandle;
+    } finally {
+      this.memory.free(outPtr, KERNEL_LAYOUT.U64_BYTES, 8);
+    }
+  }
+
+  brepState(brepHandle: BrepHandle): 0 | 1 {
+    this.ensureAlive();
+    const outPtr = this.memory.alloc(KERNEL_LAYOUT.I32_BYTES, 4);
+    try {
+      const status = this.api.rgm_brep_state(this.handle, brepHandle, outPtr) as RgmStatus;
+      this.assertOk(status, "BREP state query failed");
+      return this.memory.readU32(outPtr) === 0 ? 0 : 1;
+    } finally {
+      this.memory.free(outPtr, KERNEL_LAYOUT.I32_BYTES, 4);
+    }
+  }
+
+  brepEstimateArea(brepHandle: BrepHandle): number {
+    this.ensureAlive();
+    const outPtr = this.memory.alloc(KERNEL_LAYOUT.F64_BYTES, 8);
+    try {
+      const status = this.api.rgm_brep_estimate_area(this.handle, brepHandle, outPtr) as RgmStatus;
+      this.assertOk(status, "BREP area estimate failed");
+      return this.memory.readF64(outPtr);
+    } finally {
+      this.memory.free(outPtr, KERNEL_LAYOUT.F64_BYTES, 8);
+    }
+  }
+
+  brepSaveNative(brepHandle: BrepHandle): Uint8Array {
+    this.ensureAlive();
+    const countPtr = this.memory.alloc(KERNEL_LAYOUT.I32_BYTES, 4);
+    try {
+      let status = this.api.rgm_brep_save_native(
+        this.handle,
+        brepHandle,
+        0,
+        0,
+        countPtr,
+      ) as RgmStatus;
+      this.assertOk(status, "BREP native save failed");
+      const count = this.memory.readU32(countPtr);
+      if (count === 0) {
+        return new Uint8Array(0);
+      }
+      const bytesPtr = this.memory.alloc(count, 1);
+      try {
+        status = this.api.rgm_brep_save_native(
+          this.handle,
+          brepHandle,
+          bytesPtr,
+          count,
+          countPtr,
+        ) as RgmStatus;
+        this.assertOk(status, "BREP native save failed");
+        const actual = this.memory.readU32(countPtr);
+        return new Uint8Array(this.memory.readBytes(bytesPtr, actual));
+      } finally {
+        this.memory.free(bytesPtr, count, 1);
+      }
+    } finally {
+      this.memory.free(countPtr, KERNEL_LAYOUT.I32_BYTES, 4);
+    }
+  }
+
+  brepLoadNative(bytes: Uint8Array | ArrayBuffer | ArrayBufferView): BrepHandle {
+    this.ensureAlive();
+    const payload = this.normalizeBytes(bytes);
+    const bytesPtr = payload.length > 0 ? this.memory.alloc(payload.length, 1) : 0;
+    const outPtr = this.memory.alloc(KERNEL_LAYOUT.U64_BYTES, 8);
+    try {
+      if (payload.length > 0 && bytesPtr !== 0) {
+        this.memory.writeBytes(bytesPtr, payload);
+      }
+      const status = this.api.rgm_brep_load_native(
+        this.handle,
+        bytesPtr,
+        payload.length,
+        outPtr,
+      ) as RgmStatus;
+      this.assertOk(status, "BREP native load failed");
+      return this.memory.readU64(outPtr) as BrepHandle;
+    } finally {
+      if (bytesPtr !== 0) {
+        this.memory.free(bytesPtr, payload.length, 1);
+      }
+      this.memory.free(outPtr, KERNEL_LAYOUT.U64_BYTES, 8);
+    }
+  }
+
   intersectSurfaceSurface(surfaceA: SurfaceHandle, surfaceB: SurfaceHandle): IntersectionHandle {
     this.ensureAlive();
     const outPtr = this.memory.alloc(KERNEL_LAYOUT.U64_BYTES, 8);
@@ -804,6 +1249,16 @@ class KernelSessionImpl extends KernelSessionBase implements KernelSession {
     } finally {
       this.memory.free(countPtr, KERNEL_LAYOUT.I32_BYTES, 4);
     }
+  }
+
+  private normalizeBytes(bytes: Uint8Array | ArrayBuffer | ArrayBufferView): Uint8Array {
+    if (bytes instanceof Uint8Array) {
+      return bytes;
+    }
+    if (bytes instanceof ArrayBuffer) {
+      return new Uint8Array(bytes);
+    }
+    return new Uint8Array(bytes.buffer, bytes.byteOffset, bytes.byteLength);
   }
 
 }

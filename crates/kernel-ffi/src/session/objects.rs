@@ -6,6 +6,7 @@
 //! module [`super::store`] holds the global session registry and insert helpers
 //! that depend on types defined here.
 
+use crate::elements::brep::types::BrepData;
 use crate::math::arc_length::ArcLengthCache;
 use crate::math::nurbs_curve_eval::NurbsCurveCore;
 use crate::math::nurbs_surface_eval::NurbsSurfaceCore;
@@ -98,6 +99,7 @@ pub(crate) enum CurveData {
     Polycurve(PolycurveData),
 }
 
+// S1: BrepInProgress removed; finalized state lives in BrepData.finalized.
 #[derive(Clone, Debug)]
 pub(crate) enum GeometryObject {
     Curve(CurveData),
@@ -105,6 +107,7 @@ pub(crate) enum GeometryObject {
     Surface(SurfaceData),
     Face(FaceData),
     Intersection(IntersectionData),
+    Brep(BrepData),
 }
 
 // ─── Mesh BVH Acceleration Cache ─────────────────────────────────────────────
@@ -221,8 +224,16 @@ impl MeshBvh {
     ) -> usize {
         let node_idx = nodes.len();
         nodes.push(BvhNode::leaf(
-            RgmPoint3 { x: 0.0, y: 0.0, z: 0.0 },
-            RgmPoint3 { x: 0.0, y: 0.0, z: 0.0 },
+            RgmPoint3 {
+                x: 0.0,
+                y: 0.0,
+                z: 0.0,
+            },
+            RgmPoint3 {
+                x: 0.0,
+                y: 0.0,
+                z: 0.0,
+            },
             start,
             end.saturating_sub(start),
         ));
@@ -383,6 +394,28 @@ pub(crate) fn find_face_mut<'a>(
 ) -> Result<&'a mut FaceData, RgmStatus> {
     match state.objects.get_mut(&object.0) {
         Some(GeometryObject::Face(face)) => Ok(face),
+        Some(_) => Err(RgmStatus::InvalidInput),
+        None => Err(RgmStatus::NotFound),
+    }
+}
+
+pub(crate) fn find_brep<'a>(
+    state: &'a SessionState,
+    object: RgmObjectHandle,
+) -> Result<&'a BrepData, RgmStatus> {
+    match state.objects.get(&object.0) {
+        Some(GeometryObject::Brep(brep)) => Ok(brep),
+        Some(_) => Err(RgmStatus::InvalidInput),
+        None => Err(RgmStatus::NotFound),
+    }
+}
+
+pub(crate) fn find_brep_mut<'a>(
+    state: &'a mut SessionState,
+    object: RgmObjectHandle,
+) -> Result<&'a mut BrepData, RgmStatus> {
+    match state.objects.get_mut(&object.0) {
+        Some(GeometryObject::Brep(brep)) => Ok(brep),
         Some(_) => Err(RgmStatus::InvalidInput),
         None => Err(RgmStatus::NotFound),
     }

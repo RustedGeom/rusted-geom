@@ -24,5 +24,30 @@ declare const _intersectionBrand: unique symbol;
 /** Opaque handle to an intersection result in the kernel session. */
 export type IntersectionHandle = bigint & { readonly [_intersectionBrand]: void };
 
+declare const _brepBrand: unique symbol;
+/** Opaque handle to a BREP object in the kernel session. */
+export type BrepHandle = bigint & { readonly [_brepBrand]: void };
+
+declare const _brepFaceIdBrand: unique symbol;
+export type BrepFaceId = number & { readonly [_brepFaceIdBrand]: void };
+
+declare const _brepEdgeIdBrand: unique symbol;
+export type BrepEdgeId = number & { readonly [_brepEdgeIdBrand]: void };
+
+declare const _brepLoopIdBrand: unique symbol;
+export type BrepLoopId = number & { readonly [_brepLoopIdBrand]: void };
+
+declare const _brepShellIdBrand: unique symbol;
+export type BrepShellId = number & { readonly [_brepShellIdBrand]: void };
+
+declare const _brepSolidIdBrand: unique symbol;
+export type BrepSolidId = number & { readonly [_brepSolidIdBrand]: void };
+
 /** Union of all kernel object handle types. Used for releaseObject. */
-export type ObjectHandle = CurveHandle | SurfaceHandle | MeshHandle | FaceHandle | IntersectionHandle;
+export type ObjectHandle =
+  | CurveHandle
+  | SurfaceHandle
+  | MeshHandle
+  | FaceHandle
+  | IntersectionHandle
+  | BrepHandle;

@@ -127,11 +127,9 @@ fn rgm_face_add_loop_impl(
         face_data.loops.push(loop_data);
         Ok(())
     });
+    // P1: clear_error now handled inside with_session_mut on success.
     match result {
-        Ok(()) => {
-            clear_error(session.0);
-            RgmStatus::Ok
-        }
+        Ok(()) => RgmStatus::Ok,
         Err(status) => map_err_with_session(session, status, "Face add loop failed"),
     }
 }
@@ -154,10 +152,7 @@ fn rgm_face_add_loop_edges_impl(
         Ok(())
     });
     match result {
-        Ok(()) => {
-            clear_error(session.0);
-            RgmStatus::Ok
-        }
+        Ok(()) => RgmStatus::Ok,
         Err(status) => map_err_with_session(session, status, "Face add edge loop failed"),
     }
 }
@@ -177,10 +172,7 @@ fn rgm_face_remove_loop_impl(
         Ok(())
     });
     match result {
-        Ok(()) => {
-            clear_error(session.0);
-            RgmStatus::Ok
-        }
+        Ok(()) => RgmStatus::Ok,
         Err(status) => map_err_with_session(session, status, "Face remove loop failed"),
     }
 }
@@ -223,10 +215,7 @@ fn rgm_face_split_trim_edge_impl(
         Ok(())
     });
     match result {
-        Ok(()) => {
-            clear_error(session.0);
-            RgmStatus::Ok
-        }
+        Ok(()) => RgmStatus::Ok,
         Err(status) => map_err_with_session(session, status, "Face split edge failed"),
     }
 }
@@ -252,10 +241,7 @@ fn rgm_face_reverse_loop_impl(
         Ok(())
     });
     match result {
-        Ok(()) => {
-            clear_error(session.0);
-            RgmStatus::Ok
-        }
+        Ok(()) => RgmStatus::Ok,
         Err(status) => map_err_with_session(session, status, "Face reverse loop failed"),
     }
 }
@@ -277,10 +263,7 @@ fn rgm_face_validate_impl(
         Ok(())
     });
     match result {
-        Ok(()) => {
-            clear_error(session.0);
-            RgmStatus::Ok
-        }
+        Ok(()) => RgmStatus::Ok,
         Err(status) => map_err_with_session(session, status, "Face validation failed"),
     }
 }
@@ -292,10 +275,7 @@ fn rgm_face_heal_impl(session: RgmKernelHandle, face: RgmObjectHandle) -> RgmSta
         Ok(())
     });
     match result {
-        Ok(()) => {
-            clear_error(session.0);
-            RgmStatus::Ok
-        }
+        Ok(()) => RgmStatus::Ok,
         Err(status) => map_err_with_session(session, status, "Face heal failed"),
     }
 }
@@ -739,43 +719,47 @@ include!("../ffi/exports/mesh.rs");
 include!("../ffi/exports/surface.rs");
 include!("../ffi/exports/face.rs");
 include!("../ffi/exports/intersection.rs");
+include!("../ffi/exports/brep.rs");
 
 #[cfg(test)]
 fn debug_get_curve(session: RgmKernelHandle, object: RgmObjectHandle) -> Option<CurveData> {
-    let sessions = SESSIONS.lock().ok()?;
-    let state = sessions.get(&session.0)?;
+    let session_entry = SESSIONS.get(&session.0)?;
+    let state = session_entry.value().read();
     match state.objects.get(&object.0)? {
         GeometryObject::Curve(curve) => Some(curve.clone()),
         GeometryObject::Mesh(_)
         | GeometryObject::Surface(_)
         | GeometryObject::Face(_)
-        | GeometryObject::Intersection(_) => None,
+        | GeometryObject::Intersection(_)
+        | GeometryObject::Brep(_) => None,
     }
 }
 
 #[cfg(test)]
 fn debug_get_face(session: RgmKernelHandle, object: RgmObjectHandle) -> Option<FaceData> {
-    let sessions = SESSIONS.lock().ok()?;
-    let state = sessions.get(&session.0)?;
+    let session_entry = SESSIONS.get(&session.0)?;
+    let state = session_entry.value().read();
     match state.objects.get(&object.0)? {
         GeometryObject::Face(face) => Some(face.clone()),
         GeometryObject::Curve(_)
         | GeometryObject::Mesh(_)
         | GeometryObject::Surface(_)
-        | GeometryObject::Intersection(_) => None,
+        | GeometryObject::Intersection(_)
+        | GeometryObject::Brep(_) => None,
     }
 }
 
 #[cfg(test)]
 fn debug_get_mesh(session: RgmKernelHandle, object: RgmObjectHandle) -> Option<MeshData> {
-    let sessions = SESSIONS.lock().ok()?;
-    let state = sessions.get(&session.0)?;
+    let session_entry = SESSIONS.get(&session.0)?;
+    let state = session_entry.value().read();
     match state.objects.get(&object.0)? {
         GeometryObject::Mesh(mesh) => Some(mesh.clone()),
         GeometryObject::Curve(_)
         | GeometryObject::Surface(_)
         | GeometryObject::Face(_)
-        | GeometryObject::Intersection(_) => None,
+        | GeometryObject::Intersection(_)
+        | GeometryObject::Brep(_) => None,
     }
 }
 
@@ -784,14 +768,15 @@ fn debug_get_intersection(
     session: RgmKernelHandle,
     object: RgmObjectHandle,
 ) -> Option<IntersectionData> {
-    let sessions = SESSIONS.lock().ok()?;
-    let state = sessions.get(&session.0)?;
+    let session_entry = SESSIONS.get(&session.0)?;
+    let state = session_entry.value().read();
     match state.objects.get(&object.0)? {
         GeometryObject::Intersection(data) => Some(data.clone()),
         GeometryObject::Curve(_)
         | GeometryObject::Mesh(_)
         | GeometryObject::Surface(_)
-        | GeometryObject::Face(_) => None,
+        | GeometryObject::Face(_)
+        | GeometryObject::Brep(_) => None,
     }
 }
 #[cfg(test)]

@@ -40,6 +40,8 @@ flowchart LR
   - NURBS surface construction/evaluation/tessellation exports
 - `crates/kernel-ffi/src/ffi/exports/face.rs`
   - trim/face editing, validation/heal, tessellation exports
+- `crates/kernel-ffi/src/ffi/exports/brep.rs`
+  - BREP creation, shell/solid lifecycle, validation/heal, tessellation, native I/O
 - `crates/kernel-ffi/src/ffi/exports/intersection.rs`
   - curve evaluation exports and intersection object/branch exports
 
@@ -54,6 +56,7 @@ flowchart LR
 - `bindings/web/src/runtime/session/mesh.ts`
 - `bindings/web/src/runtime/session/surface.ts`
 - `bindings/web/src/runtime/session/face.ts`
+- `bindings/web/src/runtime/session/brep.ts`
 - `bindings/web/src/runtime/session/intersection.ts`
 
 ## CI/guardrails

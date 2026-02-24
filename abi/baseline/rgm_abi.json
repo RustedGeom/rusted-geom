@@ -1,7 +1,7 @@
 {
   "crate_name": "kernel-ffi",
   "version": "0.1.0-alpha.1",
-  "abi_hash": "f0a90ac43a422665436572ee352c3ec6379e0070b67bb1a7c5e4a0039acba363",
+  "abi_hash": "a955dd5e126e02f1f15d7c984134b3e1633facaa6dcd81d3d56c3a81903b3abb",
   "functions": [
     {
       "rust_name": "rgm_alloc",
@@ -40,6 +40,568 @@
         {
           "name": "align",
           "ty": "usize"
+        }
+      ]
+    },
+    {
+      "rust_name": "rgm_brep_add_face",
+      "c_name": "rgm_brep_add_face",
+      "interop_ts_name": "interopBrepAddFace",
+      "public_ts_name": null,
+      "receiver": null,
+      "return_type": "RgmStatus",
+      "params": [
+        {
+          "name": "session",
+          "ty": "RgmKernelHandle"
+        },
+        {
+          "name": "brep",
+          "ty": "RgmObjectHandle"
+        },
+        {
+          "name": "face",
+          "ty": "RgmObjectHandle"
+        },
+        {
+          "name": "out_face_id",
+          "ty": "*mutu32"
+        }
+      ]
+    },
+    {
+      "rust_name": "rgm_brep_add_face_from_surface",
+      "c_name": "rgm_brep_add_face_from_surface",
+      "interop_ts_name": "interopBrepAddFaceFromSurface",
+      "public_ts_name": null,
+      "receiver": null,
+      "return_type": "RgmStatus",
+      "params": [
+        {
+          "name": "session",
+          "ty": "RgmKernelHandle"
+        },
+        {
+          "name": "brep",
+          "ty": "RgmObjectHandle"
+        },
+        {
+          "name": "surface",
+          "ty": "RgmObjectHandle"
+        },
+        {
+          "name": "out_face_id",
+          "ty": "*mutu32"
+        }
+      ]
+    },
+    {
+      "rust_name": "rgm_brep_add_loop_uv",
+      "c_name": "rgm_brep_add_loop_uv",
+      "interop_ts_name": "interopBrepAddLoopUv",
+      "public_ts_name": null,
+      "receiver": null,
+      "return_type": "RgmStatus",
+      "params": [
+        {
+          "name": "session",
+          "ty": "RgmKernelHandle"
+        },
+        {
+          "name": "brep",
+          "ty": "RgmObjectHandle"
+        },
+        {
+          "name": "face_id",
+          "ty": "u32"
+        },
+        {
+          "name": "points",
+          "ty": "*constRgmUv2"
+        },
+        {
+          "name": "point_count",
+          "ty": "usize"
+        },
+        {
+          "name": "is_outer",
+          "ty": "bool"
+        },
+        {
+          "name": "out_loop_id",
+          "ty": "*mutu32"
+        }
+      ]
+    },
+    {
+      "rust_name": "rgm_brep_clone",
+      "c_name": "rgm_brep_clone",
+      "interop_ts_name": "interopBrepClone",
+      "public_ts_name": null,
+      "receiver": null,
+      "return_type": "RgmStatus",
+      "params": [
+        {
+          "name": "session",
+          "ty": "RgmKernelHandle"
+        },
+        {
+          "name": "brep",
+          "ty": "RgmObjectHandle"
+        },
+        {
+          "name": "out_brep",
+          "ty": "*mutRgmObjectHandle"
+        }
+      ]
+    },
+    {
+      "rust_name": "rgm_brep_create_empty",
+      "c_name": "rgm_brep_create_empty",
+      "interop_ts_name": "interopBrepCreateEmpty",
+      "public_ts_name": null,
+      "receiver": null,
+      "return_type": "RgmStatus",
+      "params": [
+        {
+          "name": "session",
+          "ty": "RgmKernelHandle"
+        },
+        {
+          "name": "out_brep",
+          "ty": "*mutRgmObjectHandle"
+        }
+      ]
+    },
+    {
+      "rust_name": "rgm_brep_create_from_faces",
+      "c_name": "rgm_brep_create_from_faces",
+      "interop_ts_name": "interopBrepCreateFromFaces",
+      "public_ts_name": null,
+      "receiver": null,
+      "return_type": "RgmStatus",
+      "params": [
+        {
+          "name": "session",
+          "ty": "RgmKernelHandle"
+        },
+        {
+          "name": "faces",
+          "ty": "*constRgmObjectHandle"
+        },
+        {
+          "name": "face_count",
+          "ty": "usize"
+        },
+        {
+          "name": "out_brep",
+          "ty": "*mutRgmObjectHandle"
+        }
+      ]
+    },
+    {
+      "rust_name": "rgm_brep_create_from_surface",
+      "c_name": "rgm_brep_create_from_surface",
+      "interop_ts_name": "interopBrepCreateFromSurface",
+      "public_ts_name": null,
+      "receiver": null,
+      "return_type": "RgmStatus",
+      "params": [
+        {
+          "name": "session",
+          "ty": "RgmKernelHandle"
+        },
+        {
+          "name": "surface",
+          "ty": "RgmObjectHandle"
+        },
+        {
+          "name": "out_brep",
+          "ty": "*mutRgmObjectHandle"
+        }
+      ]
+    },
+    {
+      "rust_name": "rgm_brep_estimate_area",
+      "c_name": "rgm_brep_estimate_area",
+      "interop_ts_name": "interopBrepEstimateArea",
+      "public_ts_name": null,
+      "receiver": null,
+      "return_type": "RgmStatus",
+      "params": [
+        {
+          "name": "session",
+          "ty": "RgmKernelHandle"
+        },
+        {
+          "name": "brep",
+          "ty": "RgmObjectHandle"
+        },
+        {
+          "name": "out_area",
+          "ty": "*mutf64"
+        }
+      ]
+    },
+    {
+      "rust_name": "rgm_brep_extract_face_object",
+      "c_name": "rgm_brep_extract_face_object",
+      "interop_ts_name": "interopBrepExtractFaceObject",
+      "public_ts_name": null,
+      "receiver": null,
+      "return_type": "RgmStatus",
+      "params": [
+        {
+          "name": "session",
+          "ty": "RgmKernelHandle"
+        },
+        {
+          "name": "brep",
+          "ty": "RgmObjectHandle"
+        },
+        {
+          "name": "face_id",
+          "ty": "u32"
+        },
+        {
+          "name": "out_face",
+          "ty": "*mutRgmObjectHandle"
+        }
+      ]
+    },
+    {
+      "rust_name": "rgm_brep_face_adjacency",
+      "c_name": "rgm_brep_face_adjacency",
+      "interop_ts_name": "interopBrepFaceAdjacency",
+      "public_ts_name": null,
+      "receiver": null,
+      "return_type": "RgmStatus",
+      "params": [
+        {
+          "name": "session",
+          "ty": "RgmKernelHandle"
+        },
+        {
+          "name": "brep",
+          "ty": "RgmObjectHandle"
+        },
+        {
+          "name": "face_id",
+          "ty": "u32"
+        },
+        {
+          "name": "out_face_ids",
+          "ty": "*mutu32"
+        },
+        {
+          "name": "face_capacity",
+          "ty": "u32"
+        },
+        {
+          "name": "out_count",
+          "ty": "*mutu32"
+        }
+      ]
+    },
+    {
+      "rust_name": "rgm_brep_face_count",
+      "c_name": "rgm_brep_face_count",
+      "interop_ts_name": "interopBrepFaceCount",
+      "public_ts_name": null,
+      "receiver": null,
+      "return_type": "RgmStatus",
+      "params": [
+        {
+          "name": "session",
+          "ty": "RgmKernelHandle"
+        },
+        {
+          "name": "brep",
+          "ty": "RgmObjectHandle"
+        },
+        {
+          "name": "out_count",
+          "ty": "*mutu32"
+        }
+      ]
+    },
+    {
+      "rust_name": "rgm_brep_finalize_shell",
+      "c_name": "rgm_brep_finalize_shell",
+      "interop_ts_name": "interopBrepFinalizeShell",
+      "public_ts_name": null,
+      "receiver": null,
+      "return_type": "RgmStatus",
+      "params": [
+        {
+          "name": "session",
+          "ty": "RgmKernelHandle"
+        },
+        {
+          "name": "brep",
+          "ty": "RgmObjectHandle"
+        },
+        {
+          "name": "out_shell_id",
+          "ty": "*mutu32"
+        }
+      ]
+    },
+    {
+      "rust_name": "rgm_brep_finalize_solid",
+      "c_name": "rgm_brep_finalize_solid",
+      "interop_ts_name": "interopBrepFinalizeSolid",
+      "public_ts_name": null,
+      "receiver": null,
+      "return_type": "RgmStatus",
+      "params": [
+        {
+          "name": "session",
+          "ty": "RgmKernelHandle"
+        },
+        {
+          "name": "brep",
+          "ty": "RgmObjectHandle"
+        },
+        {
+          "name": "out_solid_id",
+          "ty": "*mutu32"
+        }
+      ]
+    },
+    {
+      "rust_name": "rgm_brep_from_face_object",
+      "c_name": "rgm_brep_from_face_object",
+      "interop_ts_name": "interopBrepFromFaceObject",
+      "public_ts_name": null,
+      "receiver": null,
+      "return_type": "RgmStatus",
+      "params": [
+        {
+          "name": "session",
+          "ty": "RgmKernelHandle"
+        },
+        {
+          "name": "face",
+          "ty": "RgmObjectHandle"
+        },
+        {
+          "name": "out_brep",
+          "ty": "*mutRgmObjectHandle"
+        }
+      ]
+    },
+    {
+      "rust_name": "rgm_brep_heal",
+      "c_name": "rgm_brep_heal",
+      "interop_ts_name": "interopBrepHeal",
+      "public_ts_name": null,
+      "receiver": null,
+      "return_type": "RgmStatus",
+      "params": [
+        {
+          "name": "session",
+          "ty": "RgmKernelHandle"
+        },
+        {
+          "name": "brep",
+          "ty": "RgmObjectHandle"
+        },
+        {
+          "name": "out_fixed_count",
+          "ty": "*mutu32"
+        }
+      ]
+    },
+    {
+      "rust_name": "rgm_brep_is_solid",
+      "c_name": "rgm_brep_is_solid",
+      "interop_ts_name": "interopBrepIsSolid",
+      "public_ts_name": null,
+      "receiver": null,
+      "return_type": "RgmStatus",
+      "params": [
+        {
+          "name": "session",
+          "ty": "RgmKernelHandle"
+        },
+        {
+          "name": "brep",
+          "ty": "RgmObjectHandle"
+        },
+        {
+          "name": "out_is_solid",
+          "ty": "*mutbool"
+        }
+      ]
+    },
+    {
+      "rust_name": "rgm_brep_load_native",
+      "c_name": "rgm_brep_load_native",
+      "interop_ts_name": "interopBrepLoadNative",
+      "public_ts_name": null,
+      "receiver": null,
+      "return_type": "RgmStatus",
+      "params": [
+        {
+          "name": "session",
+          "ty": "RgmKernelHandle"
+        },
+        {
+          "name": "bytes",
+          "ty": "*constu8"
+        },
+        {
+          "name": "byte_count",
+          "ty": "usize"
+        },
+        {
+          "name": "out_brep",
+          "ty": "*mutRgmObjectHandle"
+        }
+      ]
+    },
+    {
+      "rust_name": "rgm_brep_save_native",
+      "c_name": "rgm_brep_save_native",
+      "interop_ts_name": "interopBrepSaveNative",
+      "public_ts_name": null,
+      "receiver": null,
+      "return_type": "RgmStatus",
+      "params": [
+        {
+          "name": "session",
+          "ty": "RgmKernelHandle"
+        },
+        {
+          "name": "brep",
+          "ty": "RgmObjectHandle"
+        },
+        {
+          "name": "out_bytes",
+          "ty": "*mutu8"
+        },
+        {
+          "name": "byte_capacity",
+          "ty": "u32"
+        },
+        {
+          "name": "out_count",
+          "ty": "*mutu32"
+        }
+      ]
+    },
+    {
+      "rust_name": "rgm_brep_shell_count",
+      "c_name": "rgm_brep_shell_count",
+      "interop_ts_name": "interopBrepShellCount",
+      "public_ts_name": null,
+      "receiver": null,
+      "return_type": "RgmStatus",
+      "params": [
+        {
+          "name": "session",
+          "ty": "RgmKernelHandle"
+        },
+        {
+          "name": "brep",
+          "ty": "RgmObjectHandle"
+        },
+        {
+          "name": "out_count",
+          "ty": "*mutu32"
+        }
+      ]
+    },
+    {
+      "rust_name": "rgm_brep_solid_count",
+      "c_name": "rgm_brep_solid_count",
+      "interop_ts_name": "interopBrepSolidCount",
+      "public_ts_name": null,
+      "receiver": null,
+      "return_type": "RgmStatus",
+      "params": [
+        {
+          "name": "session",
+          "ty": "RgmKernelHandle"
+        },
+        {
+          "name": "brep",
+          "ty": "RgmObjectHandle"
+        },
+        {
+          "name": "out_count",
+          "ty": "*mutu32"
+        }
+      ]
+    },
+    {
+      "rust_name": "rgm_brep_state",
+      "c_name": "rgm_brep_state",
+      "interop_ts_name": "interopBrepState",
+      "public_ts_name": null,
+      "receiver": null,
+      "return_type": "RgmStatus",
+      "params": [
+        {
+          "name": "session",
+          "ty": "RgmKernelHandle"
+        },
+        {
+          "name": "brep",
+          "ty": "RgmObjectHandle"
+        },
+        {
+          "name": "out_state",
+          "ty": "*mutu32"
+        }
+      ]
+    },
+    {
+      "rust_name": "rgm_brep_tessellate_to_mesh",
+      "c_name": "rgm_brep_tessellate_to_mesh",
+      "interop_ts_name": "interopBrepTessellateToMesh",
+      "public_ts_name": null,
+      "receiver": null,
+      "return_type": "RgmStatus",
+      "params": [
+        {
+          "name": "session",
+          "ty": "RgmKernelHandle"
+        },
+        {
+          "name": "brep",
+          "ty": "RgmObjectHandle"
+        },
+        {
+          "name": "options",
+          "ty": "*constRgmSurfaceTessellationOptions"
+        },
+        {
+          "name": "out_mesh",
+          "ty": "*mutRgmObjectHandle"
+        }
+      ]
+    },
+    {
+      "rust_name": "rgm_brep_validate",
+      "c_name": "rgm_brep_validate",
+      "interop_ts_name": "interopBrepValidate",
+      "public_ts_name": null,
+      "receiver": null,
+      "return_type": "RgmStatus",
+      "params": [
+        {
+          "name": "session",
+          "ty": "RgmKernelHandle"
+        },
+        {
+          "name": "brep",
+          "ty": "RgmObjectHandle"
+        },
+        {
+          "name": "out_report",
+          "ty": "*mutRgmBrepValidationReport"
         }
       ]
     },
@@ -2287,6 +2849,29 @@
     },
     {
       "kind": "Struct",
+      "name": "RgmBrepValidationReport",
+      "repr": "C",
+      "fields": [
+        {
+          "name": "issue_count",
+          "ty": "u32"
+        },
+        {
+          "name": "max_severity",
+          "ty": "RgmValidationSeverity"
+        },
+        {
+          "name": "overflow",
+          "ty": "bool"
+        },
+        {
+          "name": "issues",
+          "ty": "[RgmValidationIssue;16]"
+        }
+      ]
+    },
+    {
+      "kind": "Struct",
       "name": "RgmCircle3",
       "repr": "C",
       "fields": [
@@ -2637,6 +3222,56 @@
         {
           "name": "v",
           "ty": "f64"
+        }
+      ]
+    },
+    {
+      "kind": "Struct",
+      "name": "RgmValidationIssue",
+      "repr": "C",
+      "fields": [
+        {
+          "name": "severity",
+          "ty": "RgmValidationSeverity"
+        },
+        {
+          "name": "code",
+          "ty": "u32"
+        },
+        {
+          "name": "entity_kind",
+          "ty": "u32"
+        },
+        {
+          "name": "entity_id",
+          "ty": "u32"
+        },
+        {
+          "name": "param_u",
+          "ty": "f64"
+        },
+        {
+          "name": "param_v",
+          "ty": "f64"
+        }
+      ]
+    },
+    {
+      "kind": "Enum",
+      "name": "RgmValidationSeverity",
+      "repr": "i32",
+      "variants": [
+        {
+          "name": "Info",
+          "value": "0"
+        },
+        {
+          "name": "Warning",
+          "value": "1"
+        },
+        {
+          "name": "Error",
+          "value": "2"
         }
       ]
     },

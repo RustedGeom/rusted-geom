@@ -100,4 +100,11 @@ export type ExampleKey =
   | "surfaceIntersectPlane"
   | "surfaceIntersectCurve"
   | "trimEditWorkflow"
-  | "trimValidationFailures";
+  | "trimValidationFailures"
+  | "trimMultiLoopSurgery"
+  | "brepShellAssembly"
+  | "brepSolidAssembly"
+  | "brepSolidRoundtripAudit"
+  | "brepSolidFaceSurgery"
+  | "brepFaceBridgeRoundtrip"
+  | "brepNativeRoundtrip";

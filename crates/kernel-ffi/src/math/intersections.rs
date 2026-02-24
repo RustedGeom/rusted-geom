@@ -270,9 +270,12 @@ where
 
 #[derive(Clone, Copy)]
 struct SegBBox {
-    min_x: f64, max_x: f64,
-    min_y: f64, max_y: f64,
-    min_z: f64, max_z: f64,
+    min_x: f64,
+    max_x: f64,
+    min_y: f64,
+    max_y: f64,
+    min_z: f64,
+    max_z: f64,
 }
 
 impl SegBBox {
@@ -289,9 +292,12 @@ impl SegBBox {
 
     #[inline]
     fn overlaps(&self, other: &SegBBox) -> bool {
-        self.min_x <= other.max_x && self.max_x >= other.min_x
-            && self.min_y <= other.max_y && self.max_y >= other.min_y
-            && self.min_z <= other.max_z && self.max_z >= other.min_z
+        self.min_x <= other.max_x
+            && self.max_x >= other.min_x
+            && self.min_y <= other.max_y
+            && self.max_y >= other.min_y
+            && self.min_z <= other.max_z
+            && self.max_z >= other.min_z
     }
 }
 

@@ -11,6 +11,7 @@ import {
 import { type WasmSource } from "../wasm-loader";
 import type { KernelRuntimeError } from "../errors";
 import { CurveClientImpl, type CurveClient } from "./curve";
+import { BrepClientImpl, type BrepClient } from "./brep";
 import { FaceClientImpl, type FaceClient } from "./face";
 import { IntersectionClientImpl, type IntersectionClient } from "./intersection";
 import { KernelClientImpl, type KernelClient } from "./kernel";
@@ -31,6 +32,7 @@ export interface KernelSession {
   readonly mesh: MeshClient;
   readonly surface: SurfaceClient;
   readonly face: FaceClient;
+  readonly brep: BrepClient;
   readonly intersection: IntersectionClient;
   destroy(): void;
 }
@@ -41,6 +43,7 @@ class KernelSessionImpl implements KernelSession {
   readonly mesh: MeshClient;
   readonly surface: SurfaceClient;
   readonly face: FaceClient;
+  readonly brep: BrepClient;
   readonly intersection: IntersectionClient;
 
   constructor(private readonly session: LegacyKernelSession) {
@@ -49,6 +52,7 @@ class KernelSessionImpl implements KernelSession {
     this.mesh = new MeshClientImpl(session);
     this.surface = new SurfaceClientImpl(session);
     this.face = new FaceClientImpl(session);
+    this.brep = new BrepClientImpl(session);
     this.intersection = new IntersectionClientImpl(session);
   }
 

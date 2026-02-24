@@ -1,5 +1,6 @@
 import type { NativeExports } from "../generated/native";
 import type {
+  RgmBrepValidationReport,
   RgmIntersectionBranchSummary,
   RgmArc3,
   RgmCircle3,
@@ -14,6 +15,8 @@ import type {
   RgmSurfaceTessellationOptions,
   RgmToleranceContext,
   RgmUv2,
+  RgmValidationIssue,
+  RgmValidationSeverity,
   RgmVec3,
 } from "../generated/types";
 import { RgmStatus } from "../generated/types";
@@ -38,6 +41,8 @@ const TRIM_EDGE_INPUT_BYTES = UV2_BYTES * 2 + U64_BYTES + 8;
 const SURFACE_EVAL_FRAME_BYTES = POINT3_BYTES + VEC3_BYTES * 3;
 const SURFACE_TESSELLATION_OPTIONS_BYTES = I32_BYTES * 4 + F64_BYTES * 2;
 const INTERSECTION_BRANCH_SUMMARY_BYTES = 24;
+const VALIDATION_ISSUE_BYTES = I32_BYTES * 4 + F64_BYTES * 2;
+const BREP_VALIDATION_REPORT_BYTES = 16 + VALIDATION_ISSUE_BYTES * 16;
 
 export class KernelMemory {
   constructor(
@@ -75,6 +80,13 @@ export class KernelMemory {
     const view = this.dataView();
     for (let idx = 0; idx < values.length; idx += 1) {
       view.setFloat64(ptr + idx * F64_BYTES, values[idx], true);
+    }
+  }
+
+  writeU64Array(ptr: number, values: bigint[]): void {
+    const view = this.dataView();
+    for (let idx = 0; idx < values.length; idx += 1) {
+      view.setBigUint64(ptr + idx * U64_BYTES, values[idx], true);
     }
   }
 
@@ -155,6 +167,10 @@ export class KernelMemory {
 
   readBytes(ptr: number, length: number): Uint8Array {
     return new Uint8Array(this.wasmMemory.buffer, ptr, length);
+  }
+
+  writeBytes(ptr: number, bytes: Uint8Array): void {
+    this.readBytes(ptr, bytes.length).set(bytes);
   }
 
   writeU64(ptr: number, value: bigint): void {
@@ -271,6 +287,35 @@ export class KernelMemory {
     };
   }
 
+  readValidationIssue(ptr: number): RgmValidationIssue {
+    const view = this.dataView();
+    return {
+      severity: view.getInt32(ptr, true) as RgmValidationSeverity,
+      code: view.getUint32(ptr + 4, true),
+      entity_kind: view.getUint32(ptr + 8, true),
+      entity_id: view.getUint32(ptr + 12, true),
+      param_u: view.getFloat64(ptr + 16, true),
+      param_v: view.getFloat64(ptr + 24, true),
+    };
+  }
+
+  readBrepValidationReport(ptr: number): RgmBrepValidationReport {
+    const view = this.dataView();
+    const issueCount = view.getUint32(ptr, true);
+    const issues: RgmValidationIssue[] = [];
+    const capped = Math.min(16, issueCount);
+    const issueBase = ptr + 16;
+    for (let idx = 0; idx < capped; idx += 1) {
+      issues.push(this.readValidationIssue(issueBase + idx * VALIDATION_ISSUE_BYTES));
+    }
+    return {
+      issue_count: issueCount,
+      max_severity: view.getInt32(ptr + 4, true) as RgmValidationSeverity,
+      overflow: view.getUint8(ptr + 8) !== 0,
+      issues,
+    };
+  }
+
   private dataView(): DataView {
     return new DataView(this.wasmMemory.buffer);
   }
@@ -295,4 +340,6 @@ export const KERNEL_LAYOUT = {
   SURFACE_EVAL_FRAME_BYTES,
   SURFACE_TESSELLATION_OPTIONS_BYTES,
   INTERSECTION_BRANCH_SUMMARY_BYTES,
+  VALIDATION_ISSUE_BYTES,
+  BREP_VALIDATION_REPORT_BYTES,
 } as const;

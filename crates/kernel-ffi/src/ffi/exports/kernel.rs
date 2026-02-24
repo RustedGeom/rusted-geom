@@ -9,11 +9,7 @@ pub extern "C" fn rgm_kernel_create(out_session: *mut RgmKernelHandle) -> RgmSta
 
     let session_id = NEXT_SESSION_ID.fetch_add(1, Ordering::Relaxed);
 
-    let Ok(mut sessions) = SESSIONS.lock() else {
-        return RgmStatus::InternalError;
-    };
-
-    sessions.insert(session_id, SessionState::default());
+    SESSIONS.insert(session_id, parking_lot::RwLock::new(SessionState::default()));
 
     // SAFETY: out_session is non-null by guard above.
     unsafe {
@@ -26,11 +22,7 @@ pub extern "C" fn rgm_kernel_create(out_session: *mut RgmKernelHandle) -> RgmSta
 #[rgm_export(ts = "dispose", receiver = "kernel")]
 #[no_mangle]
 pub extern "C" fn rgm_kernel_destroy(session: RgmKernelHandle) -> RgmStatus {
-    let Ok(mut sessions) = SESSIONS.lock() else {
-        return RgmStatus::InternalError;
-    };
-
-    match sessions.remove(&session.0) {
+    match SESSIONS.remove(&session.0) {
         Some(_) => RgmStatus::Ok,
         None => RgmStatus::NotFound,
     }
@@ -67,13 +59,10 @@ pub extern "C" fn rgm_last_error_code(session: RgmKernelHandle, out_code: *mut i
         return RgmStatus::InvalidInput;
     }
 
-    let Ok(sessions) = SESSIONS.lock() else {
-        return RgmStatus::InternalError;
-    };
-
-    let Some(state) = sessions.get(&session.0) else {
+    let Some(entry) = SESSIONS.get(&session.0) else {
         return RgmStatus::NotFound;
     };
+    let state = entry.value().read();
 
     // SAFETY: out_code is non-null by guard above.
     unsafe {
@@ -95,13 +84,10 @@ pub extern "C" fn rgm_last_error_message(
         return RgmStatus::InvalidInput;
     }
 
-    let Ok(sessions) = SESSIONS.lock() else {
-        return RgmStatus::InternalError;
-    };
-
-    let Some(state) = sessions.get(&session.0) else {
+    let Some(entry) = SESSIONS.get(&session.0) else {
         return RgmStatus::NotFound;
     };
+    let state = entry.value().read();
 
     let message_bytes = state.last_error_message.as_bytes();
     let bytes_to_copy = if buffer.is_null() || buffer_len == 0 {
