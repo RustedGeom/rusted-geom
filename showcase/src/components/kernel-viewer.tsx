@@ -1397,7 +1397,7 @@ export function KernelViewer() {
           builtHandles.push(arcB);
 
           const _pcSegs = [lineA, false, arcA, false, lineB, false, arcB, false].reduce<number[]>((acc, val, i) => {
-            if (i % 2 === 0) acc.push((val as CurveHandle).object_id as unknown as number);
+            if (i % 2 === 0) acc.push((val as CurveHandle).object_id());
             else acc.push(val ? 1.0 : 0.0);
             return acc;
           }, []);
@@ -1405,10 +1405,10 @@ export function KernelViewer() {
           builtHandles.push(polycurve);
 
           const fastStart = performance.now();
-          const fast = session.compute_bounds(polycurve.object_id as unknown as number, 0, 0, 0.0);
+          const fast = session.compute_bounds(polycurve.object_id(), 0, 0, 0.0);
           const fastMs = performance.now() - fastStart;
           const optimalStart = performance.now();
-          const optimal = session.compute_bounds(polycurve.object_id as unknown as number, 1, 2048, 0.0);
+          const optimal = session.compute_bounds(polycurve.object_id(), 1, 2048, 0.0);
           const optimalMs = performance.now() - optimalStart;
 
           const fastSegments = boundsOverlaySegments(fast).map((segment) => ({
@@ -1919,13 +1919,13 @@ export function KernelViewer() {
           built.push(moved);
 
           const firstFastStart = performance.now();
-          const fastFirst = session.compute_bounds(moved.object_id as unknown as number, 0, 0, 0.0);
+          const fastFirst = session.compute_bounds(moved.object_id(), 0, 0, 0.0);
           const fastFirstMs = performance.now() - firstFastStart;
           const cachedFastStart = performance.now();
-          const fastCached = session.compute_bounds(moved.object_id as unknown as number, 0, 0, 0.0);
+          const fastCached = session.compute_bounds(moved.object_id(), 0, 0, 0.0);
           const fastCachedMs = performance.now() - cachedFastStart;
           const optimalStart = performance.now();
-          const optimal = session.compute_bounds(moved.object_id as unknown as number, 1, 8192, 0.0);
+          const optimal = session.compute_bounds(moved.object_id(), 1, 8192, 0.0);
           const optimalMs = performance.now() - optimalStart;
 
           const movedBuffers = meshToBuffers(session, moved);
@@ -2120,10 +2120,10 @@ export function KernelViewer() {
           built.push(scaled);
 
           const fastStart = performance.now();
-          const fast = session.compute_bounds(scaled.object_id as unknown as number, 0, 0, 0.0);
+          const fast = session.compute_bounds(scaled.object_id(), 0, 0, 0.0);
           const fastMs = performance.now() - fastStart;
           const optimalStart = performance.now();
-          const optimal = session.compute_bounds(scaled.object_id as unknown as number, 1, 4096, 0.0);
+          const optimal = session.compute_bounds(scaled.object_id(), 1, 4096, 0.0);
           const optimalMs = performance.now() - optimalStart;
 
           let outsideFast = 0;
@@ -2708,7 +2708,7 @@ export function KernelViewer() {
           }
 
           const preStart = performance.now();
-          const preFast = session.compute_bounds(brep.object_id as unknown as number, 0, 0, 0.0);
+          const preFast = session.compute_bounds(brep.object_id(), 0, 0, 0.0);
           const preMs = performance.now() - preStart;
 
           const reportBefore = session.brep_validate(brep);
@@ -2718,10 +2718,10 @@ export function KernelViewer() {
           const reportAfter = session.brep_validate(brep);
 
           const postFastStart = performance.now();
-          const postFast = session.compute_bounds(brep.object_id as unknown as number, 0, 0, 0.0);
+          const postFast = session.compute_bounds(brep.object_id(), 0, 0, 0.0);
           const postFastMs = performance.now() - postFastStart;
           const postOptimalStart = performance.now();
-          const postOptimal = session.compute_bounds(brep.object_id as unknown as number, 1, 6144, 0.0);
+          const postOptimal = session.compute_bounds(brep.object_id(), 1, 6144, 0.0);
           const postOptimalMs = performance.now() - postOptimalStart;
 
           const mesh = session.brep_tessellate_to_mesh(brep, new Float64Array([12, 12, 34, 34, 1.6e-4, 0.08]));
@@ -3084,7 +3084,7 @@ export function KernelViewer() {
           session.face_heal(surgeryFace);
           const surgeryValidAfter = session.face_validate(surgeryFace);
 
-          const rebuilt = session.brep_create_from_faces(new Float64Array((extractedFaces).map((f: FaceHandle) => f.object_id as unknown as number)));
+          const rebuilt = session.brep_create_from_faces(new Float64Array((extractedFaces).map((f: FaceHandle) => f.object_id())));
           built.push(rebuilt);
           const rebuiltReportBefore = session.brep_validate(rebuilt);
           session.brep_finalize_shell(rebuilt);
@@ -3400,7 +3400,7 @@ export function KernelViewer() {
           { curve: hLineB, reversed: false },
           { curve: hArcB, reversed: false },
         ];
-        const poly = session.create_polycurve(new Float64Array(segments.reduce<number[]>((acc, s, _i) => { acc.push(s.curve.object_id as unknown as number); acc.push(s.reversed ? 1.0 : 0.0); return acc; }, [])));
+        const poly = session.create_polycurve(new Float64Array(segments.reduce<number[]>((acc, s, _i) => { acc.push(s.curve.object_id()); acc.push(s.reversed ? 1.0 : 0.0); return acc; }, [])));
         builtHandles.unshift(poly);
 
         return asCurve(
