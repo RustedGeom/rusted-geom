@@ -711,16 +711,16 @@ fn rgm_curve_create_polycurve_impl(
 }
 
 
-include!("../ffi/ptr.rs");
-include!("../ffi/exports/kernel.rs");
-include!("../ffi/exports/bounds.rs");
-include!("../ffi/exports/memory.rs");
-include!("../ffi/exports/curve.rs");
-include!("../ffi/exports/mesh.rs");
-include!("../ffi/exports/surface.rs");
-include!("../ffi/exports/face.rs");
-include!("../ffi/exports/intersection.rs");
-include!("../ffi/exports/brep.rs");
+include!("ffi_ptr.rs");
+include!("ffi_kernel.rs");
+include!("ffi_bounds.rs");
+include!("ffi_memory.rs");
+include!("ffi_curve.rs");
+include!("ffi_mesh.rs");
+include!("ffi_surface.rs");
+include!("ffi_face.rs");
+include!("ffi_intersection.rs");
+include!("ffi_brep.rs");
 
 #[cfg(test)]
 fn debug_get_curve(session: RgmKernelHandle, object: RgmObjectHandle) -> Option<CurveData> {
@@ -781,4 +781,4 @@ fn debug_get_intersection(
     }
 }
 #[cfg(test)]
-include!("../tests/kernel_ffi.rs");
+include!("../tests/mod.rs");

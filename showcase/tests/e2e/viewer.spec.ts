@@ -6,29 +6,32 @@ test.describe("viewer shell", () => {
     await page.goto("/");
 
     await expect(page.locator(".toolbar")).toBeVisible();
-    await expect(page.locator(".viewport canvas")).toBeVisible();
+    await expect(page.locator(".viewport")).toBeVisible();
     await expect(page.locator(".inspector-panel.is-open")).toBeVisible();
     await expect(page.locator(".kernel-console.is-open")).toBeVisible();
 
-    await expect(page.getByRole("button", { name: "Load IGES" })).toBeDisabled();
-    await expect(page.getByRole("button", { name: "Save IGES" })).toBeDisabled();
+    await page.getByRole("button", { name: "More actions" }).click();
+    await expect(page.getByRole("menuitem", { name: "IGES in" })).toBeDisabled();
+    await expect(page.getByRole("menuitem", { name: "IGES out" })).toBeDisabled();
+    await page.getByRole("menuitem", { name: "Zoom fit" }).click();
 
-    await page.getByRole("button", { name: "Zoom Extents" }).click();
     await page.getByRole("button", { name: "Orbit" }).click();
     await page.getByRole("button", { name: "Orbit" }).click();
 
-    await page.getByRole("button", { name: "Toggle Console" }).click();
+    await page.getByRole("button", { name: "Console" }).click();
     await expect(page.locator(".kernel-console.is-collapsed")).toBeVisible();
-    await page.getByRole("button", { name: "Toggle Console" }).click();
+    await page.getByRole("button", { name: "Console" }).click();
     await expect(page.locator(".kernel-console.is-open")).toBeVisible();
 
+    await page.getByRole("button", { name: "More actions" }).click();
     const logDownloadPromise = page.waitForEvent("download");
-    await page.getByRole("button", { name: "Export Logs" }).click();
+    await page.getByRole("menuitem", { name: "Export logs" }).click();
     const logDownload = await logDownloadPromise;
     expect(logDownload.suggestedFilename()).toMatch(/^rusted-geom-console-.*\.log$/);
 
     await expect(page.locator(".kernel-log").first()).toBeVisible();
-    await page.getByRole("button", { name: "Clear Logs" }).click();
+    await page.getByRole("button", { name: "More actions" }).click();
+    await page.getByRole("menuitem", { name: "Clear logs" }).click();
     await expect(page.locator(".kernel-log")).toHaveCount(0);
     await expect(page.locator(".kernel-console-empty")).toBeVisible();
 
@@ -80,8 +83,9 @@ test.describe("viewer shell", () => {
     test.skip(isMobile, "Desktop-only smoke check");
     await page.goto("/");
 
+    await page.getByRole("button", { name: "More actions" }).click();
     const downloadPromise = page.waitForEvent("download");
-    await page.getByRole("button", { name: "Save Session" }).click();
+    await page.getByRole("menuitem", { name: "Save", exact: true }).click();
     const download = await downloadPromise;
     expect(download.suggestedFilename()).toContain("rusted-geom-session");
 
@@ -125,15 +129,37 @@ test.describe("viewer shell", () => {
         buffer: Buffer.from(JSON.stringify(sessionPayload), "utf8"),
       });
 
-    await expect(page.getByText("Session loaded")).toBeVisible();
+    await expect(page.locator(".inspector-readout output").filter({ hasText: "Reload" })).toBeVisible();
+  });
+
+  test("opens the test lab and runs runtime contract checks", async ({ page, isMobile }) => {
+    test.skip(isMobile, "Desktop-only smoke check");
+    test.setTimeout(180_000);
+    await page.goto("/");
+
+    await page.getByRole("button", { name: "More actions" }).click();
+    await page.getByRole("menuitem", { name: "Open Test Lab" }).click();
+    await expect(page).toHaveURL(/\/tests$/);
+    await expect(page.getByRole("heading", { name: "Runtime Contract Lab" })).toBeVisible();
+
+    await page.getByRole("button", { name: "Run Tests" }).click();
+    await expect(page.locator("[data-contract-level='pass']").first()).toBeVisible({
+      timeout: 120_000,
+    });
+    await expect(page.getByText(/Completed 5 Cases/i)).toBeVisible();
+
+    const logDownloadPromise = page.waitForEvent("download");
+    await page.getByRole("button", { name: "Export Logs" }).click();
+    const logDownload = await logDownloadPromise;
+    expect(logDownload.suggestedFilename()).toMatch(/^rusted-geom-contract-suite-.*\.log$/);
   });
 
   test("mobile viewport coordinates controls drawer and console dock", async ({ page, isMobile }) => {
     test.skip(!isMobile, "Mobile-only expectation");
     await page.goto("/");
 
-    const controlsButton = page.getByRole("button", { name: "Toggle Controls" });
-    const consoleButton = page.getByRole("button", { name: "Toggle Console" });
+    const controlsButton = page.getByRole("button", { name: "Controls panel" });
+    const consoleButton = page.getByRole("button", { name: "Console" });
 
     await controlsButton.click();
     await expect(page.locator(".inspector-panel.is-open")).toBeVisible();

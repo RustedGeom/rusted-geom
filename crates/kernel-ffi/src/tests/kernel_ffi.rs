@@ -245,6 +245,104 @@ mod tests {
         }
     }
 
+    fn rgm_mesh_bake_transform(
+        session: RgmKernelHandle,
+        mesh: RgmObjectHandle,
+        out_mesh: *mut RgmObjectHandle,
+    ) -> RgmStatus {
+        super::rgm_mesh_bake_transform(session, mesh, out_mesh)
+    }
+
+    fn rgm_mesh_vertex_count(
+        session: RgmKernelHandle,
+        mesh: RgmObjectHandle,
+        out_count: *mut u32,
+    ) -> RgmStatus {
+        super::rgm_mesh_vertex_count(session, mesh, out_count)
+    }
+
+    fn rgm_mesh_triangle_count(
+        session: RgmKernelHandle,
+        mesh: RgmObjectHandle,
+        out_count: *mut u32,
+    ) -> RgmStatus {
+        super::rgm_mesh_triangle_count(session, mesh, out_count)
+    }
+
+    fn rgm_mesh_copy_vertices(
+        session: RgmKernelHandle,
+        mesh: RgmObjectHandle,
+        out_vertices: *mut RgmPoint3,
+        vertex_capacity: u32,
+        out_count: *mut u32,
+    ) -> RgmStatus {
+        super::rgm_mesh_copy_vertices(session, mesh, out_vertices, vertex_capacity, out_count)
+    }
+
+    fn rgm_mesh_copy_indices(
+        session: RgmKernelHandle,
+        mesh: RgmObjectHandle,
+        out_indices: *mut u32,
+        index_capacity: u32,
+        out_count: *mut u32,
+    ) -> RgmStatus {
+        super::rgm_mesh_copy_indices(session, mesh, out_indices, index_capacity, out_count)
+    }
+
+    fn rgm_intersect_mesh_plane(
+        session: RgmKernelHandle,
+        mesh: RgmObjectHandle,
+        plane: RgmPlane,
+        out_points: *mut RgmPoint3,
+        point_capacity: u32,
+        out_count: *mut u32,
+    ) -> RgmStatus {
+        super::rgm_intersect_mesh_plane(
+            session,
+            mesh,
+            &plane as *const _,
+            out_points,
+            point_capacity,
+            out_count,
+        )
+    }
+
+    fn rgm_intersect_mesh_mesh(
+        session: RgmKernelHandle,
+        mesh_a: RgmObjectHandle,
+        mesh_b: RgmObjectHandle,
+        out_points: *mut RgmPoint3,
+        point_capacity: u32,
+        out_count: *mut u32,
+    ) -> RgmStatus {
+        super::rgm_intersect_mesh_mesh(
+            session,
+            mesh_a,
+            mesh_b,
+            out_points,
+            point_capacity,
+            out_count,
+        )
+    }
+
+    fn rgm_mesh_boolean(
+        session: RgmKernelHandle,
+        mesh_a: RgmObjectHandle,
+        mesh_b: RgmObjectHandle,
+        op: i32,
+        out_mesh: *mut RgmObjectHandle,
+    ) -> RgmStatus {
+        super::rgm_mesh_boolean(session, mesh_a, mesh_b, op, out_mesh)
+    }
+
+    fn rgm_intersection_branch_count(
+        session: RgmKernelHandle,
+        intersection: RgmObjectHandle,
+        out_count: *mut u32,
+    ) -> RgmStatus {
+        super::rgm_intersection_branch_count(session, intersection, out_count)
+    }
+
     fn create_session() -> RgmKernelHandle {
         let mut session = RgmKernelHandle(0);
         let status = rgm_kernel_create(&mut session as *mut _);
@@ -281,6 +379,81 @@ mod tests {
                 x: 3.0,
                 y: 1.0,
                 z: 0.0,
+            },
+        ]
+    }
+
+    fn runtime_curve_points() -> Vec<RgmPoint3> {
+        vec![
+            RgmPoint3 {
+                x: 0.0,
+                y: 0.0,
+                z: 0.0,
+            },
+            RgmPoint3 {
+                x: 1.0,
+                y: 0.25,
+                z: 0.0,
+            },
+            RgmPoint3 {
+                x: 2.0,
+                y: 1.0,
+                z: 0.0,
+            },
+            RgmPoint3 {
+                x: 3.0,
+                y: 1.25,
+                z: 0.0,
+            },
+        ]
+    }
+
+    fn runtime_surface_points() -> Vec<RgmPoint3> {
+        vec![
+            RgmPoint3 {
+                x: -2.0,
+                y: -2.0,
+                z: 0.0,
+            },
+            RgmPoint3 {
+                x: -2.0,
+                y: 0.0,
+                z: 0.8,
+            },
+            RgmPoint3 {
+                x: -2.0,
+                y: 2.0,
+                z: 0.1,
+            },
+            RgmPoint3 {
+                x: 0.0,
+                y: -2.0,
+                z: 0.7,
+            },
+            RgmPoint3 {
+                x: 0.0,
+                y: 0.0,
+                z: -0.2,
+            },
+            RgmPoint3 {
+                x: 0.0,
+                y: 2.0,
+                z: 0.9,
+            },
+            RgmPoint3 {
+                x: 2.0,
+                y: -2.0,
+                z: -0.3,
+            },
+            RgmPoint3 {
+                x: 2.0,
+                y: 0.0,
+                z: 0.6,
+            },
+            RgmPoint3 {
+                x: 2.0,
+                y: 2.0,
+                z: 0.2,
             },
         ]
     }
@@ -557,6 +730,913 @@ mod tests {
     fn obb_volume(bounds: RgmBounds3) -> f64 {
         let e = bounds.world_obb.half_extents;
         (e.x * 2.0) * (e.y * 2.0) * (e.z * 2.0)
+    }
+
+    #[test]
+    fn runtime_contract_curve_session_flow_matches_bindings_runtime() {
+        let session = create_session();
+        let points = runtime_curve_points();
+        let mut curve = RgmObjectHandle(0);
+        assert_eq!(
+            rgm_nurbs_interpolate_fit_points(
+                session,
+                points.as_ptr(),
+                points.len(),
+                2,
+                false,
+                tol(),
+                &mut curve as *mut _,
+            ),
+            RgmStatus::Ok
+        );
+
+        let mut sampled = Vec::with_capacity(32);
+        for idx in 0..32 {
+            let t = idx as f64 / 31.0;
+            let mut point = RgmPoint3 {
+                x: 0.0,
+                y: 0.0,
+                z: 0.0,
+            };
+            assert_eq!(
+                rgm_curve_point_at(session, curve, t, &mut point as *mut _),
+                RgmStatus::Ok
+            );
+            sampled.push(point);
+        }
+        assert_eq!(sampled.len(), 32);
+        assert!((sampled[0].x - 0.0).abs() < 1e-6);
+        assert!((sampled[31].x - 3.0).abs() < 1e-6);
+
+        let mut probe = RgmPoint3 {
+            x: 0.0,
+            y: 0.0,
+            z: 0.0,
+        };
+        assert_eq!(
+            rgm_curve_point_at(session, curve, 0.37, &mut probe as *mut _),
+            RgmStatus::Ok
+        );
+        assert!(probe.x >= 0.0 && probe.x <= 3.0);
+
+        let mut total_length = 0.0_f64;
+        let mut length_at = 0.0_f64;
+        assert_eq!(
+            rgm_curve_length(session, curve, &mut total_length as *mut _),
+            RgmStatus::Ok
+        );
+        assert_eq!(
+            rgm_curve_length_at(session, curve, 0.37, &mut length_at as *mut _),
+            RgmStatus::Ok
+        );
+        assert!(total_length > 0.0);
+        assert!(length_at > 0.0 && length_at < total_length);
+
+        let mut circle = RgmObjectHandle(0);
+        assert_eq!(
+            rgm_curve_create_circle(
+                session,
+                RgmCircle3 {
+                    plane: RgmPlane {
+                        origin: RgmPoint3 {
+                            x: 1.25,
+                            y: -0.8,
+                            z: 0.4,
+                        },
+                        x_axis: RgmVec3 {
+                            x: 1.0,
+                            y: 0.0,
+                            z: 0.0,
+                        },
+                        y_axis: RgmVec3 {
+                            x: 0.0,
+                            y: 1.0,
+                            z: 0.0,
+                        },
+                        z_axis: RgmVec3 {
+                            x: 0.0,
+                            y: 0.0,
+                            z: 1.0,
+                        },
+                    },
+                    radius: 3.6,
+                },
+                tol(),
+                &mut circle as *mut _,
+            ),
+            RgmStatus::Ok
+        );
+
+        for t in [0.0, 0.11, 0.3, 0.5, 0.77, 1.0] {
+            let mut p = RgmPoint3 {
+                x: 0.0,
+                y: 0.0,
+                z: 0.0,
+            };
+            assert_eq!(
+                rgm_curve_point_at(session, circle, t, &mut p as *mut _),
+                RgmStatus::Ok
+            );
+            let dx = p.x - 1.25;
+            let dy = p.y + 0.8;
+            let dz = p.z - 0.4;
+            let radius = (dx * dx + dy * dy + dz * dz).sqrt();
+            assert!((radius - 3.6).abs() < 1e-3);
+        }
+
+        let mut line_a = RgmObjectHandle(0);
+        let mut line_b = RgmObjectHandle(0);
+        assert_eq!(
+            rgm_curve_create_line(
+                session,
+                RgmLine3 {
+                    start: RgmPoint3 {
+                        x: -1.0,
+                        y: 0.0,
+                        z: 0.0,
+                    },
+                    end: RgmPoint3 {
+                        x: 1.0,
+                        y: 0.0,
+                        z: 0.0,
+                    },
+                },
+                tol(),
+                &mut line_a as *mut _,
+            ),
+            RgmStatus::Ok
+        );
+        assert_eq!(
+            rgm_curve_create_line(
+                session,
+                RgmLine3 {
+                    start: RgmPoint3 {
+                        x: 0.0,
+                        y: -1.0,
+                        z: 0.0,
+                    },
+                    end: RgmPoint3 {
+                        x: 0.0,
+                        y: 1.0,
+                        z: 0.0,
+                    },
+                },
+                tol(),
+                &mut line_b as *mut _,
+            ),
+            RgmStatus::Ok
+        );
+
+        let mut curve_hits = [RgmPoint3 {
+            x: 0.0,
+            y: 0.0,
+            z: 0.0,
+        }; 8];
+        let mut curve_hit_count = 0_u32;
+        assert_eq!(
+            rgm_intersect_curve_curve(
+                session,
+                line_a,
+                line_b,
+                curve_hits.as_mut_ptr(),
+                curve_hits.len() as u32,
+                &mut curve_hit_count as *mut _,
+            ),
+            RgmStatus::Ok
+        );
+        assert_eq!(curve_hit_count, 1);
+        assert!(curve_hits[0].x.abs() < 1e-3);
+        assert!(curve_hits[0].y.abs() < 1e-3);
+
+        let mut plane_hits = [RgmPoint3 {
+            x: 0.0,
+            y: 0.0,
+            z: 0.0,
+        }; 8];
+        let mut plane_hit_count = 0_u32;
+        assert_eq!(
+            rgm_intersect_curve_plane(
+                session,
+                line_a,
+                RgmPlane {
+                    origin: RgmPoint3 {
+                        x: 0.0,
+                        y: 0.0,
+                        z: 0.0,
+                    },
+                    x_axis: RgmVec3 {
+                        x: 1.0,
+                        y: 0.0,
+                        z: 0.0,
+                    },
+                    y_axis: RgmVec3 {
+                        x: 0.0,
+                        y: 1.0,
+                        z: 0.0,
+                    },
+                    z_axis: RgmVec3 {
+                        x: 0.0,
+                        y: 1.0,
+                        z: 0.0,
+                    },
+                },
+                plane_hits.as_mut_ptr(),
+                plane_hits.len() as u32,
+                &mut plane_hit_count as *mut _,
+            ),
+            RgmStatus::Ok
+        );
+        assert!(plane_hit_count >= 1);
+
+        assert_eq!(rgm_object_release(session, line_b), RgmStatus::Ok);
+        assert_eq!(rgm_object_release(session, line_a), RgmStatus::Ok);
+        assert_eq!(rgm_object_release(session, circle), RgmStatus::Ok);
+        assert_eq!(rgm_object_release(session, curve), RgmStatus::Ok);
+        assert_eq!(rgm_kernel_destroy(session), RgmStatus::Ok);
+    }
+
+    #[test]
+    fn runtime_contract_mesh_flow_matches_bindings_runtime() {
+        let session = create_session();
+
+        let mut mesh_box = RgmObjectHandle(0);
+        assert_eq!(
+            rgm_mesh_create_box(
+                session,
+                RgmPoint3 {
+                    x: 0.0,
+                    y: 0.0,
+                    z: 0.0,
+                },
+                RgmVec3 {
+                    x: 4.0,
+                    y: 3.0,
+                    z: 2.0,
+                },
+                &mut mesh_box as *mut _,
+            ),
+            RgmStatus::Ok
+        );
+
+        let mut vertex_count = 0_u32;
+        let mut triangle_count = 0_u32;
+        assert_eq!(
+            rgm_mesh_vertex_count(session, mesh_box, &mut vertex_count as *mut _),
+            RgmStatus::Ok
+        );
+        assert_eq!(
+            rgm_mesh_triangle_count(session, mesh_box, &mut triangle_count as *mut _),
+            RgmStatus::Ok
+        );
+        assert_eq!(vertex_count, 8);
+        assert_eq!(triangle_count, 12);
+
+        let mut translated = RgmObjectHandle(0);
+        let mut transformed = RgmObjectHandle(0);
+        let mut baked = RgmObjectHandle(0);
+        assert_eq!(
+            rgm_mesh_translate(
+                session,
+                mesh_box,
+                RgmVec3 {
+                    x: 0.8,
+                    y: -0.4,
+                    z: 1.2,
+                },
+                &mut translated as *mut _,
+            ),
+            RgmStatus::Ok
+        );
+        assert_eq!(
+            rgm_mesh_rotate(
+                session,
+                translated,
+                RgmVec3 {
+                    x: 0.0,
+                    y: 1.0,
+                    z: 0.2,
+                },
+                0.7,
+                RgmPoint3 {
+                    x: 0.0,
+                    y: 0.0,
+                    z: 0.0,
+                },
+                &mut transformed as *mut _,
+            ),
+            RgmStatus::Ok
+        );
+        assert_eq!(
+            rgm_mesh_bake_transform(session, transformed, &mut baked as *mut _),
+            RgmStatus::Ok
+        );
+
+        let mut baked_vertices = vec![
+            RgmPoint3 {
+                x: 0.0,
+                y: 0.0,
+                z: 0.0,
+            };
+            16
+        ];
+        let mut baked_indices = vec![0_u32; 72];
+        let mut baked_vertex_count = 0_u32;
+        let mut baked_index_count = 0_u32;
+        assert_eq!(
+            rgm_mesh_copy_vertices(
+                session,
+                baked,
+                baked_vertices.as_mut_ptr(),
+                baked_vertices.len() as u32,
+                &mut baked_vertex_count as *mut _,
+            ),
+            RgmStatus::Ok
+        );
+        assert_eq!(
+            rgm_mesh_copy_indices(
+                session,
+                baked,
+                baked_indices.as_mut_ptr(),
+                baked_indices.len() as u32,
+                &mut baked_index_count as *mut _,
+            ),
+            RgmStatus::Ok
+        );
+        assert_eq!(baked_vertex_count, 8);
+        assert_eq!(baked_index_count, 36);
+
+        let mut torus = RgmObjectHandle(0);
+        assert_eq!(
+            rgm_mesh_create_torus(
+                session,
+                RgmPoint3 {
+                    x: 0.0,
+                    y: 0.0,
+                    z: 0.0,
+                },
+                3.8,
+                1.1,
+                28,
+                20,
+                &mut torus as *mut _,
+            ),
+            RgmStatus::Ok
+        );
+
+        let mut mesh_plane_hits = vec![
+            RgmPoint3 {
+                x: 0.0,
+                y: 0.0,
+                z: 0.0,
+            };
+            16_384
+        ];
+        let mut mesh_plane_hit_count = 0_u32;
+        assert_eq!(
+            rgm_intersect_mesh_plane(
+                session,
+                torus,
+                RgmPlane {
+                    origin: RgmPoint3 {
+                        x: 0.0,
+                        y: 0.0,
+                        z: 0.2,
+                    },
+                    x_axis: RgmVec3 {
+                        x: 1.0,
+                        y: 0.0,
+                        z: 0.0,
+                    },
+                    y_axis: RgmVec3 {
+                        x: 0.0,
+                        y: 1.0,
+                        z: 0.0,
+                    },
+                    z_axis: RgmVec3 {
+                        x: 0.0,
+                        y: 0.0,
+                        z: 1.0,
+                    },
+                },
+                mesh_plane_hits.as_mut_ptr(),
+                mesh_plane_hits.len() as u32,
+                &mut mesh_plane_hit_count as *mut _,
+            ),
+            RgmStatus::Ok
+        );
+        assert!(mesh_plane_hit_count > 0);
+        assert_eq!(mesh_plane_hit_count % 2, 0);
+
+        let mut sphere = RgmObjectHandle(0);
+        assert_eq!(
+            rgm_mesh_create_uv_sphere(
+                session,
+                RgmPoint3 {
+                    x: 0.0,
+                    y: 0.0,
+                    z: 0.0,
+                },
+                4.2,
+                24,
+                16,
+                &mut sphere as *mut _,
+            ),
+            RgmStatus::Ok
+        );
+
+        let mut mesh_mesh_hits = vec![
+            RgmPoint3 {
+                x: 0.0,
+                y: 0.0,
+                z: 0.0,
+            };
+            32_768
+        ];
+        let mut mesh_mesh_hit_count = 0_u32;
+        assert_eq!(
+            rgm_intersect_mesh_mesh(
+                session,
+                sphere,
+                torus,
+                mesh_mesh_hits.as_mut_ptr(),
+                mesh_mesh_hits.len() as u32,
+                &mut mesh_mesh_hit_count as *mut _,
+            ),
+            RgmStatus::Ok
+        );
+        assert!(mesh_mesh_hit_count > 0);
+        assert_eq!(mesh_mesh_hit_count % 2, 0);
+
+        let mut boolean_host = RgmObjectHandle(0);
+        let mut inner_torus = RgmObjectHandle(0);
+        let mut boolean_diff = RgmObjectHandle(0);
+        assert_eq!(
+            rgm_mesh_create_box(
+                session,
+                RgmPoint3 {
+                    x: 0.0,
+                    y: 0.0,
+                    z: 0.0,
+                },
+                RgmVec3 {
+                    x: 8.8,
+                    y: 8.8,
+                    z: 8.8,
+                },
+                &mut boolean_host as *mut _,
+            ),
+            RgmStatus::Ok
+        );
+        assert_eq!(
+            rgm_mesh_create_torus(
+                session,
+                RgmPoint3 {
+                    x: 0.0,
+                    y: 0.0,
+                    z: 0.0,
+                },
+                2.4,
+                0.8,
+                32,
+                24,
+                &mut inner_torus as *mut _,
+            ),
+            RgmStatus::Ok
+        );
+        assert_eq!(
+            rgm_mesh_boolean(
+                session,
+                boolean_host,
+                inner_torus,
+                2,
+                &mut boolean_diff as *mut _,
+            ),
+            RgmStatus::Ok
+        );
+        let mut boolean_triangles = 0_u32;
+        assert_eq!(
+            rgm_mesh_triangle_count(session, boolean_diff, &mut boolean_triangles as *mut _),
+            RgmStatus::Ok
+        );
+        assert!(boolean_triangles > 0);
+
+        assert_eq!(rgm_object_release(session, boolean_diff), RgmStatus::Ok);
+        assert_eq!(rgm_object_release(session, inner_torus), RgmStatus::Ok);
+        assert_eq!(rgm_object_release(session, boolean_host), RgmStatus::Ok);
+        assert_eq!(rgm_object_release(session, sphere), RgmStatus::Ok);
+        assert_eq!(rgm_object_release(session, torus), RgmStatus::Ok);
+        assert_eq!(rgm_object_release(session, baked), RgmStatus::Ok);
+        assert_eq!(rgm_object_release(session, transformed), RgmStatus::Ok);
+        assert_eq!(rgm_object_release(session, translated), RgmStatus::Ok);
+        assert_eq!(rgm_object_release(session, mesh_box), RgmStatus::Ok);
+        assert_eq!(rgm_kernel_destroy(session), RgmStatus::Ok);
+    }
+
+    #[test]
+    fn runtime_contract_surface_face_flow_matches_bindings_runtime() {
+        let session = create_session();
+        let points = runtime_surface_points();
+        let weights = [1.0_f64; 9];
+        let knots_u = clamped_uniform_knots(3, 2);
+        let knots_v = clamped_uniform_knots(3, 2);
+
+        let mut surface = RgmObjectHandle(0);
+        assert_eq!(
+            rgm_surface_create_nurbs(
+                session,
+                &RgmNurbsSurfaceDesc {
+                    degree_u: 2,
+                    degree_v: 2,
+                    periodic_u: false,
+                    periodic_v: false,
+                    control_u_count: 3,
+                    control_v_count: 3,
+                } as *const _,
+                points.as_ptr(),
+                points.len(),
+                weights.as_ptr(),
+                weights.len(),
+                knots_u.as_ptr(),
+                knots_u.len(),
+                knots_v.as_ptr(),
+                knots_v.len(),
+                &tol() as *const _,
+                &mut surface as *mut _,
+            ),
+            RgmStatus::Ok
+        );
+
+        let uv = RgmUv2 { u: 0.5, v: 0.5 };
+        let mut frame = RgmSurfaceEvalFrame {
+            point: RgmPoint3 {
+                x: 0.0,
+                y: 0.0,
+                z: 0.0,
+            },
+            du: RgmVec3 {
+                x: 0.0,
+                y: 0.0,
+                z: 0.0,
+            },
+            dv: RgmVec3 {
+                x: 0.0,
+                y: 0.0,
+                z: 0.0,
+            },
+            normal: RgmVec3 {
+                x: 0.0,
+                y: 0.0,
+                z: 0.0,
+            },
+        };
+        let mut d0 = RgmPoint3 {
+            x: 0.0,
+            y: 0.0,
+            z: 0.0,
+        };
+        let mut d1u = RgmVec3 {
+            x: 0.0,
+            y: 0.0,
+            z: 0.0,
+        };
+        let mut d1v = RgmVec3 {
+            x: 0.0,
+            y: 0.0,
+            z: 0.0,
+        };
+        let mut duu = RgmVec3 {
+            x: 0.0,
+            y: 0.0,
+            z: 0.0,
+        };
+        let mut duv = RgmVec3 {
+            x: 0.0,
+            y: 0.0,
+            z: 0.0,
+        };
+        let mut dvv = RgmVec3 {
+            x: 0.0,
+            y: 0.0,
+            z: 0.0,
+        };
+
+        assert_eq!(
+            rgm_surface_frame_at(session, surface, &uv as *const _, &mut frame as *mut _),
+            RgmStatus::Ok
+        );
+        assert_eq!(
+            rgm_surface_point_at(session, surface, &uv as *const _, &mut d0 as *mut _),
+            RgmStatus::Ok
+        );
+        assert_eq!(
+            rgm_surface_d1_at(
+                session,
+                surface,
+                &uv as *const _,
+                &mut d1u as *mut _,
+                &mut d1v as *mut _,
+            ),
+            RgmStatus::Ok
+        );
+        assert_eq!(
+            rgm_surface_d2_at(
+                session,
+                surface,
+                &uv as *const _,
+                &mut duu as *mut _,
+                &mut duv as *mut _,
+                &mut dvv as *mut _,
+            ),
+            RgmStatus::Ok
+        );
+
+        assert!((frame.point.x - d0.x).abs() < 1e-7);
+        assert!((frame.point.y - d0.y).abs() < 1e-7);
+        assert!((frame.point.z - d0.z).abs() < 1e-7);
+        assert!((frame.du.x - d1u.x).abs() < 1e-7);
+        assert!((frame.dv.y - d1v.y).abs() < 1e-7);
+        assert!(duu.x.is_finite());
+        assert!(duv.y.is_finite());
+        assert!(dvv.z.is_finite());
+        assert!(frame.point.x.is_finite());
+        assert!(frame.normal.z.is_finite());
+
+        let mut face = RgmObjectHandle(0);
+        assert_eq!(
+            rgm_face_create_from_surface(session, surface, &mut face as *mut _),
+            RgmStatus::Ok
+        );
+        let outer_loop = [
+            RgmUv2 { u: 0.05, v: 0.05 },
+            RgmUv2 { u: 0.95, v: 0.05 },
+            RgmUv2 { u: 0.95, v: 0.95 },
+            RgmUv2 { u: 0.05, v: 0.95 },
+        ];
+        assert_eq!(
+            rgm_face_add_loop(session, face, outer_loop.as_ptr(), outer_loop.len(), true),
+            RgmStatus::Ok
+        );
+
+        let mut trim_circle = RgmObjectHandle(0);
+        assert_eq!(
+            rgm_curve_create_circle(
+                session,
+                RgmCircle3 {
+                    plane: RgmPlane {
+                        origin: RgmPoint3 {
+                            x: 0.5,
+                            y: 0.5,
+                            z: 0.0,
+                        },
+                        x_axis: RgmVec3 {
+                            x: 1.0,
+                            y: 0.0,
+                            z: 0.0,
+                        },
+                        y_axis: RgmVec3 {
+                            x: 0.0,
+                            y: 1.0,
+                            z: 0.0,
+                        },
+                        z_axis: RgmVec3 {
+                            x: 0.0,
+                            y: 0.0,
+                            z: 1.0,
+                        },
+                    },
+                    radius: 0.18,
+                },
+                tol(),
+                &mut trim_circle as *mut _,
+            ),
+            RgmStatus::Ok
+        );
+
+        let loop_input = RgmTrimLoopInput {
+            edge_count: 1,
+            is_outer: false,
+        };
+        let trim_edges = [RgmTrimEdgeInput {
+            start_uv: RgmUv2 { u: 0.68, v: 0.5 },
+            end_uv: RgmUv2 { u: 0.68, v: 0.5 },
+            curve_3d: trim_circle,
+            has_curve_3d: true,
+        }];
+        assert_eq!(
+            rgm_face_add_loop_edges(
+                session,
+                face,
+                &loop_input as *const _,
+                trim_edges.as_ptr(),
+                trim_edges.len(),
+            ),
+            RgmStatus::Ok
+        );
+
+        let mut valid = false;
+        assert_eq!(
+            rgm_face_validate(session, face, &mut valid as *mut _),
+            RgmStatus::Ok
+        );
+        assert!(valid);
+
+        let tess_opts = RgmSurfaceTessellationOptions {
+            min_u_segments: 28,
+            min_v_segments: 28,
+            max_u_segments: 48,
+            max_v_segments: 48,
+            chord_tol: 1e-4,
+            normal_tol_rad: 0.08,
+        };
+        let mut face_mesh = RgmObjectHandle(0);
+        assert_eq!(
+            rgm_face_tessellate_to_mesh(
+                session,
+                face,
+                &tess_opts as *const _,
+                &mut face_mesh as *mut _,
+            ),
+            RgmStatus::Ok
+        );
+        let mut tri_count = 0_u32;
+        assert_eq!(
+            rgm_mesh_triangle_count(session, face_mesh, &mut tri_count as *mut _),
+            RgmStatus::Ok
+        );
+        assert!(tri_count > 0);
+
+        let mut intersection = RgmObjectHandle(0);
+        assert_eq!(
+            rgm_intersect_surface_plane(
+                session,
+                surface,
+                &RgmPlane {
+                    origin: RgmPoint3 {
+                        x: 0.0,
+                        y: 0.0,
+                        z: 0.1,
+                    },
+                    x_axis: RgmVec3 {
+                        x: 1.0,
+                        y: 0.0,
+                        z: 0.0,
+                    },
+                    y_axis: RgmVec3 {
+                        x: 0.0,
+                        y: 1.0,
+                        z: 0.0,
+                    },
+                    z_axis: RgmVec3 {
+                        x: 0.0,
+                        y: 0.0,
+                        z: 1.0,
+                    },
+                } as *const _,
+                &mut intersection as *mut _,
+            ),
+            RgmStatus::Ok
+        );
+        let mut branch_count = 0_u32;
+        assert_eq!(
+            rgm_intersection_branch_count(session, intersection, &mut branch_count as *mut _),
+            RgmStatus::Ok
+        );
+
+        assert_eq!(rgm_object_release(session, intersection), RgmStatus::Ok);
+        assert_eq!(rgm_object_release(session, face_mesh), RgmStatus::Ok);
+        assert_eq!(rgm_object_release(session, trim_circle), RgmStatus::Ok);
+        assert_eq!(rgm_object_release(session, face), RgmStatus::Ok);
+        assert_eq!(rgm_object_release(session, surface), RgmStatus::Ok);
+        assert_eq!(rgm_kernel_destroy(session), RgmStatus::Ok);
+    }
+
+    #[test]
+    fn runtime_contract_invalid_curve_degree_matches_bindings_error_status() {
+        let session = create_session();
+        let points = runtime_curve_points();
+        let mut object = RgmObjectHandle(0);
+        assert_eq!(
+            rgm_nurbs_interpolate_fit_points(
+                session,
+                points.as_ptr(),
+                points.len(),
+                8,
+                false,
+                tol(),
+                &mut object as *mut _,
+            ),
+            RgmStatus::InvalidInput
+        );
+
+        let mut error_code = 0_i32;
+        assert_eq!(
+            rgm_last_error_code(session, &mut error_code as *mut _),
+            RgmStatus::Ok
+        );
+        assert_eq!(error_code, RgmStatus::InvalidInput as i32);
+
+        let mut error_msg_buf = [0_u8; 256];
+        let mut error_msg_len = 0_usize;
+        assert_eq!(
+            rgm_last_error_message(
+                session,
+                error_msg_buf.as_mut_ptr(),
+                error_msg_buf.len(),
+                &mut error_msg_len as *mut _,
+            ),
+            RgmStatus::Ok
+        );
+        let error_message = std::str::from_utf8(&error_msg_buf[..error_msg_len]).unwrap_or("");
+        assert!(error_message.contains("fit points"));
+
+        assert_eq!(rgm_kernel_destroy(session), RgmStatus::Ok);
+    }
+
+    #[test]
+    fn runtime_contract_pointer_style_intersection_exports_match_bindings_runtime() {
+        let session = create_session();
+        let mut line = RgmObjectHandle(0);
+        assert_eq!(
+            rgm_curve_create_line(
+                session,
+                RgmLine3 {
+                    start: RgmPoint3 {
+                        x: 0.0,
+                        y: 0.0,
+                        z: -1.0,
+                    },
+                    end: RgmPoint3 {
+                        x: 0.0,
+                        y: 0.0,
+                        z: 1.0,
+                    },
+                },
+                tol(),
+                &mut line as *mut _,
+            ),
+            RgmStatus::Ok
+        );
+
+        let plane = RgmPlane {
+            origin: RgmPoint3 {
+                x: 0.0,
+                y: 0.0,
+                z: 0.0,
+            },
+            x_axis: RgmVec3 {
+                x: 1.0,
+                y: 0.0,
+                z: 0.0,
+            },
+            y_axis: RgmVec3 {
+                x: 0.0,
+                y: 1.0,
+                z: 0.0,
+            },
+            z_axis: RgmVec3 {
+                x: 0.0,
+                y: 0.0,
+                z: 1.0,
+            },
+        };
+
+        let mut points = [RgmPoint3 {
+            x: 0.0,
+            y: 0.0,
+            z: 0.0,
+        }; 8];
+        let mut count = 0_u32;
+        assert_eq!(
+            rgm_intersect_curve_plane(
+                session,
+                line,
+                plane,
+                points.as_mut_ptr(),
+                points.len() as u32,
+                &mut count as *mut _,
+            ),
+            RgmStatus::Ok
+        );
+        assert_eq!(count, 1);
+        assert!(points[0].x.abs() < 1e-6);
+        assert!(points[0].y.abs() < 1e-6);
+        assert!(points[0].z.abs() < 1e-6);
+
+        assert_eq!(
+            rgm_intersect_curve_curve(
+                session,
+                line,
+                line,
+                points.as_mut_ptr(),
+                points.len() as u32,
+                &mut count as *mut _,
+            ),
+            RgmStatus::Ok
+        );
+        assert!(count >= 1);
+
+        assert_eq!(rgm_object_release(session, line), RgmStatus::Ok);
+        assert_eq!(rgm_kernel_destroy(session), RgmStatus::Ok);
     }
 
     #[test]

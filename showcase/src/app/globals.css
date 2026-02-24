@@ -289,6 +289,10 @@ input {
   gap: 0.2rem;
 }
 
+.overflow-row-single {
+  grid-template-columns: 1fr;
+}
+
 .overflow-btn {
   display: flex;
   flex-direction: column;
@@ -313,6 +317,39 @@ input {
 .overflow-btn:hover:not(:disabled) {
   background: var(--accent-soft);
   color: var(--accent);
+}
+
+.overflow-link {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.3rem;
+  padding: 0.48rem 0.36rem;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--ink-soft);
+  text-decoration: none;
+  font-size: 0.66rem;
+  font-weight: 600;
+  line-height: 1.2;
+  transition:
+    background-color 0.1s ease,
+    color 0.1s ease;
+}
+
+.overflow-link:hover {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.tool-btn:focus-visible,
+.overflow-btn:focus-visible,
+.overflow-link:focus-visible,
+.example-browser-clear:focus-visible,
+.example-browser-item:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }
 
 .overflow-btn:disabled {

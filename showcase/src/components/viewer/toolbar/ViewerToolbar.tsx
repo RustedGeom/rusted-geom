@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ToolIcon } from "./ToolIcon";
 
@@ -318,6 +319,25 @@ export function ViewerToolbar({
                   </ToolIcon>
                   Clear logs
                 </button>
+              </div>
+            </div>
+
+            <div className="overflow-section">
+              <span className="overflow-label">Diagnostics</span>
+              <div className="overflow-row overflow-row-single">
+                <Link
+                  href="/tests"
+                  className="overflow-link"
+                  role="menuitem"
+                  onClick={closeOverflow}
+                  aria-label="Open Test Lab"
+                >
+                  <ToolIcon size={13}>
+                    <path d="M3.2 3.2h9.6v9.6H3.2z" />
+                    <path d="M5.2 10.8 7 8.4l1.4 1.5 2.4-3.2" />
+                  </ToolIcon>
+                  Open Test Lab
+                </Link>
               </div>
             </div>
           </div>
