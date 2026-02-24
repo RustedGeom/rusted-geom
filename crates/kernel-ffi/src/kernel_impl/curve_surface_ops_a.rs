@@ -400,11 +400,11 @@ fn surface_curve_seed_sample_count(curve: &CurveData) -> usize {
     if let Some(nurbs) = curve_canonical_nurbs(curve) {
         let control = nurbs.core.control_points.len();
         let degree = nurbs.core.degree.max(1);
-        return (control.saturating_mul(24) + degree.saturating_mul(48)).clamp(160, 640);
+        return (control.saturating_mul(40) + degree.saturating_mul(80)).clamp(240, 1200);
     }
     match curve {
-        CurveData::Polycurve(poly) => poly.segments.len().saturating_mul(144).clamp(160, 640),
-        _ => 220,
+        CurveData::Polycurve(poly) => poly.segments.len().saturating_mul(200).clamp(240, 1200),
+        _ => 320,
     }
 }
 
@@ -572,4 +572,3 @@ fn normalize_trim_edge_samples(
 
     out
 }
-

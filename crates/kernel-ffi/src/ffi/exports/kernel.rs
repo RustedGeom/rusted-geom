@@ -37,6 +37,7 @@ pub extern "C" fn rgm_object_release(
     let result = with_session_mut(session, |state| {
         if state.objects.remove(&object.0).is_some() {
             state.mesh_accels.remove(&object.0);
+            state.bounds_cache.remove(&object.0);
             Ok(())
         } else {
             Err(RgmStatus::NotFound)

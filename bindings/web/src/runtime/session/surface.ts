@@ -1,4 +1,6 @@
 import type { KernelSession as LegacyKernelSession } from "./core";
+import type { RgmBounds3, RgmBoundsOptions } from "../../generated/types";
+import type { SurfaceHandle } from "./handles";
 
 export interface SurfaceClient {
   createNurbsSurface: LegacyKernelSession["createNurbsSurface"];
@@ -11,6 +13,7 @@ export interface SurfaceClient {
   surfaceScale: LegacyKernelSession["surfaceScale"];
   surfaceBakeTransform: LegacyKernelSession["surfaceBakeTransform"];
   surfaceTessellateToMesh: LegacyKernelSession["surfaceTessellateToMesh"];
+  bounds: (surfaceHandle: SurfaceHandle, options?: RgmBoundsOptions) => RgmBounds3;
 }
 
 export class SurfaceClientImpl implements SurfaceClient {
@@ -51,4 +54,7 @@ export class SurfaceClientImpl implements SurfaceClient {
 
   surfaceTessellateToMesh: SurfaceClient["surfaceTessellateToMesh"] = (surfaceHandle, options) =>
     this.session.surfaceTessellateToMesh(surfaceHandle, options);
+
+  bounds: SurfaceClient["bounds"] = (surfaceHandle, options) =>
+    this.session.objectComputeBounds(surfaceHandle, options);
 }

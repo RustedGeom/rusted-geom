@@ -8,6 +8,8 @@ import {
   createKernelRuntime,
   KernelRuntimeError,
   type CurvePresetInput,
+  type RgmBounds3,
+  RgmBoundsMode,
   RgmStatus,
 } from "../src/index";
 import type { NativeExports } from "../src/generated/native";
@@ -59,6 +61,117 @@ function clampedUniformKnots(controlCount: number, degree: number): number[] {
     knots[degree + i] = i / (interior + 1);
   }
   return knots;
+}
+
+function buildWarpedSurfaceNet(
+  uCount: number,
+  vCount: number,
+  spanU: number,
+  spanV: number,
+  warpScale: number,
+): {
+  desc: {
+    degree_u: number;
+    degree_v: number;
+    periodic_u: boolean;
+    periodic_v: boolean;
+    control_u_count: number;
+    control_v_count: number;
+  };
+  points: Array<{ x: number; y: number; z: number }>;
+  weights: number[];
+  knotsU: number[];
+  knotsV: number[];
+} {
+  const points: Array<{ x: number; y: number; z: number }> = [];
+  const weights: number[] = [];
+  const halfU = spanU * 0.5;
+  const halfV = spanV * 0.5;
+  for (let iu = 0; iu < uCount; iu += 1) {
+    const u = iu / Math.max(1, uCount - 1);
+    const x = -halfU + u * spanU;
+    for (let iv = 0; iv < vCount; iv += 1) {
+      const v = iv / Math.max(1, vCount - 1);
+      const y = -halfV + v * spanV;
+      const z =
+        Math.sin((u * 2.0 + v * 1.2) * Math.PI) * warpScale +
+        Math.cos((u * 0.8 - v * 1.6) * Math.PI) * (warpScale * 0.6);
+      points.push({ x, y, z });
+      weights.push(1.0 + 0.08 * Math.sin((u + v) * Math.PI));
+    }
+  }
+
+  return {
+    desc: {
+      degree_u: 3,
+      degree_v: 3,
+      periodic_u: false,
+      periodic_v: false,
+      control_u_count: uCount,
+      control_v_count: vCount,
+    },
+    points,
+    weights,
+    knotsU: clampedUniformKnots(uCount, 3),
+    knotsV: clampedUniformKnots(vCount, 3),
+  };
+}
+
+function pointInsideAabb(
+  aabb: { min: { x: number; y: number; z: number }; max: { x: number; y: number; z: number } },
+  point: { x: number; y: number; z: number },
+  eps = 1e-7,
+): boolean {
+  return (
+    point.x >= aabb.min.x - eps &&
+    point.x <= aabb.max.x + eps &&
+    point.y >= aabb.min.y - eps &&
+    point.y <= aabb.max.y + eps &&
+    point.z >= aabb.min.z - eps &&
+    point.z <= aabb.max.z + eps
+  );
+}
+
+function obbLocalPoint(
+  bounds: RgmBounds3,
+  point: { x: number; y: number; z: number },
+): { x: number; y: number; z: number } {
+  const relX = point.x - bounds.world_obb.center.x;
+  const relY = point.y - bounds.world_obb.center.y;
+  const relZ = point.z - bounds.world_obb.center.z;
+  const dot = (axis: { x: number; y: number; z: number }) =>
+    relX * axis.x + relY * axis.y + relZ * axis.z;
+  return {
+    x: dot(bounds.world_obb.x_axis),
+    y: dot(bounds.world_obb.y_axis),
+    z: dot(bounds.world_obb.z_axis),
+  };
+}
+
+function expectFiniteBounds(bounds: RgmBounds3): void {
+  const values = [
+    bounds.world_aabb.min.x,
+    bounds.world_aabb.min.y,
+    bounds.world_aabb.min.z,
+    bounds.world_aabb.max.x,
+    bounds.world_aabb.max.y,
+    bounds.world_aabb.max.z,
+    bounds.world_obb.center.x,
+    bounds.world_obb.center.y,
+    bounds.world_obb.center.z,
+    bounds.world_obb.half_extents.x,
+    bounds.world_obb.half_extents.y,
+    bounds.world_obb.half_extents.z,
+    bounds.local_aabb.min.x,
+    bounds.local_aabb.min.y,
+    bounds.local_aabb.min.z,
+    bounds.local_aabb.max.x,
+    bounds.local_aabb.max.y,
+    bounds.local_aabb.max.z,
+  ];
+  for (const value of values) {
+    expect(Number.isFinite(value)).toBe(true);
+  }
 }
 
 describe("kernel runtime", () => {
@@ -336,6 +449,137 @@ describe("kernel runtime", () => {
     runtime.destroy();
   });
 
+  it("computes bounds for curve/surface/mesh/brep and preserves containment", async () => {
+    const wasmBytes = readFileSync(wasmPath);
+    const runtime = await createKernelRuntime(wasmBytes);
+    const session = runtime.createSession();
+
+    const line = session.curve.createLine(
+      {
+        start: { x: -3, y: 1.25, z: 4.5 },
+        end: { x: 6, y: -2.75, z: -1.5 },
+      },
+      preset.tolerance,
+    );
+    const curveBoundsFast = session.curve.bounds(line, {
+      mode: RgmBoundsMode.Fast,
+      sample_budget: 0,
+      padding: 0,
+    });
+    const curveBoundsOptimal = session.curve.bounds(line, {
+      mode: RgmBoundsMode.Optimal,
+      sample_budget: 128,
+      padding: 0,
+    });
+    expectFiniteBounds(curveBoundsFast);
+    expectFiniteBounds(curveBoundsOptimal);
+    expect(pointInsideAabb(curveBoundsFast.world_aabb, { x: -3, y: 1.25, z: 4.5 })).toBe(true);
+    expect(pointInsideAabb(curveBoundsFast.world_aabb, { x: 6, y: -2.75, z: -1.5 })).toBe(true);
+
+    const net = buildWarpedSurfaceNet(8, 7, 9, 7, 0.9);
+    const surface = session.surface.createNurbsSurface(
+      net.desc,
+      net.points,
+      net.weights,
+      net.knotsU,
+      net.knotsV,
+      preset.tolerance,
+    );
+    const surfaceBounds = session.surface.bounds(surface, {
+      mode: RgmBoundsMode.Fast,
+      sample_budget: 0,
+      padding: 0,
+    });
+    expectFiniteBounds(surfaceBounds);
+    for (let iu = 0; iu <= 16; iu += 1) {
+      const u = iu / 16;
+      for (let iv = 0; iv <= 16; iv += 1) {
+        const v = iv / 16;
+        const point = session.surface.surfacePointAt(surface, { u, v });
+        expect(pointInsideAabb(surfaceBounds.world_aabb, point, 1e-6)).toBe(true);
+      }
+    }
+
+    const meshBox = session.mesh.createMeshBox(
+      { x: 0, y: 0, z: 0 },
+      { x: 4, y: 2, z: 3 },
+    );
+    const meshMoved = session.mesh.meshTranslate(meshBox, { x: 1.5, y: -0.75, z: 2.25 });
+    const meshRot = session.mesh.meshRotate(
+      meshMoved,
+      { x: 0.3, y: 1.0, z: 0.4 },
+      0.62,
+      { x: 0.2, y: -0.3, z: 0.0 },
+    );
+    const meshScaled = session.mesh.meshScale(
+      meshRot,
+      { x: 1.25, y: 0.85, z: 1.4 },
+      { x: 0, y: 0, z: 0 },
+    );
+    const meshBoundsA = session.mesh.bounds(meshScaled, {
+      mode: RgmBoundsMode.Fast,
+      sample_budget: 256,
+      padding: 0,
+    });
+    const meshBoundsB = session.mesh.bounds(meshScaled, {
+      mode: RgmBoundsMode.Fast,
+      sample_budget: 256,
+      padding: 0,
+    });
+    expectFiniteBounds(meshBoundsA);
+    expect(meshBoundsB.world_aabb.min.x).toBeCloseTo(meshBoundsA.world_aabb.min.x, 9);
+    expect(meshBoundsB.world_aabb.max.z).toBeCloseTo(meshBoundsA.world_aabb.max.z, 9);
+    const meshBuffers = session.mesh.meshToBuffers(meshScaled);
+    for (const vertex of meshBuffers.vertices) {
+      expect(pointInsideAabb(meshBoundsA.world_aabb, vertex, 1e-6)).toBe(true);
+      const local = obbLocalPoint(meshBoundsA, vertex);
+      expect(pointInsideAabb(meshBoundsA.local_aabb, local, 1e-5)).toBe(true);
+    }
+
+    const brep = session.brep.brepCreateEmpty();
+    const faceId = session.brep.brepAddFaceFromSurface(brep, surface);
+    session.brep.brepAddLoopUv(
+      brep,
+      faceId,
+      [
+        { u: 0.05, v: 0.05 },
+        { u: 0.95, v: 0.07 },
+        { u: 0.94, v: 0.94 },
+        { u: 0.06, v: 0.92 },
+      ],
+      true,
+    );
+    const brepBounds = session.brep.bounds(brep, {
+      mode: RgmBoundsMode.Fast,
+      sample_budget: 0,
+      padding: 0,
+    });
+    expectFiniteBounds(brepBounds);
+    const brepMesh = session.brep.brepTessellateToMesh(brep, {
+      min_u_segments: 14,
+      min_v_segments: 14,
+      max_u_segments: 32,
+      max_v_segments: 32,
+      chord_tol: 2e-4,
+      normal_tol_rad: 0.1,
+    });
+    const brepMeshBuffers = session.mesh.meshToBuffers(brepMesh);
+    for (const vertex of brepMeshBuffers.vertices) {
+      expect(pointInsideAabb(brepBounds.world_aabb, vertex, 1e-5)).toBe(true);
+    }
+
+    session.kernel.releaseObject(brepMesh);
+    session.kernel.releaseObject(brep);
+    session.kernel.releaseObject(meshScaled);
+    session.kernel.releaseObject(meshRot);
+    session.kernel.releaseObject(meshMoved);
+    session.kernel.releaseObject(meshBox);
+    session.kernel.releaseObject(surface);
+    session.kernel.releaseObject(line);
+    session.destroy();
+    runtime.destroy();
+  });
+
   it("executes intersection exports in wasm with expected counts", async () => {
     const wasmBytes = readFileSync(wasmPath);
     const module = await loadKernelWasm(wasmBytes);
@@ -396,5 +640,56 @@ describe("kernel runtime", () => {
       memory.free(outObjectPtr, KERNEL_LAYOUT.U64_BYTES, 8);
       memory.free(sessionPtr, KERNEL_LAYOUT.U64_BYTES, 8);
     }
+  });
+
+  it("matches showcase surface-curve intersection hit count", async () => {
+    const wasmBytes = readFileSync(wasmPath);
+    const runtime = await createKernelRuntime(wasmBytes);
+    const session = runtime.createSession();
+
+    const tol = {
+      abs_tol: 1e-9,
+      rel_tol: 1e-9,
+      angle_tol: 1e-9,
+    };
+
+    const net = buildWarpedSurfaceNet(16, 16, 12, 12, 1.2);
+    const surface = session.surface.createNurbsSurface(
+      net.desc,
+      net.points,
+      net.weights,
+      net.knotsU,
+      net.knotsV,
+      tol,
+    );
+
+    const curve = session.curve.buildCurveFromPreset({
+      degree: 3,
+      closed: false,
+      points: [
+        { x: -6.2, y: -3.4, z: -2.0 },
+        { x: -3.1, y: -0.2, z: 2.5 },
+        { x: -0.5, y: 2.8, z: -1.8 },
+        { x: 2.2, y: 1.1, z: 2.2 },
+        { x: 4.8, y: -1.6, z: -2.3 },
+        { x: 6.1, y: 2.3, z: 1.9 },
+      ],
+      tolerance: tol,
+    });
+
+    const inter = session.intersection.intersectSurfaceCurve(surface, curve);
+    const branchCount = session.intersection.intersectionBranchCount(inter);
+    let totalHits = 0;
+    for (let i = 0; i < branchCount; i += 1) {
+      totalHits += session.intersection.intersectionBranchPoints(inter, i).length;
+    }
+
+    expect(totalHits).toBeGreaterThanOrEqual(3);
+
+    session.kernel.releaseObject(inter);
+    session.kernel.releaseObject(curve);
+    session.kernel.releaseObject(surface);
+    session.destroy();
+    runtime.destroy();
   });
 });

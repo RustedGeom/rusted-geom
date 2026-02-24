@@ -631,6 +631,7 @@ fn generate_surface_curve_candidates(
 ) -> Vec<(RgmPoint3, RgmUv2, f64)> {
     let mut out = Vec::new();
     let mut deduper = BranchSpatialDeduper::new(seed_tol * 1.5);
+    let dense_pass_target_hits = 4usize;
     let surface_seed_grid = build_surface_projection_seed_grid(surface, 14, 14);
     let curve_seed_grid = build_curve_projection_seed_grid(state, curve, sample_count.max(96));
     let mut last_uv = clamp_surface_uv(
@@ -676,7 +677,7 @@ fn generate_surface_curve_candidates(
         };
         last_uv = uv;
         last_t = t;
-        if residual > seed_tol * 1.8 {
+        if residual > seed_tol * 6.0 {
             continue;
         }
         let Some((point, uv, t_hit)) = refine_surface_curve_hit(state, surface, curve, uv, t, tol)
@@ -690,7 +691,7 @@ fn generate_surface_curve_candidates(
         out.push((point, uv, t_hit));
     }
 
-    if out.is_empty() {
+    if out.len() < 24 {
         for seed in &surface_seed_grid {
             let mut t_seeds = Vec::new();
             push_unique_t_seed(&mut t_seeds, last_t, 1e-6);
@@ -705,7 +706,7 @@ fn generate_surface_curve_candidates(
             else {
                 continue;
             };
-            if residual > seed_tol * 2.2 {
+            if residual > seed_tol * 6.0 {
                 continue;
             }
             let Some((point, uv, t_hit)) =
@@ -725,7 +726,7 @@ fn generate_surface_curve_candidates(
         }
     }
 
-    if out.is_empty() {
+    if out.len() < dense_pass_target_hits {
         let dense_surface_seed_grid = build_surface_projection_seed_grid(surface, 24, 24);
         for seed in &dense_surface_seed_grid {
             let t_seeds = nearest_curve_seed_t(&curve_seed_grid, seed.point, 12);
@@ -734,7 +735,7 @@ fn generate_surface_curve_candidates(
             else {
                 continue;
             };
-            if residual > seed_tol * 2.8 {
+            if residual > seed_tol * 8.0 {
                 continue;
             }
             let Some((point, uv, t_hit)) =
@@ -761,4 +762,3 @@ struct SurfacePlaneGridSample {
     point: RgmPoint3,
     signed: f64,
 }
-

@@ -1,4 +1,6 @@
 import type {
+  RgmBounds3,
+  RgmBoundsOptions,
   RgmArc3,
   RgmBrepValidationReport,
   RgmCircle3,
@@ -56,6 +58,7 @@ export interface RgmSurfaceSecondDerivatives {
 
 export interface KernelSession {
   readonly handle: bigint;
+  objectComputeBounds(objectHandle: ObjectHandle, options?: RgmBoundsOptions): RgmBounds3;
   buildCurveFromPreset(preset: CurvePresetInput): CurveHandle;
   createLine(line: RgmLine3, tolerance: RgmToleranceContext): CurveHandle;
   createArc(arc: RgmArc3, tolerance: RgmToleranceContext): CurveHandle;

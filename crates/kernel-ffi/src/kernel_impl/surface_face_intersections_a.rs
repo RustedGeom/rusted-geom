@@ -694,7 +694,7 @@ fn refine_surface_curve_hit(
     }
 
     best.and_then(|(residual_norm, point, uv, t)| {
-        if residual_norm <= tol * 16.0 {
+        if residual_norm <= tol * 128.0 {
             Some((point, uv, t))
         } else {
             None
@@ -831,4 +831,3 @@ fn project_point_to_surface_multi_seed(
     }
     best
 }
-

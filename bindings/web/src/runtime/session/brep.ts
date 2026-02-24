@@ -1,4 +1,6 @@
 import type { KernelSession as LegacyKernelSession } from "./core";
+import type { RgmBounds3, RgmBoundsOptions } from "../../generated/types";
+import type { BrepHandle } from "./handles";
 
 export interface BrepClient {
   brepCreateEmpty: LegacyKernelSession["brepCreateEmpty"];
@@ -24,6 +26,7 @@ export interface BrepClient {
   brepEstimateArea: LegacyKernelSession["brepEstimateArea"];
   brepSaveNative: LegacyKernelSession["brepSaveNative"];
   brepLoadNative: LegacyKernelSession["brepLoadNative"];
+  bounds: (brepHandle: BrepHandle, options?: RgmBoundsOptions) => RgmBounds3;
 }
 
 export class BrepClientImpl implements BrepClient {
@@ -88,4 +91,7 @@ export class BrepClientImpl implements BrepClient {
   brepSaveNative: BrepClient["brepSaveNative"] = (brepHandle) => this.session.brepSaveNative(brepHandle);
 
   brepLoadNative: BrepClient["brepLoadNative"] = (bytes) => this.session.brepLoadNative(bytes);
+
+  bounds: BrepClient["bounds"] = (brepHandle, options) =>
+    this.session.objectComputeBounds(brepHandle, options);
 }

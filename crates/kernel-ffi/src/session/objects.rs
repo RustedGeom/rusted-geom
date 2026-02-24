@@ -10,7 +10,7 @@ use crate::elements::brep::types::BrepData;
 use crate::math::arc_length::ArcLengthCache;
 use crate::math::nurbs_curve_eval::NurbsCurveCore;
 use crate::math::nurbs_surface_eval::NurbsSurfaceCore;
-use crate::{RgmObjectHandle, RgmPoint3, RgmStatus, RgmUv2};
+use crate::{RgmBounds3, RgmBoundsMode, RgmObjectHandle, RgmPoint3, RgmStatus, RgmUv2};
 use std::collections::HashMap;
 
 // ─── Geometry Data Types ──────────────────────────────────────────────────────
@@ -321,12 +321,26 @@ impl MeshBvh {
     }
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub(crate) struct BoundsCacheKey {
+    pub(crate) mode: RgmBoundsMode,
+    pub(crate) sample_bucket: u32,
+    pub(crate) padding_quantized: i64,
+}
+
+#[derive(Clone, Copy, Debug)]
+pub(crate) struct BoundsCacheEntry {
+    pub(crate) key: BoundsCacheKey,
+    pub(crate) bounds: RgmBounds3,
+}
+
 // ─── Session State ────────────────────────────────────────────────────────────
 
 #[derive(Default)]
 pub(crate) struct SessionState {
     pub(crate) objects: HashMap<u64, GeometryObject>,
     pub(crate) mesh_accels: HashMap<u64, MeshAccelCache>,
+    pub(crate) bounds_cache: HashMap<u64, BoundsCacheEntry>,
     pub(crate) last_error_code: RgmStatus,
     pub(crate) last_error_message: String,
 }

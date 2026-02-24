@@ -1,4 +1,6 @@
 import type { KernelSession as LegacyKernelSession } from "./core";
+import type { RgmBounds3, RgmBoundsOptions } from "../../generated/types";
+import type { CurveHandle } from "./handles";
 
 export interface CurveClient {
   buildCurveFromPreset: LegacyKernelSession["buildCurveFromPreset"];
@@ -11,6 +13,7 @@ export interface CurveClient {
   curvePointAt: LegacyKernelSession["curvePointAt"];
   curveLength: LegacyKernelSession["curveLength"];
   curveLengthAt: LegacyKernelSession["curveLengthAt"];
+  bounds: (curveHandle: CurveHandle, options?: RgmBoundsOptions) => RgmBounds3;
 }
 
 export class CurveClientImpl implements CurveClient {
@@ -44,4 +47,7 @@ export class CurveClientImpl implements CurveClient {
 
   curveLengthAt: CurveClient["curveLengthAt"] = (curveHandle, tNorm) =>
     this.session.curveLengthAt(curveHandle, tNorm);
+
+  bounds: CurveClient["bounds"] = (curveHandle, options) =>
+    this.session.objectComputeBounds(curveHandle, options);
 }

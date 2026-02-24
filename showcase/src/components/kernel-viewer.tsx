@@ -4749,6 +4749,7 @@ export function KernelViewer() {
           emissiveIntensity: 0.64,
           roughness: 0.18,
           metalness: 0.2,
+          depthTest: false,
           depthWrite: false,
         }),
       );

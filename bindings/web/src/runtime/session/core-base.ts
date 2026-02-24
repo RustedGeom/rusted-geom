@@ -1,6 +1,8 @@
 import type { NativeExports } from "../../generated/native";
 import type {
   RgmArc3,
+  RgmBounds3,
+  RgmBoundsOptions,
   RgmCircle3,
   RgmLine3,
   RgmPlane,
@@ -11,7 +13,7 @@ import type {
 } from "../../generated/types";
 import { RgmStatus } from "../../generated/types";
 import { KernelRuntimeError, statusToName } from "../errors";
-import type { CurveHandle, MeshHandle } from "./handles";
+import type { CurveHandle, MeshHandle, ObjectHandle } from "./handles";
 import { KERNEL_LAYOUT, KernelMemory } from "../memory";
 import { sampleCurvePolyline } from "../scene-sampler";
 import type { CurvePresetInput } from "./core";
@@ -194,6 +196,32 @@ export abstract class KernelSessionBase {
       this.memory.free(segmentsPtr, segmentsBytes, 8);
       this.memory.free(tolerancePtr, KERNEL_LAYOUT.TOLERANCE_BYTES, 8);
       this.memory.free(outObjectPtr, KERNEL_LAYOUT.U64_BYTES, 8);
+    }
+  }
+
+  objectComputeBounds(objectHandle: ObjectHandle, options?: RgmBoundsOptions): RgmBounds3 {
+    this.ensureAlive();
+    const outBoundsPtr = this.memory.alloc(KERNEL_LAYOUT.BOUNDS3_BYTES, 8);
+    const optionsPtr = options
+      ? this.memory.alloc(KERNEL_LAYOUT.BOUNDS_OPTIONS_BYTES, 8)
+      : 0;
+    try {
+      if (options && optionsPtr !== 0) {
+        this.memory.writeBoundsOptions(optionsPtr, options);
+      }
+      const status = this.api.rgm_object_compute_bounds(
+        this.handle,
+        objectHandle,
+        optionsPtr,
+        outBoundsPtr,
+      ) as RgmStatus;
+      this.assertOk(status, "Object bounds computation failed");
+      return this.memory.readBounds3(outBoundsPtr);
+    } finally {
+      if (optionsPtr !== 0) {
+        this.memory.free(optionsPtr, KERNEL_LAYOUT.BOUNDS_OPTIONS_BYTES, 8);
+      }
+      this.memory.free(outBoundsPtr, KERNEL_LAYOUT.BOUNDS3_BYTES, 8);
     }
   }
 

@@ -6,6 +6,7 @@ include!("kernel_impl/curve_surface_ops_c.rs");
 include!("kernel_impl/intersection_mesh_ops_a.rs");
 include!("kernel_impl/intersection_mesh_ops_b.rs");
 include!("kernel_impl/intersection_mesh_ops_c.rs");
+include!("kernel_impl/bounds_ops.rs");
 include!("kernel_impl/surface_face_intersections_a.rs");
 include!("kernel_impl/surface_face_intersections_b.rs");
 include!("kernel_impl/surface_face_intersections_c.rs");

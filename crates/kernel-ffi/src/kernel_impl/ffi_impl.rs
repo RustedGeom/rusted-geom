@@ -713,6 +713,7 @@ fn rgm_curve_create_polycurve_impl(
 
 include!("../ffi/ptr.rs");
 include!("../ffi/exports/kernel.rs");
+include!("../ffi/exports/bounds.rs");
 include!("../ffi/exports/memory.rs");
 include!("../ffi/exports/curve.rs");
 include!("../ffi/exports/mesh.rs");

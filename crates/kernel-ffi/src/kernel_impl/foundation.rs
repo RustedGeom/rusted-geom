@@ -365,9 +365,53 @@ pub struct RgmIntersectionBranchSummary {
     pub flags: u32,
 }
 
+#[rgm_ffi_type]
+#[repr(i32)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub enum RgmBoundsMode {
+    Fast = 0,
+    Optimal = 1,
+}
+
+#[rgm_ffi_type]
+#[repr(C)]
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct RgmAabb3 {
+    pub min: RgmPoint3,
+    pub max: RgmPoint3,
+}
+
+#[rgm_ffi_type]
+#[repr(C)]
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct RgmObb3 {
+    pub center: RgmPoint3,
+    pub x_axis: RgmVec3,
+    pub y_axis: RgmVec3,
+    pub z_axis: RgmVec3,
+    pub half_extents: RgmVec3,
+}
+
+#[rgm_ffi_type]
+#[repr(C)]
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct RgmBoundsOptions {
+    pub mode: RgmBoundsMode,
+    pub sample_budget: u32,
+    pub padding: f64,
+}
+
+#[rgm_ffi_type]
+#[repr(C)]
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct RgmBounds3 {
+    pub world_aabb: RgmAabb3,
+    pub world_obb: RgmObb3,
+    pub local_aabb: RgmAabb3,
+}
+
 impl Default for RgmStatus {
     fn default() -> Self {
         Self::Ok
     }
 }
-

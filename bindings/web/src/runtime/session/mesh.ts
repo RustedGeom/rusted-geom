@@ -1,4 +1,6 @@
 import type { KernelSession as LegacyKernelSession } from "./core";
+import type { RgmBounds3, RgmBoundsOptions } from "../../generated/types";
+import type { MeshHandle } from "./handles";
 
 export interface MeshClient {
   createMeshBox: LegacyKernelSession["createMeshBox"];
@@ -12,6 +14,7 @@ export interface MeshClient {
   meshVertexCount: LegacyKernelSession["meshVertexCount"];
   meshTriangleCount: LegacyKernelSession["meshTriangleCount"];
   meshToBuffers: LegacyKernelSession["meshToBuffers"];
+  bounds: (meshHandle: MeshHandle, options?: RgmBoundsOptions) => RgmBounds3;
 }
 
 export class MeshClientImpl implements MeshClient {
@@ -53,4 +56,7 @@ export class MeshClientImpl implements MeshClient {
     this.session.meshTriangleCount(meshHandle);
 
   meshToBuffers: MeshClient["meshToBuffers"] = (meshHandle) => this.session.meshToBuffers(meshHandle);
+
+  bounds: MeshClient["bounds"] = (meshHandle, options) =>
+    this.session.objectComputeBounds(meshHandle, options);
 }

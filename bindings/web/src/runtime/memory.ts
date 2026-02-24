@@ -1,7 +1,11 @@
 import type { NativeExports } from "../generated/native";
 import type {
+  RgmAabb3,
+  RgmBounds3,
+  RgmBoundsOptions,
   RgmBrepValidationReport,
   RgmIntersectionBranchSummary,
+  RgmObb3,
   RgmArc3,
   RgmCircle3,
   RgmLine3,
@@ -43,6 +47,10 @@ const SURFACE_TESSELLATION_OPTIONS_BYTES = I32_BYTES * 4 + F64_BYTES * 2;
 const INTERSECTION_BRANCH_SUMMARY_BYTES = 24;
 const VALIDATION_ISSUE_BYTES = I32_BYTES * 4 + F64_BYTES * 2;
 const BREP_VALIDATION_REPORT_BYTES = 16 + VALIDATION_ISSUE_BYTES * 16;
+const BOUNDS_OPTIONS_BYTES = 16;
+const AABB3_BYTES = POINT3_BYTES * 2;
+const OBB3_BYTES = POINT3_BYTES + VEC3_BYTES * 4;
+const BOUNDS3_BYTES = AABB3_BYTES + OBB3_BYTES + AABB3_BYTES;
 
 export class KernelMemory {
   constructor(
@@ -266,12 +274,44 @@ export class KernelMemory {
     view.setFloat64(ptr + I32_BYTES * 4 + F64_BYTES, options.normal_tol_rad, true);
   }
 
+  writeBoundsOptions(ptr: number, options: RgmBoundsOptions): void {
+    const view = this.dataView();
+    view.setInt32(ptr, options.mode, true);
+    view.setUint32(ptr + I32_BYTES, options.sample_budget, true);
+    view.setFloat64(ptr + I32_BYTES * 2, options.padding, true);
+  }
+
   readSurfaceEvalFrame(ptr: number): RgmSurfaceEvalFrame {
     return {
       point: this.readPoint(ptr),
       du: this.readVec(ptr + POINT3_BYTES),
       dv: this.readVec(ptr + POINT3_BYTES + VEC3_BYTES),
       normal: this.readVec(ptr + POINT3_BYTES + VEC3_BYTES * 2),
+    };
+  }
+
+  readAabb3(ptr: number): RgmAabb3 {
+    return {
+      min: this.readPoint(ptr),
+      max: this.readPoint(ptr + POINT3_BYTES),
+    };
+  }
+
+  readObb3(ptr: number): RgmObb3 {
+    return {
+      center: this.readPoint(ptr),
+      x_axis: this.readVec(ptr + POINT3_BYTES),
+      y_axis: this.readVec(ptr + POINT3_BYTES + VEC3_BYTES),
+      z_axis: this.readVec(ptr + POINT3_BYTES + VEC3_BYTES * 2),
+      half_extents: this.readVec(ptr + POINT3_BYTES + VEC3_BYTES * 3),
+    };
+  }
+
+  readBounds3(ptr: number): RgmBounds3 {
+    return {
+      world_aabb: this.readAabb3(ptr),
+      world_obb: this.readObb3(ptr + AABB3_BYTES),
+      local_aabb: this.readAabb3(ptr + AABB3_BYTES + OBB3_BYTES),
     };
   }
 
@@ -342,4 +382,8 @@ export const KERNEL_LAYOUT = {
   INTERSECTION_BRANCH_SUMMARY_BYTES,
   VALIDATION_ISSUE_BYTES,
   BREP_VALIDATION_REPORT_BYTES,
+  BOUNDS_OPTIONS_BYTES,
+  AABB3_BYTES,
+  OBB3_BYTES,
+  BOUNDS3_BYTES,
 } as const;
