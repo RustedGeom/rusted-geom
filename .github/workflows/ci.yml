@@ -50,7 +50,7 @@ jobs:
 
       - name: Web smoke typecheck
         run: |
-          npm --prefix ./bindings/web install --include=dev
+          npm --prefix ./bindings/web ci --include=dev
           npm --prefix ./bindings/web run typecheck
 
       - name: Build WASM for tests
