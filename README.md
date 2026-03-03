@@ -7,14 +7,17 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/cesarecaoduro/rusted-geom/actions/workflows/ci.yml">
-    <img src="https://github.com/cesarecaoduro/rusted-geom/actions/workflows/ci.yml/badge.svg" alt="CI">
+  <a href="https://github.com/RustedGeom/rusted-geom/actions/workflows/ci.yml">
+    <img src="https://github.com/RustedGeom/rusted-geom/actions/workflows/ci.yml/badge.svg" alt="CI">
   </a>
-  <a href="https://github.com/cesarecaoduro/rusted-geom/releases">
-    <img src="https://img.shields.io/github/v/release/cesarecaoduro/rusted-geom?include_prereleases&label=release" alt="Release">
+  <a href="https://github.com/RustedGeom/rusted-geom/releases">
+    <img src="https://img.shields.io/github/v/release/RustedGeom/rusted-geom?include_prereleases&label=release" alt="Release">
   </a>
-  <a href="https://github.com/cesarecaoduro/rusted-geom/blob/main/LICENSE">
-    <img src="https://img.shields.io/github/license/cesarecaoduro/rusted-geom" alt="License: MIT">
+  <a href="https://rusted-geom-showcase.vercel.app">
+    <img src="https://img.shields.io/badge/showcase-live-blue" alt="Showcase">
+  </a>
+  <a href="https://github.com/RustedGeom/rusted-geom/blob/main/LICENSE">
+    <img src="https://img.shields.io/github/license/RustedGeom/rusted-geom" alt="License: MIT">
   </a>
 </p>
 
@@ -23,6 +26,8 @@
 ## Overview
 
 **rusted-geom** is a NURBS (Non-Uniform Rational B-Spline) geometry kernel built in Rust and compiled to WebAssembly via `wasm-pack`. It exposes a fully typed TypeScript API through `wasm-bindgen`, enabling browser and Node.js applications to perform computational geometry operations at near-native speed.
+
+**[Live Showcase](https://rusted-geom-showcase.vercel.app)** — interactive 3D viewer with NURBS curves, surfaces, mesh booleans, and more.
 
 ### Key Capabilities
 
@@ -36,7 +41,7 @@
 
 ### Project Status
 
-> **Alpha** (`0.1.0-alpha.1`) — APIs and package layout are evolving. Contributions and feedback welcome.
+> **Alpha** (`0.1.0-alpha.3`) — APIs and package layout are evolving. Contributions and feedback welcome.
 
 ---
 

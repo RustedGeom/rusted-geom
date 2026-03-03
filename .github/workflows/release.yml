@@ -8,8 +8,6 @@ on:
 permissions:
   contents: write
   packages: write
-  pages: write
-  id-token: write
 
 jobs:
   checks:
@@ -147,12 +145,9 @@ jobs:
         env:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-  deploy-pages:
+  deploy-showcase:
     needs: checks
     runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -182,17 +177,15 @@ jobs:
 
       - name: Build showcase
         run: pnpm --filter showcase build
+
+      - name: Install Vercel CLI
+        run: npm i -g vercel@latest
+
+      - name: Deploy to Vercel
+        run: |
+          mkdir -p showcase/out/.vercel
+          echo '{"projectId":"${{ secrets.VERCEL_PROJECT_ID }}","orgId":"${{ secrets.VERCEL_ORG_ID }}"}' > showcase/out/.vercel/project.json
+          vercel deploy showcase/out --prod --token=${{ secrets.VERCEL_TOKEN }} --yes
         env:
-          GITHUB_PAGES: 'true'
-
-      - name: Configure Pages
-        uses: actions/configure-pages@v5
-
-      - name: Upload Pages artifact
-        uses: actions/upload-pages-artifact@v3
-        with:
-          path: showcase/out
-
-      - name: Deploy to GitHub Pages
-        id: deployment
-        uses: actions/deploy-pages@v4
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}

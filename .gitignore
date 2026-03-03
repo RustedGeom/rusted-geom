@@ -3,3 +3,5 @@
 bindings/web/dist
 dist
 .claude/**/*
+.vercel
+showcase/out

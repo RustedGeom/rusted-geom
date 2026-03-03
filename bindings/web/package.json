@@ -1,6 +1,6 @@
 {
   "name": "@rustedgeom/kernel",
-  "version": "0.1.0-alpha.3",
+  "version": "0.1.0-alpha.4",
   "type": "module",
   "publishConfig": {
     "registry": "https://npm.pkg.github.com"

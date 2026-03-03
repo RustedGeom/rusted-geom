@@ -436,7 +436,7 @@ export async function runKernelContractSuite(
   callbacks: ContractSuiteCallbacks = {},
 ): Promise<ContractSuiteResult> {
   // Initialise WASM once before any test cases run.
-  await loadKernel(`${process.env.NEXT_PUBLIC_BASE_PATH ?? ""}/wasm/rusted_geom.wasm`);
+  await loadKernel("/wasm/rusted_geom.wasm");
 
   const startedAt = performance.now();
   const caseResults: ContractCaseResult[] = [];
