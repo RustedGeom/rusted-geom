@@ -48,7 +48,7 @@ jobs:
         run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
 
       - name: Build WASM for tests
-        run: wasm-pack build --target web --release --out-dir crates/kernel/pkg crates/kernel
+        run: wasm-pack build --target web --release --out-dir pkg crates/kernel
 
       - name: Run benchmark smoke
         run: |
@@ -76,7 +76,7 @@ jobs:
         run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
 
       - name: Build WASM package
-        run: wasm-pack build --target web --release --out-dir crates/kernel/pkg crates/kernel
+        run: wasm-pack build --target web --release --out-dir pkg crates/kernel
 
       - name: Setup Node
         uses: actions/setup-node@v4

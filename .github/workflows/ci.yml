@@ -34,7 +34,7 @@ jobs:
           node-version: '20'
 
       - name: Build WASM for tests
-        run: wasm-pack build --target web --release --out-dir crates/kernel/pkg crates/kernel
+        run: wasm-pack build --target web --release --out-dir pkg crates/kernel
 
       - name: Web smoke typecheck
         run: |
