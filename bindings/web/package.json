@@ -22,7 +22,8 @@
     "clean": "rm -rf dist",
     "build": "npm run clean && tsc -p tsconfig.build.json",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "pack:local": "mkdir -p dist/wasm && cp ../../crates/kernel/pkg/rusted_geom_bg.wasm dist/wasm/rusted_geom.wasm && mkdir -p ../../dist/npm && npm pack --pack-destination ../../dist/npm"
   },
   "devDependencies": {
     "@types/node": "^24.4.0",

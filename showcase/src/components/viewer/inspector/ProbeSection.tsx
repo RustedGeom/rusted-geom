@@ -1,11 +1,17 @@
 import type { ProbeUiState } from "@/lib/viewer-types";
 
+function fmtVec(v: { x: number; y: number; z: number }): string {
+  return `(${v.x.toFixed(4)}, ${v.y.toFixed(4)}, ${v.z.toFixed(4)})`;
+}
+
 interface ProbeSectionProps {
   probeUiState: ProbeUiState;
   onUpdateProbe: (tNorm: number, commit: boolean) => void;
+  followCamera?: boolean;
+  onToggleFollowCamera?: () => void;
 }
 
-export function ProbeSection({ probeUiState, onUpdateProbe }: ProbeSectionProps) {
+export function ProbeSection({ probeUiState, onUpdateProbe, followCamera = false, onToggleFollowCamera }: ProbeSectionProps) {
   return (
     <section className="inspector-section" aria-label="Probe controls">
       <h2>Probe</h2>
@@ -46,6 +52,26 @@ export function ProbeSection({ probeUiState, onUpdateProbe }: ProbeSectionProps)
         <span>s(total)</span>
         <output>{probeUiState.totalLength.toFixed(5)}</output>
       </div>
+
+      {probeUiState.tangent ? (
+        <div className="inspector-readout">
+          <span>Tangent</span>
+          <output style={{ fontSize: 10 }}>{fmtVec(probeUiState.tangent)}</output>
+        </div>
+      ) : null}
+      {probeUiState.normal ? (
+        <div className="inspector-readout">
+          <span>Normal</span>
+          <output style={{ fontSize: 10 }}>{fmtVec(probeUiState.normal)}</output>
+        </div>
+      ) : null}
+
+      {onToggleFollowCamera ? (
+        <label className="inspector-field inspector-toggle">
+          <span>Follow camera</span>
+          <input type="checkbox" checked={followCamera} onChange={onToggleFollowCamera} />
+        </label>
+      ) : null}
     </section>
   );
 }

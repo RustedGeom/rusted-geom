@@ -416,6 +416,73 @@ impl KernelSession {
         Ok(MeshHandle::new(self.session_id, handle.0))
     }
 
+    /// Station range `[sta_start, sta_end]` for alignment at `alignment_index`.
+    pub fn landxml_alignment_station_range(
+        &self,
+        doc: &LandXmlDocHandle,
+        alignment_index: u32,
+    ) -> Result<Vec<f64>, JsValue> {
+        let entry = SESSIONS
+            .get(&self.session_id)
+            .ok_or_else(|| JsValue::from_str("session not found"))?;
+        let state = entry.value().read();
+        let data = crate::session::objects::find_landxml_doc(
+            &state,
+            RgmObjectHandle(doc.object_id),
+        )
+        .map_err(super::error::js_err)?;
+        let alignment = data
+            .doc
+            .alignments
+            .get(alignment_index as usize)
+            .ok_or_else(|| JsValue::from_str("alignment index out of range"))?;
+        Ok(vec![alignment.sta_start_m, alignment.sta_start_m + alignment.length_m])
+    }
+
+    /// Probe an alignment+profile at a display station.
+    ///
+    /// Returns packed `[px, py, pz, tx, ty, tz, grade]` where:
+    ///   - `(px,py,pz)` = 3D point on the alignment+profile at the probe station,
+    ///   - `(tx,ty,tz)` = 3D tangent vector,
+    ///   - `grade`      = vertical grade (rise/run).
+    ///
+    /// The caller constructs the perpendicular plane from the tangent.
+    pub fn landxml_probe_alignment(
+        &self,
+        doc: &LandXmlDocHandle,
+        alignment_index: u32,
+        profile_index: u32,
+        display_station: f64,
+    ) -> Result<Vec<f64>, JsValue> {
+        let entry = SESSIONS
+            .get(&self.session_id)
+            .ok_or_else(|| JsValue::from_str("session not found"))?;
+        let state = entry.value().read();
+        let data = crate::session::objects::find_landxml_doc(
+            &state,
+            RgmObjectHandle(doc.object_id),
+        )
+        .map_err(super::error::js_err)?;
+        let alignment = data
+            .doc
+            .alignments
+            .get(alignment_index as usize)
+            .ok_or_else(|| JsValue::from_str("alignment index out of range"))?;
+        let profile = alignment
+            .profiles
+            .get(profile_index as usize)
+            .ok_or_else(|| JsValue::from_str("profile index out of range"))?;
+
+        let sample = evaluate_alignment_3d(alignment, profile, display_station)
+            .map_err(|e| JsValue::from_str(&e.message))?;
+
+        Ok(vec![
+            sample.point.x, sample.point.y, sample.point.z,
+            sample.tangent.x, sample.tangent.y, sample.tangent.z,
+            sample.grade,
+        ])
+    }
+
     /// Number of plan linears (FeatureLines + Breaklines) in the document.
     pub fn landxml_plan_linear_count(&self, doc: &LandXmlDocHandle) -> Result<u32, JsValue> {
         let entry = SESSIONS

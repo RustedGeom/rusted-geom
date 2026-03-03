@@ -1,7 +1,8 @@
-import type { ExampleKey, GizmoMode, ProbeUiState, SurfaceProbeUiState, ViewerPerformance } from "@/lib/viewer-types";
+import type { ExampleKey, GizmoMode, LandXmlAlignmentInfo, LandXmlProbeUiState, ProbeUiState, SurfaceProbeUiState, ViewerPerformance } from "@/lib/viewer-types";
 import { LANDXML_FILE_LIST } from "@/lib/viewer-types";
 import { ExampleSection } from "./ExampleSection";
 import { GizmoSection } from "./GizmoSection";
+import { LandXmlProbeSection } from "./LandXmlProbeSection";
 import { PerformanceSection } from "./PerformanceSection";
 import { ProbeSection, ProbeUnavailableSection } from "./ProbeSection";
 import { SurfaceProbeSection } from "./SurfaceProbeSection";
@@ -48,6 +49,15 @@ export interface InspectorPanelProps {
   landXmlVertExag?: number;
   onLandXmlVertExagChange?: (exag: number) => void;
   landXmlZRange?: { min: number; max: number };
+  landXmlAlignments?: LandXmlAlignmentInfo[];
+  landXmlProbeState?: LandXmlProbeUiState;
+  landXmlProbeAlignIdx?: number;
+  landXmlProbeProfileIdx?: number;
+  onLandXmlAlignmentChange?: (idx: number) => void;
+  onLandXmlProfileChange?: (idx: number) => void;
+  onLandXmlStationChange?: (stationNorm: number, commit: boolean) => void;
+  followCamera?: boolean;
+  onToggleFollowCamera?: () => void;
 }
 
 export function InspectorPanel({
@@ -81,6 +91,15 @@ export function InspectorPanel({
   landXmlVertExag = 1,
   onLandXmlVertExagChange,
   landXmlZRange,
+  landXmlAlignments,
+  landXmlProbeState,
+  landXmlProbeAlignIdx = 0,
+  landXmlProbeProfileIdx = 0,
+  onLandXmlAlignmentChange,
+  onLandXmlProfileChange,
+  onLandXmlStationChange,
+  followCamera = false,
+  onToggleFollowCamera,
 }: InspectorPanelProps) {
   return (
     <aside
@@ -160,8 +179,8 @@ export function InspectorPanel({
                 </label>
                 <input
                   type="range"
-                  min={landXmlZRange.min - 10}
-                  max={landXmlZRange.max + 10}
+                  min={0}
+                  max={landXmlZRange.max}
                   step={0.5}
                   value={landXmlDatumOffset}
                   onChange={(e) => onLandXmlDatumOffsetChange(Number(e.target.value))}
@@ -215,13 +234,25 @@ export function InspectorPanel({
           />
         ) : null}
 
-        {showSurfaceProbeControls ? (
+        {activeExample === "landxmlViewer" && landXmlAlignments && landXmlProbeState && onLandXmlStationChange ? (
+          <LandXmlProbeSection
+            alignments={landXmlAlignments}
+            probeState={landXmlProbeState}
+            selectedAlignIdx={landXmlProbeAlignIdx}
+            selectedProfIdx={landXmlProbeProfileIdx}
+            onAlignmentChange={onLandXmlAlignmentChange ?? (() => {})}
+            onProfileChange={onLandXmlProfileChange ?? (() => {})}
+            onStationChange={onLandXmlStationChange}
+            followCamera={followCamera}
+            onToggleFollowCamera={onToggleFollowCamera}
+          />
+        ) : showSurfaceProbeControls ? (
           <SurfaceProbeSection
             surfaceProbeUiState={surfaceProbeUiState}
             onUpdateSurfaceProbe={onUpdateSurfaceProbe}
           />
         ) : showProbeControls ? (
-          <ProbeSection probeUiState={probeUiState} onUpdateProbe={onUpdateProbe} />
+          <ProbeSection probeUiState={probeUiState} onUpdateProbe={onUpdateProbe} followCamera={followCamera} onToggleFollowCamera={onToggleFollowCamera} />
         ) : (
           <ProbeUnavailableSection />
         )}

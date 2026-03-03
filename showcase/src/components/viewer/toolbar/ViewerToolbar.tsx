@@ -3,6 +3,16 @@
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ToolIcon } from "./ToolIcon";
+import type { CameraMode, ViewPresetName } from "@/lib/viewer-types";
+
+const VIEW_PRESET_LABELS: Array<{ name: ViewPresetName; label: string }> = [
+  { name: "top", label: "T" },
+  { name: "front", label: "F" },
+  { name: "right", label: "R" },
+  { name: "bottom", label: "Bo" },
+  { name: "back", label: "Bk" },
+  { name: "left", label: "L" },
+];
 
 export interface ViewerToolbarProps {
   canImportIges: boolean;
@@ -12,6 +22,11 @@ export interface ViewerToolbarProps {
   orbitEnabled: boolean;
   showGrid: boolean;
   showAxes: boolean;
+  cameraMode: CameraMode;
+  onToggleCameraMode: () => void;
+  onApplyViewPreset: (preset: ViewPresetName) => void;
+  followCamera: boolean;
+  onToggleFollowCamera: () => void;
   onZoomExtents: () => void;
   onResetCamera: () => void;
   onToggleOrbit: () => void;
@@ -37,6 +52,11 @@ export function ViewerToolbar({
   orbitEnabled,
   showGrid,
   showAxes,
+  cameraMode,
+  onToggleCameraMode,
+  onApplyViewPreset,
+  followCamera,
+  onToggleFollowCamera,
   onZoomExtents,
   onResetCamera,
   onToggleOrbit,
@@ -59,7 +79,6 @@ export function ViewerToolbar({
 
   const closeOverflow = useCallback(() => setOverflowOpen(false), []);
 
-  // Close on outside click
   useEffect(() => {
     if (!overflowOpen) return;
     function onPointerDown(e: PointerEvent) {
@@ -73,7 +92,6 @@ export function ViewerToolbar({
     return () => window.removeEventListener("pointerdown", onPointerDown);
   }, [overflowOpen, closeOverflow]);
 
-  // Close on Escape
   useEffect(() => {
     if (!overflowOpen) return;
     function onKey(e: KeyboardEvent) { if (e.key === "Escape") closeOverflow(); }
@@ -85,6 +103,8 @@ export function ViewerToolbar({
     return () => { fn(); closeOverflow(); };
   }
 
+  const isOrtho = cameraMode === "orthographic";
+
   return (
     <header className="toolbar" role="toolbar" aria-label="Viewer actions">
       {/* Brand */}
@@ -95,7 +115,7 @@ export function ViewerToolbar({
 
       <div className="toolbar-divider" aria-hidden="true" />
 
-      {/* Examples — primary action, always prominent */}
+      {/* Examples */}
       <button
         type="button"
         className="tool-btn tool-btn-examples"
@@ -141,6 +161,73 @@ export function ViewerToolbar({
             <path d="M6.3 3v10M9.7 3v10M3 6.3h10M3 9.7h10" />
           </ToolIcon>
         </button>
+        <button
+          type="button"
+          className={`tool-btn ${isOrtho ? "is-active" : ""}`}
+          onClick={onToggleCameraMode}
+          aria-label={isOrtho ? "Perspective" : "Orthographic"}
+          aria-pressed={isOrtho}
+          title={isOrtho ? "Switch to Perspective" : "Switch to Orthographic"}
+        >
+          <ToolIcon>
+            {isOrtho ? (
+              <path d="M3 3h10v10H3zM3 6.5h10M6.5 3v10" />
+            ) : (
+              <>
+                <path d="M4 12 8 4l4 8z" />
+                <circle cx="8" cy="4" r="1" />
+              </>
+            )}
+          </ToolIcon>
+        </button>
+      </div>
+
+      <div className="toolbar-divider toolbar-divider-desktop" aria-hidden="true" />
+
+      {/* Camera group -- visible on desktop (>=900px) */}
+      <div className="toolbar-camera-group" role="group" aria-label="Camera">
+        <button type="button" className="tool-btn" onClick={onZoomExtents} aria-label="Zoom fit" title="Zoom fit">
+          <ToolIcon>
+            <rect x="3.2" y="3.2" width="9.6" height="9.6" />
+            <path d="M1.6 1.6 4 4m8 8 2.4 2.4M14.4 1.6 12 4M1.6 14.4l2.4-2.4" />
+          </ToolIcon>
+        </button>
+        <button type="button" className="tool-btn" onClick={onResetCamera} aria-label="Reset view" title="Reset view">
+          <ToolIcon>
+            <path d="M8 2.6a5.4 5.4 0 1 0 5.1 7.2" />
+            <path d="M10.6 2.8h2.8v2.8m-2.6 0 2.6-2.8" />
+          </ToolIcon>
+        </button>
+
+        {/* View cube */}
+        <div className="view-cube" role="group" aria-label="View presets">
+          {VIEW_PRESET_LABELS.map(({ name, label }) => (
+            <button
+              key={name}
+              type="button"
+              className="view-cube-btn"
+              onClick={() => onApplyViewPreset(name)}
+              aria-label={`${name} view`}
+              title={`${name.charAt(0).toUpperCase() + name.slice(1)} view`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+
+        <button
+          type="button"
+          className={`tool-btn ${followCamera ? "is-active" : ""}`}
+          onClick={onToggleFollowCamera}
+          aria-label="Follow probe"
+          aria-pressed={followCamera}
+          title="Follow probe camera"
+        >
+          <ToolIcon>
+            <path d="M8 2v4l3 2-3 2v4" />
+            <circle cx="8" cy="8" r="6" fill="none" />
+          </ToolIcon>
+        </button>
       </div>
 
       <div className="toolbar-divider" aria-hidden="true" />
@@ -179,7 +266,7 @@ export function ViewerToolbar({
 
       <div className="toolbar-divider" aria-hidden="true" />
 
-      {/* Theme + overflow */}
+      {/* Theme */}
       <button
         type="button"
         className={`tool-btn ${isDarkMode ? "is-active" : ""}`}
@@ -217,130 +304,167 @@ export function ViewerToolbar({
         </button>
 
         {overflowOpen && (
-          <div className="toolbar-overflow-menu" role="menu" aria-label="More actions">
-            <div className="overflow-section">
-              <span className="overflow-label">Camera</span>
-              <div className="overflow-row">
-                <button type="button" className="overflow-btn" onClick={overflowAction(onZoomExtents)} role="menuitem">
-                  <ToolIcon size={13}>
-                    <rect x="3.2" y="3.2" width="9.6" height="9.6" />
-                    <path d="M1.6 1.6 4 4m8 8 2.4 2.4M14.4 1.6 12 4M1.6 14.4l2.4-2.4" />
-                  </ToolIcon>
-                  Zoom fit
-                </button>
-                <button type="button" className="overflow-btn" onClick={overflowAction(onResetCamera)} role="menuitem">
-                  <ToolIcon size={13}>
-                    <path d="M8 2.6a5.4 5.4 0 1 0 5.1 7.2" />
-                    <path d="M10.6 2.8h2.8v2.8m-2.6 0 2.6-2.8" />
-                  </ToolIcon>
-                  Reset view
-                </button>
-                <button
-                  type="button"
-                  className={`overflow-btn ${showAxes ? "is-active" : ""}`}
-                  onClick={overflowAction(onToggleAxes)}
-                  role="menuitem"
-                  aria-pressed={showAxes}
-                >
-                  <ToolIcon size={13}>
-                    <path d="M2.8 12.8 8 8 13.2 3.2M8 8v5.2" />
-                    <circle cx="8" cy="8" r="1.1" />
-                  </ToolIcon>
-                  Axes
-                </button>
-                <button type="button" className="overflow-btn" onClick={overflowAction(onSaveScreenshot)} role="menuitem">
-                  <ToolIcon size={13}>
-                    <rect x="2.8" y="4.1" width="10.4" height="8.2" rx="1.2" />
-                    <path d="m5.2 9.8 1.8-1.8 1.8 1.8 1.3-1.3 1.9 1.9" />
-                    <circle cx="6.1" cy="6.6" r="0.8" />
-                  </ToolIcon>
-                  Save PNG
-                </button>
+          <>
+            <div className="toolbar-overflow-backdrop" onClick={closeOverflow} />
+            <div className="toolbar-overflow-menu" role="menu" aria-label="More actions">
+              {/* Camera section -- shown in overflow on tablet/mobile */}
+              <div className="overflow-section overflow-section-camera">
+                <span className="overflow-label">Camera</span>
+                <div className="overflow-row">
+                  <button type="button" className="overflow-btn" onClick={overflowAction(onZoomExtents)} role="menuitem">
+                    <ToolIcon size={13}>
+                      <rect x="3.2" y="3.2" width="9.6" height="9.6" />
+                      <path d="M1.6 1.6 4 4m8 8 2.4 2.4M14.4 1.6 12 4M1.6 14.4l2.4-2.4" />
+                    </ToolIcon>
+                    Zoom fit
+                  </button>
+                  <button type="button" className="overflow-btn" onClick={overflowAction(onResetCamera)} role="menuitem">
+                    <ToolIcon size={13}>
+                      <path d="M8 2.6a5.4 5.4 0 1 0 5.1 7.2" />
+                      <path d="M10.6 2.8h2.8v2.8m-2.6 0 2.6-2.8" />
+                    </ToolIcon>
+                    Reset view
+                  </button>
+                  <button
+                    type="button"
+                    className={`overflow-btn ${isOrtho ? "is-active" : ""}`}
+                    onClick={overflowAction(onToggleCameraMode)}
+                    role="menuitem"
+                  >
+                    <ToolIcon size={13}>
+                      {isOrtho
+                        ? <path d="M3 3h10v10H3zM3 6.5h10M6.5 3v10" />
+                        : <><path d="M4 12 8 4l4 8z" /><circle cx="8" cy="4" r="1" /></>
+                      }
+                    </ToolIcon>
+                    {isOrtho ? "Persp" : "Ortho"}
+                  </button>
+                  <button
+                    type="button"
+                    className={`overflow-btn ${followCamera ? "is-active" : ""}`}
+                    onClick={overflowAction(onToggleFollowCamera)}
+                    role="menuitem"
+                  >
+                    <ToolIcon size={13}>
+                      <path d="M8 2v4l3 2-3 2v4" />
+                      <circle cx="8" cy="8" r="6" fill="none" />
+                    </ToolIcon>
+                    Follow
+                  </button>
+                </div>
+                <div className="overflow-row overflow-row-views">
+                  {VIEW_PRESET_LABELS.map(({ name, label }) => (
+                    <button
+                      key={name}
+                      type="button"
+                      className="overflow-btn"
+                      onClick={overflowAction(() => onApplyViewPreset(name))}
+                      role="menuitem"
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
               </div>
-            </div>
 
-            <div className="overflow-section">
-              <span className="overflow-label">Session</span>
-              <div className="overflow-row">
-                <button type="button" className="overflow-btn" onClick={overflowAction(onLoadSession)} role="menuitem">
-                  <ToolIcon size={13}>
-                    <path d="M2.5 5.5h4.2l1.2 1.2h5.8v5.8H2.5z" />
-                    <path d="M8 9.1v3.4m-1.4-1.4 1.4 1.4 1.4-1.4" />
-                  </ToolIcon>
-                  Load
-                </button>
-                <button type="button" className="overflow-btn" onClick={overflowAction(onSaveSession)} role="menuitem">
-                  <ToolIcon size={13}>
-                    <path d="M3 2.7h8.4l1.6 1.6V13.3H3z" />
-                    <path d="M5 2.7v3.2h5.5V2.7M5.2 10.6h5.5" />
-                  </ToolIcon>
-                  Save
-                </button>
-                <button
-                  type="button"
-                  className="overflow-btn"
-                  disabled={!canImportIges}
-                  title="IGES import pending"
-                  role="menuitem"
-                >
-                  <ToolIcon size={13}>
-                    <path d="M2.8 3.2h10.4v9.6H2.8zM4.9 6.2h6.2M4.9 8h4.2M4.9 9.8h6.2" />
-                  </ToolIcon>
-                  IGES in
-                </button>
-                <button
-                  type="button"
-                  className="overflow-btn"
-                  disabled={!canExportIges}
-                  title="IGES export pending"
-                  role="menuitem"
-                >
-                  <ToolIcon size={13}>
-                    <path d="M2.8 3.2h10.4v9.6H2.8zM8 6v4.2m-1.6-1.3L8 10.2l1.6-1.6" />
-                  </ToolIcon>
-                  IGES out
-                </button>
+              <div className="overflow-section">
+                <span className="overflow-label">View</span>
+                <div className="overflow-row">
+                  <button
+                    type="button"
+                    className={`overflow-btn ${showAxes ? "is-active" : ""}`}
+                    onClick={overflowAction(onToggleAxes)}
+                    role="menuitem"
+                    aria-pressed={showAxes}
+                  >
+                    <ToolIcon size={13}>
+                      <path d="M2.8 12.8 8 8 13.2 3.2M8 8v5.2" />
+                      <circle cx="8" cy="8" r="1.1" />
+                    </ToolIcon>
+                    Axes
+                  </button>
+                  <button type="button" className="overflow-btn" onClick={overflowAction(onSaveScreenshot)} role="menuitem">
+                    <ToolIcon size={13}>
+                      <rect x="2.8" y="4.1" width="10.4" height="8.2" rx="1.2" />
+                      <path d="m5.2 9.8 1.8-1.8 1.8 1.8 1.3-1.3 1.9 1.9" />
+                      <circle cx="6.1" cy="6.6" r="0.8" />
+                    </ToolIcon>
+                    Save PNG
+                  </button>
+                </div>
               </div>
-            </div>
 
-            <div className="overflow-section">
-              <span className="overflow-label">Console</span>
-              <div className="overflow-row">
-                <button type="button" className="overflow-btn" onClick={overflowAction(onExportLogs)} role="menuitem">
-                  <ToolIcon size={13}>
-                    <path d="M8 2.5v7.2m-2.4-2.4L8 9.7l2.4-2.4" />
-                    <path d="M3 11.1h10v2.2H3z" />
-                  </ToolIcon>
-                  Export logs
-                </button>
-                <button type="button" className="overflow-btn overflow-btn-danger" onClick={overflowAction(onClearLogs)} role="menuitem">
-                  <ToolIcon size={13}>
-                    <path d="M3.9 4.2h8.2M5 4.2v8.1h6v-8.1M6.3 6.1v4.2M9.7 6.1v4.2M6.1 2.8h3.8" />
-                  </ToolIcon>
-                  Clear logs
-                </button>
+              <div className="overflow-section">
+                <span className="overflow-label">Session</span>
+                <div className="overflow-row">
+                  <button type="button" className="overflow-btn" onClick={overflowAction(onLoadSession)} role="menuitem">
+                    <ToolIcon size={13}>
+                      <path d="M2.5 5.5h4.2l1.2 1.2h5.8v5.8H2.5z" />
+                      <path d="M8 9.1v3.4m-1.4-1.4 1.4 1.4 1.4-1.4" />
+                    </ToolIcon>
+                    Load
+                  </button>
+                  <button type="button" className="overflow-btn" onClick={overflowAction(onSaveSession)} role="menuitem">
+                    <ToolIcon size={13}>
+                      <path d="M3 2.7h8.4l1.6 1.6V13.3H3z" />
+                      <path d="M5 2.7v3.2h5.5V2.7M5.2 10.6h5.5" />
+                    </ToolIcon>
+                    Save
+                  </button>
+                  <button type="button" className="overflow-btn" disabled={!canImportIges} title="IGES import pending" role="menuitem">
+                    <ToolIcon size={13}>
+                      <path d="M2.8 3.2h10.4v9.6H2.8zM4.9 6.2h6.2M4.9 8h4.2M4.9 9.8h6.2" />
+                    </ToolIcon>
+                    IGES in
+                  </button>
+                  <button type="button" className="overflow-btn" disabled={!canExportIges} title="IGES export pending" role="menuitem">
+                    <ToolIcon size={13}>
+                      <path d="M2.8 3.2h10.4v9.6H2.8zM8 6v4.2m-1.6-1.3L8 10.2l1.6-1.6" />
+                    </ToolIcon>
+                    IGES out
+                  </button>
+                </div>
               </div>
-            </div>
 
-            <div className="overflow-section">
-              <span className="overflow-label">Diagnostics</span>
-              <div className="overflow-row overflow-row-single">
-                <Link
-                  href="/tests"
-                  className="overflow-link"
-                  role="menuitem"
-                  onClick={closeOverflow}
-                  aria-label="Open Test Lab"
-                >
-                  <ToolIcon size={13}>
-                    <path d="M3.2 3.2h9.6v9.6H3.2z" />
-                    <path d="M5.2 10.8 7 8.4l1.4 1.5 2.4-3.2" />
-                  </ToolIcon>
-                  Open Test Lab
-                </Link>
+              <div className="overflow-section">
+                <span className="overflow-label">Console</span>
+                <div className="overflow-row">
+                  <button type="button" className="overflow-btn" onClick={overflowAction(onExportLogs)} role="menuitem">
+                    <ToolIcon size={13}>
+                      <path d="M8 2.5v7.2m-2.4-2.4L8 9.7l2.4-2.4" />
+                      <path d="M3 11.1h10v2.2H3z" />
+                    </ToolIcon>
+                    Export logs
+                  </button>
+                  <button type="button" className="overflow-btn overflow-btn-danger" onClick={overflowAction(onClearLogs)} role="menuitem">
+                    <ToolIcon size={13}>
+                      <path d="M3.9 4.2h8.2M5 4.2v8.1h6v-8.1M6.3 6.1v4.2M9.7 6.1v4.2M6.1 2.8h3.8" />
+                    </ToolIcon>
+                    Clear logs
+                  </button>
+                </div>
+              </div>
+
+              <div className="overflow-section">
+                <span className="overflow-label">Diagnostics</span>
+                <div className="overflow-row overflow-row-single">
+                  <Link
+                    href="/tests"
+                    className="overflow-link"
+                    role="menuitem"
+                    onClick={closeOverflow}
+                    aria-label="Open Test Lab"
+                  >
+                    <ToolIcon size={13}>
+                      <path d="M3.2 3.2h9.6v9.6H3.2z" />
+                      <path d="M5.2 10.8 7 8.4l1.4 1.5 2.4-3.2" />
+                    </ToolIcon>
+                    Open Test Lab
+                  </Link>
+                </div>
               </div>
             </div>
-          </div>
+          </>
         )}
       </div>
     </header>
