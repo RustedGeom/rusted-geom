@@ -1,6 +1,6 @@
 {
-  "name": "@rusted-geom/bindings-web",
-  "version": "0.1.0-alpha.2",
+  "name": "@rustedgeom/kernel",
+  "version": "0.1.0-alpha.3",
   "type": "module",
   "publishConfig": {
     "registry": "https://npm.pkg.github.com"

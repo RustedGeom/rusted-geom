@@ -1,4 +1,4 @@
-# @rusted-geom/bindings-web
+# @rustedgeom/kernel
 
 TypeScript and WASM bindings for the RustedGeom CAD kernel.
 
@@ -36,7 +36,7 @@ This produces:
 
 You can load the packaged wasm from:
 
-- `@rusted-geom/bindings-web/wasm/rusted_geom.wasm`
+- `@rustedgeom/kernel/wasm/rusted_geom.wasm`
 
 Example:
 
@@ -44,8 +44,8 @@ Example:
 import {
   createKernelRuntime,
   type CurvePresetInput,
-} from "@rusted-geom/bindings-web";
-import wasmUrl from "@rusted-geom/bindings-web/wasm/rusted_geom.wasm";
+} from "@rustedgeom/kernel";
+import wasmUrl from "@rustedgeom/kernel/wasm/rusted_geom.wasm";
 
 const runtime = await createKernelRuntime(wasmUrl);
 const session = runtime.createSession();

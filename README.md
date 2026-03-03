@@ -44,7 +44,7 @@ Open [http://localhost:3000](http://localhost:3000).
 | --- | --- |
 | Build kernel WASM for showcase | `./scripts/build_kernel_wasm.sh` |
 | Stage WASM into web bindings | `./scripts/stage_web_wasm.sh` |
-| Build + pack `@rusted-geom/bindings-web` | `./scripts/pack_web.sh` |
+| Build + pack `@rustedgeom/kernel` | `./scripts/pack_web.sh` |
 | Run all Rust unit tests | `cargo test -p kernel` |
 | TypeScript typecheck | `npm --prefix ./bindings/web run typecheck` |
 | Web runtime tests | `npm --prefix ./bindings/web run test` |
@@ -55,8 +55,8 @@ Open [http://localhost:3000](http://localhost:3000).
 ### 1. Session + curve evaluation
 
 ```ts
-import { loadKernel, KernelSession } from "@rusted-geom/bindings-web";
-import wasmUrl from "@rusted-geom/bindings-web/wasm/rusted_geom_bg.wasm";
+import { loadKernel, KernelSession } from "@rustedgeom/kernel";
+import wasmUrl from "@rustedgeom/kernel/wasm/rusted_geom_bg.wasm";
 
 await loadKernel(wasmUrl);          // one-time WASM initialisation
 const session = new KernelSession();

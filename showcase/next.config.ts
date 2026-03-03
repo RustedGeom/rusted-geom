@@ -1,7 +1,7 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  transpilePackages: ["@rusted-geom/bindings-web"],
+  transpilePackages: ["@rustedgeom/kernel"],
 };
 
 export default nextConfig;

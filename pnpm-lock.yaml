@@ -20,7 +20,7 @@ importers:
 
   showcase:
     dependencies:
-      '@rusted-geom/bindings-web':
+      '@rustedgeom/kernel':
         specifier: workspace:*
         version: link:../bindings/web
       next:

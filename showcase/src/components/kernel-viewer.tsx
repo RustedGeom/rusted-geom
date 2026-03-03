@@ -10,7 +10,7 @@ import {
   type LandXmlDocHandle,
   type MeshHandle,
   type SurfaceHandle,
-} from "@rusted-geom/bindings-web";
+} from "@rustedgeom/kernel";
 import type {
   RgmArc3,
   RgmCircle3,
@@ -22,7 +22,7 @@ import type {
   RgmTrimLoopInput,
   RgmUv2,
   RgmVec3,
-} from "@rusted-geom/bindings-web";
+} from "@rustedgeom/kernel";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
@@ -61,7 +61,7 @@ import type {
   ViewPresetName,
 } from "@/lib/viewer-types";
 import { LANDXML_FILE_LIST, type LandXmlExampleKey, type LandXmlAlignmentInfo, type LandXmlProbeUiState } from "@/lib/viewer-types";
-import type { Bounds3 } from "@rusted-geom/bindings-web";
+import type { Bounds3 } from "@rustedgeom/kernel";
 import { ViewerToolbar } from "./viewer/toolbar/ViewerToolbar";
 import { InspectorPanel } from "./viewer/inspector/InspectorPanel";
 import { KernelConsole } from "./viewer/console/KernelConsole";

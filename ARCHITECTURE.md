@@ -181,7 +181,7 @@ The package re-exports `KernelSession` and all handle types from the wasm-pack
 output, plus a `loadKernel(url)` helper that calls wasm-pack's `init()`:
 
 ```ts
-import { loadKernel } from "@rusted-geom/bindings-web";
+import { loadKernel } from "@rustedgeom/kernel";
 await loadKernel(wasmUrl);          // call once before any KernelSession
 const session = new KernelSession();
 ```

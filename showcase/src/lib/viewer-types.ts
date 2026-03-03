@@ -1,4 +1,4 @@
-import type { MeshHandle, RgmPoint3, RgmVec3 } from "@rusted-geom/bindings-web";
+import type { MeshHandle, RgmPoint3, RgmVec3 } from "@rustedgeom/kernel";
 
 export type LogLevel = "info" | "debug" | "error";
 export type GizmoMode = "translate" | "rotate" | "scale";

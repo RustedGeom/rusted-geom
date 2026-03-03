@@ -1,4 +1,4 @@
-import { KernelSession, loadKernel, type CurveHandle, type MeshHandle } from "@rusted-geom/bindings-web";
+import { KernelSession, loadKernel, type CurveHandle, type MeshHandle } from "@rustedgeom/kernel";
 
 export type ContractCaseStatus = "idle" | "running" | "pass" | "fail";
 export type ContractLogLevel = "info" | "debug" | "pass" | "fail";

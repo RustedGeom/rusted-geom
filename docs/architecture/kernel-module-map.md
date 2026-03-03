@@ -16,7 +16,7 @@ flowchart LR
 
   WASM_API --> WASMPACK["wasm-pack build"]
   WASMPACK --> PKG["crates/kernel/pkg/\nrusted_geom_bg.wasm\nrusted_geom.js\nrusted_geom.d.ts"]
-  PKG --> WEBPKG["bindings/web\n@rusted-geom/bindings-web"]
+  PKG --> WEBPKG["bindings/web\n@rustedgeom/kernel"]
   WEBPKG --> SHOWCASE["showcase\nNext.js + Three.js viewer"]
 ```
 

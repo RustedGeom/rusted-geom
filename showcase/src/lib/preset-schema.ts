@@ -1,4 +1,4 @@
-import type { RgmPoint3, RgmToleranceContext } from "@rusted-geom/bindings-web";
+import type { RgmPoint3, RgmToleranceContext } from "@rustedgeom/kernel";
 import type { CameraMode } from "./viewer-types";
 
 export interface CurvePreset {
