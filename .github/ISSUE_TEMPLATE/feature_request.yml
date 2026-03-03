@@ -1,0 +1,66 @@
+name: Feature Request
+description: Suggest a new geometry operation, API improvement, or tooling enhancement
+title: "[Feature]: "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Have an idea for rusted-geom? We'd love to hear it. Please describe the feature and its motivation.
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      description: Which area does this feature relate to?
+      options:
+        - NURBS curves
+        - NURBS surfaces
+        - Mesh operations
+        - B-Rep / topology
+        - Intersections
+        - Bounding volumes
+        - LandXML
+        - TypeScript API / bindings
+        - Showcase / viewer
+        - Build / tooling
+        - Documentation
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem or Motivation
+      description: What problem does this feature solve? Why is it needed?
+      placeholder: I need to compute X but the kernel doesn't support it yet...
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed Solution
+      description: Describe the feature or API you'd like to see.
+      placeholder: |
+        A new method `session.curve_offset(curveId, distance)` that returns
+        an offset curve at a given distance from the original.
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives Considered
+      description: Have you considered any workarounds or alternative approaches?
+    validations:
+      required: false
+
+  - type: textarea
+    id: references
+    attributes:
+      label: References
+      description: Links to papers, algorithms, or implementations that may be relevant.
+    validations:
+      required: false

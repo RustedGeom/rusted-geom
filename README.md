@@ -1,175 +1,209 @@
-# rusted-geom
+<p align="center">
+  <strong>rusted-geom</strong>
+</p>
 
-NURBS geometry kernel compiled to WASM, with `wasm-bindgen` TypeScript bindings.
+<p align="center">
+  A high-performance NURBS geometry kernel written in Rust, compiled to WebAssembly.
+</p>
 
-## Project Status
+<p align="center">
+  <a href="https://github.com/cesarecaoduro/rusted-geom/actions/workflows/ci.yml">
+    <img src="https://github.com/cesarecaoduro/rusted-geom/actions/workflows/ci.yml/badge.svg" alt="CI">
+  </a>
+  <a href="https://github.com/cesarecaoduro/rusted-geom/releases">
+    <img src="https://img.shields.io/github/v/release/cesarecaoduro/rusted-geom?include_prereleases&label=release" alt="Release">
+  </a>
+  <a href="https://github.com/cesarecaoduro/rusted-geom/blob/main/LICENSE">
+    <img src="https://img.shields.io/github/license/cesarecaoduro/rusted-geom" alt="License: MIT">
+  </a>
+</p>
 
-`rusted-geom` is currently in alpha release stage (`0.1.0-alpha.1`).
-APIs and package shape are expected to evolve quickly.
+---
+
+## Overview
+
+**rusted-geom** is a NURBS (Non-Uniform Rational B-Spline) geometry kernel built in Rust and compiled to WebAssembly via `wasm-pack`. It exposes a fully typed TypeScript API through `wasm-bindgen`, enabling browser and Node.js applications to perform computational geometry operations at near-native speed.
+
+### Key Capabilities
+
+- **NURBS Curves & Surfaces** — construction, evaluation, tessellation, fit-point interpolation
+- **Mesh Operations** — box/torus primitives, boolean operations (union, intersection, difference)
+- **B-Rep Modeling** — trimmed faces, loops, edges, vertex topology
+- **Intersections** — surface–surface and curve–surface intersection with branch tracking
+- **Bounding Volumes** — axis-aligned (AABB) and oriented (OBB) bounding boxes
+- **LandXML** — parsing, sampling, and surface reconstruction from survey data
+- **Benchmarked** — Criterion-based benchmarks with regression detection
+
+### Project Status
+
+> **Alpha** (`0.1.0-alpha.1`) — APIs and package layout are evolving. Contributions and feedback welcome.
+
+---
 
 ## Workspace Layout
 
-- `crates/kernel`: NURBS geometry kernel + `wasm-bindgen` public API.
-- `bindings/web`: Thin TypeScript wrapper around the wasm-pack output.
-- `showcase`: Next.js full-page Three.js kernel viewer.
+```
+rusted-geom/
+├── crates/kernel/        # Rust geometry kernel + wasm-bindgen API
+├── bindings/web/         # TypeScript wrapper (@rustedgeom/kernel)
+├── showcase/             # Next.js + Three.js interactive viewer
+├── scripts/              # Build, staging, and CI helper scripts
+└── docs/                 # Architecture, algorithms, and API reference
+```
+
+| Package | Description |
+|---------|-------------|
+| `crates/kernel` | Core NURBS math, B-Rep structures, session management, WASM bindings |
+| `bindings/web` | Thin ESM re-export + WASM loader for `@rustedgeom/kernel` |
+| `showcase` | Next.js 16 + Three.js full-page viewer and developer test lab |
+
+---
 
 ## Prerequisites
 
-- Rust stable toolchain
-- [`wasm-pack`](https://rustwasm.github.io/wasm-pack/installer/) ≥ 0.13
-- Node.js and `pnpm`
+| Tool | Version |
+|------|---------|
+| Rust | stable toolchain |
+| [wasm-pack](https://rustwasm.github.io/wasm-pack/installer/) | ≥ 0.13 |
+| Node.js | ≥ 18 |
+| pnpm | ≥ 9 |
 
 ```bash
-npm install -g pnpm
 cargo install wasm-pack
+npm install -g pnpm
 ```
 
-## Quickstart (Local Run)
+---
 
-From a clean checkout, run these commands from repo root:
+## Quickstart
 
 ```bash
+# 1. Install JS dependencies
 pnpm install
-./scripts/build_kernel_wasm.sh    # compile Rust → WASM, stage to showcase/public/wasm/
-./scripts/stage_web_wasm.sh       # copy WASM binary into bindings/web dist
-cd bindings/web && npm run build  # generate dist/ for TypeScript module resolution
+
+# 2. Build Rust kernel to WASM and stage into showcase
+./scripts/build_kernel_wasm.sh
+./scripts/stage_web_wasm.sh
+
+# 3. Build the TypeScript bindings
+cd bindings/web && npm run build && cd ../..
+
+# 4. Launch the showcase viewer
 pnpm --dir showcase dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000).
+Open [http://localhost:3000](http://localhost:3000) to explore the interactive viewer.
 
-## Common Workflows
+---
 
-| Workflow | Command |
-| --- | --- |
-| Build kernel WASM for showcase | `./scripts/build_kernel_wasm.sh` |
-| Stage WASM into web bindings | `./scripts/stage_web_wasm.sh` |
-| Build + pack `@rustedgeom/kernel` | `./scripts/pack_web.sh` |
-| Run all Rust unit tests | `cargo test -p kernel` |
-| TypeScript typecheck | `npm --prefix ./bindings/web run typecheck` |
-| Web runtime tests | `npm --prefix ./bindings/web run test` |
-| E2E tests | `npx --prefix showcase playwright test` |
+## Usage (TypeScript)
 
-## TypeScript Usage
-
-### 1. Session + curve evaluation
+### Curve evaluation
 
 ```ts
 import { loadKernel, KernelSession } from "@rustedgeom/kernel";
 import wasmUrl from "@rustedgeom/kernel/wasm/rusted_geom_bg.wasm";
 
-await loadKernel(wasmUrl);          // one-time WASM initialisation
+await loadKernel(wasmUrl);
 const session = new KernelSession();
 
 const curve = session.interpolate_nurbs_fit_points(
   new Float64Array([0, 0, 0, 1, 0.25, 0, 2, 1, 0, 3, 1.25, 0]),
-  /*degree*/ 2,
-  /*closed*/ false,
+  2,     // degree
+  false, // closed
 );
+
 const [x, y, z] = session.curve_point_at(curve, 0.35);
 const length = session.curve_length(curve);
-
-console.log({ x, y, z }, length);
 
 curve.free();
 session.free();
 ```
 
-### 2. Mesh boolean
+### Mesh boolean
 
 ```ts
-await loadKernel(wasmUrl);
-const session = new KernelSession();
-
 const box   = session.create_mesh_box(0, 0, 0, 8, 8, 8);
 const torus = session.create_mesh_torus(2, 0, 0, 2.5, 0.8, 64, 48);
+const result = session.mesh_boolean(box, torus, 2); // 0=union, 1=intersect, 2=difference
 
-// Boolean op: 0 = union, 1 = intersection, 2 = difference
-const result = session.mesh_boolean(box, torus, 2);
 console.log("triangles:", session.mesh_triangle_count(result));
-
-result.free();
-torus.free();
-box.free();
-session.free();
 ```
 
-### 3. Surface + bounding box
+### Surface–surface intersection
 
 ```ts
-await loadKernel(wasmUrl);
-const session = new KernelSession();
-
-const surface = session.create_nurbs_surface(
-  1, 1,                              // degree_u, degree_v
-  false, false,                      // periodic_u, periodic_v
-  2, 2,                              // control_u_count, control_v_count
-  new Float64Array([0,0,0, 0,1,0, 1,0,0.1, 1,1,0.1]), // control points [x,y,z,…]
-  new Float64Array([1, 1, 1, 1]),    // weights
-  new Float64Array([0, 0, 1, 1]),    // knots_u
-  new Float64Array([0, 0, 1, 1]),    // knots_v
-);
-
-// mode 0 = Fast (control-point hull), 1 = Optimal (PCA + OBB)
-const b = session.compute_bounds(surface.object_id(), 1, 0, 0.0);
-console.log("AABB min:", b.aabb_min_x, b.aabb_min_y, b.aabb_min_z);
-console.log("AABB max:", b.aabb_max_x, b.aabb_max_y, b.aabb_max_z);
-
-b.free();
-surface.free();
-session.free();
-```
-
-### 4. Surface–surface intersection
-
-```ts
-await loadKernel(wasmUrl);
-const session = new KernelSession();
-
-// … create surfaceA, surfaceB …
-
 const result = session.intersect_surface_surface(surfaceA, surfaceB);
 const branchCount = session.intersection_branch_count(result);
 
 for (let i = 0; i < branchCount; i++) {
   const summary = session.intersection_branch_summary(result, i);
-  const pts     = session.intersection_branch_points(result, i);
-  console.log(`branch ${i}: ${summary.point_count} points, closed=${summary.closed}`);
+  console.log(`branch ${i}: ${summary.point_count} pts, closed=${summary.closed}`);
 }
-
-result.free();
 ```
 
-## High-Level Architecture
+> See the [Kernel WASM API Reference](docs/reference/kernel-wasm-api.md) for the full API surface.
+
+---
+
+## Common Workflows
+
+| Task | Command |
+|------|---------|
+| Build kernel WASM for showcase | `./scripts/build_kernel_wasm.sh` |
+| Stage WASM into web bindings | `./scripts/stage_web_wasm.sh` |
+| Build + pack `@rustedgeom/kernel` | `./scripts/pack_web.sh` |
+| Run Rust unit tests | `cargo test -p kernel` |
+| TypeScript type check | `npm --prefix ./bindings/web run typecheck` |
+| Web runtime tests | `npm --prefix ./bindings/web run test` |
+| E2E tests (Playwright) | `npx --prefix showcase playwright test` |
+| Full benchmarks | `cargo bench -p kernel` |
+
+---
+
+## Architecture
 
 ```
 crates/kernel (Rust)
-  ├── kernel_impl/*.rs    — NURBS math + kernel operations (include! flat module)
-  ├── math/*.rs           — basis functions, surface evaluation
-  ├── elements/brep/      — B-rep data structures
-  ├── session/            — session store + object registry
-  └── wasm/               — #[wasm_bindgen] public API
+  ├── math/            — NURBS basis functions, evaluation, fitting
+  ├── elements/brep/   — B-rep topology (Face, Loop, Edge, Vertex)
+  ├── session/         — object registry and session lifecycle
+  ├── kernel_impl/     — C ABI kernel operations
+  ├── landxml/         — LandXML parsing and sampling
+  └── wasm/            — #[wasm_bindgen] public API
          ↓  wasm-pack build
-crates/kernel/pkg/
-  ├── rusted_geom_bg.wasm
-  ├── rusted_geom.js      — ESM glue (auto-generated)
-  └── rusted_geom.d.ts    — TypeScript declarations (auto-generated)
+bindings/web/          — ESM loader + TypeScript re-exports
          ↓
-bindings/web/             — thin re-export + loader
-         ↓
-showcase/                 — Next.js + Three.js viewer + developer test lab
+showcase/              — Next.js + Three.js interactive viewer
 ```
 
-## Algorithm Documents
-
-- [NURBS Fit-Point Constructor RFC (M1)](docs/algorithms/nurbs-fit-point-interpolation-rfc.md)
-
-## Additional Documentation
+For a deeper dive, see:
 
 - [Architecture Overview](ARCHITECTURE.md)
 - [Kernel Module Map](docs/architecture/kernel-module-map.md)
 - [ABI Stability](docs/architecture/abi-stability.md)
 - [.NET Binding Readiness](docs/architecture/dotnet-binding-readiness.md)
-- [Kernel C ABI Reference](docs/reference/kernel-c-abi.md)
-- [Kernel WASM API Reference](docs/reference/kernel-wasm-api.md)
-- [LandXML Support Matrix](docs/reference/landxml-support-matrix.md)
+
+---
+
+## Documentation
+
+| Document | Description |
+|----------|-------------|
+| [ARCHITECTURE.md](ARCHITECTURE.md) | High-level architecture, hot paths, session model |
+| [Kernel C ABI Reference](docs/reference/kernel-c-abi.md) | C foreign-function interface |
+| [Kernel WASM API Reference](docs/reference/kernel-wasm-api.md) | Full WASM/TypeScript API |
+| [LandXML Support Matrix](docs/reference/landxml-support-matrix.md) | Supported LandXML elements |
+| [NURBS Fit-Point RFC](docs/algorithms/nurbs-fit-point-interpolation-rfc.md) | Fit-point interpolation algorithm |
+
+---
+
+## Contributing
+
+Contributions are welcome! Please read [CONTRIBUTING.md](CONTRIBUTING.md) before opening a pull request.
+
+---
+
+## License
+
+This project is licensed under the [MIT License](LICENSE).

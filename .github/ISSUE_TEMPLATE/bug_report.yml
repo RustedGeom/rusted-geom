@@ -1,0 +1,84 @@
+name: Bug Report
+description: Report a bug in the geometry kernel, WASM bindings, or showcase app
+title: "[Bug]: "
+labels: ["bug", "triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for reporting a bug! Please fill in the details below so we can reproduce and fix it.
+
+  - type: dropdown
+    id: component
+    attributes:
+      label: Component
+      description: Which part of rusted-geom is affected?
+      options:
+        - Kernel (Rust core)
+        - WASM bindings
+        - TypeScript bindings (@rustedgeom/kernel)
+        - Showcase app
+        - Build / CI
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Description
+      description: A clear and concise description of the bug.
+      placeholder: Describe what happened...
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Steps to Reproduce
+      description: Minimal steps to reproduce the behavior.
+      placeholder: |
+        1. Create a session...
+        2. Call `session.curve_point_at(...)`...
+        3. Observe incorrect result...
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected Behavior
+      description: What did you expect to happen?
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual Behavior
+      description: What actually happened? Include error messages, incorrect values, or screenshots.
+    validations:
+      required: true
+
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: Relevant environment information.
+      placeholder: |
+        - OS: macOS 15 / Windows 11 / Ubuntu 24.04
+        - Browser: Chrome 130 / Firefox 134 / Safari 18
+        - Rust: 1.82
+        - wasm-pack: 0.13
+        - Node.js: 22
+        - rusted-geom version: 0.1.0-alpha.1
+    validations:
+      required: false
+
+  - type: textarea
+    id: additional
+    attributes:
+      label: Additional Context
+      description: Any other context, logs, or screenshots.
+    validations:
+      required: false

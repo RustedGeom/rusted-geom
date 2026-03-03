@@ -1,0 +1,69 @@
+name: Performance Regression
+description: Report a performance regression in benchmarks or real-world usage
+title: "[Perf]: "
+labels: ["performance", "triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Performance matters for a geometry kernel. If you've observed a regression, please share the details.
+
+  - type: dropdown
+    id: benchmark
+    attributes:
+      label: Affected Benchmark / Operation
+      description: Which benchmark or operation shows the regression?
+      options:
+        - bounds_bench
+        - curve_bench
+        - surface_bench
+        - mesh_bench
+        - face_bench
+        - intersection_bench
+        - brep_bench
+        - landxml_bench
+        - WASM load / initialization
+        - Other (describe below)
+    validations:
+      required: true
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Description
+      description: Describe the regression. What got slower and by how much?
+      placeholder: |
+        `curve_bench::evaluate_degree3` went from ~2.1µs to ~4.8µs (2.3× slower)
+        after commit abc1234.
+    validations:
+      required: true
+
+  - type: textarea
+    id: before_after
+    attributes:
+      label: Before / After Numbers
+      description: Include benchmark output or timing comparisons if available.
+      render: shell
+    validations:
+      required: false
+
+  - type: input
+    id: commit
+    attributes:
+      label: Suspected Commit or PR
+      description: If you know which change caused the regression, link it here.
+      placeholder: "#42 or abc1234"
+    validations:
+      required: false
+
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: Hardware and toolchain details.
+      placeholder: |
+        - CPU: Apple M2 / Intel i9-13900K
+        - OS: macOS 15 / Ubuntu 24.04
+        - Rust: 1.82
+    validations:
+      required: false

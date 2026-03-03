@@ -1,0 +1,51 @@
+name: Documentation Improvement
+description: Suggest improvements to documentation, API reference, or examples
+title: "[Docs]: "
+labels: ["documentation"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Good docs make good software. Let us know what's missing, unclear, or could be improved.
+
+  - type: dropdown
+    id: doc_type
+    attributes:
+      label: Documentation Type
+      description: What kind of documentation is affected?
+      options:
+        - README
+        - API reference (WASM / C ABI)
+        - Architecture docs
+        - Algorithm docs / RFCs
+        - Code examples
+        - Inline code docs (rustdoc)
+        - Contributing guide
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Description
+      description: What's missing, incorrect, or unclear?
+    validations:
+      required: true
+
+  - type: textarea
+    id: suggestion
+    attributes:
+      label: Suggested Improvement
+      description: How should the documentation be improved?
+    validations:
+      required: false
+
+  - type: input
+    id: url
+    attributes:
+      label: Link to Existing Doc
+      description: If applicable, link to the page or file that needs updating.
+      placeholder: docs/reference/kernel-wasm-api.md
+    validations:
+      required: false

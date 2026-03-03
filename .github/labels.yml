@@ -1,0 +1,142 @@
+# =============================================================================
+# GitHub Labels for rusted-geom
+# =============================================================================
+# Apply with: gh label create <name> --color <color> --description <desc>
+# Or use a tool like github-label-sync: npx github-label-sync --labels .github/labels.yml cesarecaoduro/rusted-geom
+# =============================================================================
+
+# --- Type labels -----------------------------------------------------------
+
+- name: bug
+  color: "d73a4a"
+  description: Something isn't working
+
+- name: enhancement
+  color: "a2eeef"
+  description: New feature or improvement to existing functionality
+
+- name: performance
+  color: "f9d0c4"
+  description: Performance regression or optimization opportunity
+
+- name: documentation
+  color: "0075ca"
+  description: Documentation improvements or additions
+
+- name: refactor
+  color: "d4c5f9"
+  description: Code restructuring with no functional change
+
+- name: question
+  color: "d876e3"
+  description: Further information is requested
+
+# --- Component labels -------------------------------------------------------
+
+- name: "comp: kernel"
+  color: "c5def5"
+  description: Rust geometry kernel (crates/kernel)
+
+- name: "comp: wasm"
+  color: "c5def5"
+  description: WASM bindings and wasm-bindgen API
+
+- name: "comp: bindings"
+  color: "c5def5"
+  description: TypeScript bindings (@rustedgeom/kernel)
+
+- name: "comp: showcase"
+  color: "c5def5"
+  description: Next.js showcase / viewer app
+
+- name: "comp: ci"
+  color: "c5def5"
+  description: CI/CD pipelines and GitHub Actions
+
+# --- Domain labels ----------------------------------------------------------
+
+- name: "domain: nurbs"
+  color: "bfd4f2"
+  description: NURBS curves and surfaces
+
+- name: "domain: mesh"
+  color: "bfd4f2"
+  description: Mesh operations and boolean geometry
+
+- name: "domain: brep"
+  color: "bfd4f2"
+  description: B-Rep topology (faces, loops, edges)
+
+- name: "domain: intersection"
+  color: "bfd4f2"
+  description: Curve and surface intersection algorithms
+
+- name: "domain: bounds"
+  color: "bfd4f2"
+  description: AABB and OBB bounding volumes
+
+- name: "domain: landxml"
+  color: "bfd4f2"
+  description: LandXML parsing and survey data
+
+# --- Priority labels --------------------------------------------------------
+
+- name: "priority: critical"
+  color: "b60205"
+  description: Must be resolved immediately
+
+- name: "priority: high"
+  color: "d93f0b"
+  description: Important, should be addressed soon
+
+- name: "priority: medium"
+  color: "fbca04"
+  description: Normal priority
+
+- name: "priority: low"
+  color: "0e8a16"
+  description: Nice to have, no urgency
+
+# --- Status labels ----------------------------------------------------------
+
+- name: triage
+  color: "ededed"
+  description: Needs initial review and categorization
+
+- name: "help wanted"
+  color: "008672"
+  description: Extra attention is needed — good for external contributors
+
+- name: "good first issue"
+  color: "7057ff"
+  description: Good for newcomers to the codebase
+
+- name: wontfix
+  color: "ffffff"
+  description: This will not be worked on
+
+- name: duplicate
+  color: "cfd3d7"
+  description: This issue or PR already exists
+
+- name: blocked
+  color: "b60205"
+  description: Waiting on another issue, PR, or external dependency
+
+- name: "breaking change"
+  color: "e11d48"
+  description: Introduces a breaking API or ABI change
+
+# --- Release labels ---------------------------------------------------------
+
+- name: "release: alpha"
+  color: "fef3c7"
+  description: Targeted for an alpha release
+
+- name: "release: beta"
+  color: "fde68a"
+  description: Targeted for a beta release
+
+- name: "release: stable"
+  color: "d9f99d"
+  description: Targeted for stable release
