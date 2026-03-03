@@ -110,9 +110,9 @@ Design constraints:
 ### Research Insights
 
 **Codebase Reality — do NOT recreate these (already exist):**
-- `crates/kernel-ffi/src/elements/face/` — has stubs: `heal.rs`, `loops.rs`, `tessellate.rs`, `types.rs`, `validate.rs`
-- `crates/kernel-ffi/src/elements/` — dirs: `curve/`, `face/`, `intersection/`, `mesh/`, `surface/`, `intersections/`, `transform.rs`
-- `crates/kernel-ffi/src/ops/` — exists already (has `transform.rs`); BREP ops go in `ops/brep/`
+- `crates/kernel/src/elements/face/` — has stubs: `heal.rs`, `loops.rs`, `tessellate.rs`, `types.rs`, `validate.rs`
+- `crates/kernel/src/elements/` — dirs: `curve/`, `face/`, `intersection/`, `mesh/`, `surface/`, `intersections/`, `transform.rs`
+- `crates/kernel/src/ops/` — exists already (has `transform.rs`); BREP ops go in `ops/brep/`
 - `FaceData` already has: `surface: RgmObjectHandle` + `loops: Vec<TrimLoopData>` where `TrimLoopData` has `Vec<TrimEdgeData>`
 - `TrimEdgeData` already has: `start_uv`, `end_uv`, `curve_3d: Option<RgmObjectHandle>`, `uv_samples: Vec<RgmUv2>`
 - `boolmesh` crate already imported — mesh booleans only; NURBS BREP booleans need separate implementation
@@ -808,7 +808,7 @@ Phase C: AP242 gated — not for production until conformance fixtures pass; no 
 - All Rayon usage gated behind `#[cfg(not(target_arch = "wasm32"))]` per project convention.
 
 ### Benchmark Plan
-Add `crates/kernel-ffi/benches/brep_bench.rs` with groups:
+Add `crates/kernel/benches/brep_bench.rs` with groups:
 - `create_brep_from_100_trimmed_faces`
 - `sew_5k_edges`
 - `validate_1k_face_shell`
@@ -856,7 +856,7 @@ static KERNEL_POOL: Lazy<rayon::ThreadPool> = Lazy::new(|| {
 
 **Criterion benchmark setup (Phase 0):**
 ```toml
-# crates/kernel-ffi/Cargo.toml
+# crates/kernel/Cargo.toml
 [dev-dependencies]
 criterion = { version = "0.5", features = ["html_reports"] }
 codspeed-criterion-compat = "2.7"
@@ -887,26 +887,26 @@ b.iter_batched(
 - Add benchmark harness and fixtures.
 - **No `benches/` directory exists** — must create from scratch.
 - Files:
-  - `crates/kernel-ffi/benches/brep_bench.rs` (new)
-  - `crates/kernel-ffi/Cargo.toml` (add `[[bench]]` section, `dev-dependencies`, new `[dependencies]`: `index_vec`, `smallvec`, `bon`, `ahash`, `dashmap`, `parking_lot`, `bincode`)
+  - `crates/kernel/benches/brep_bench.rs` (new)
+  - `crates/kernel/Cargo.toml` (add `[[bench]]` section, `dev-dependencies`, new `[dependencies]`: `index_vec`, `smallvec`, `bon`, `ahash`, `dashmap`, `parking_lot`, `bincode`)
 
 ### Phase 1: Core BREP object model
 - Add `BrepData` and topology types with `index_vec` typed IDs.
 - Add `BrepInProgress` and `Brep` variants to `GeometryObject`.
 - Files:
-  - `crates/kernel-ffi/src/session/objects.rs` (add `Brep(BrepData)` and `BrepInProgress(BrepData)` variants)
-  - `crates/kernel-ffi/src/session/store.rs` (add DashMap locking)
-  - `crates/kernel-ffi/src/kernel_impl/foundation.rs` (new FFI types: `RgmBrepValidationReport`, `RgmValidationIssue`, `RgmValidationSeverity`)
-  - `crates/kernel-ffi/src/elements/brep/ids.rs` (new — `define_index_type!` declarations)
-  - `crates/kernel-ffi/src/elements/brep/types.rs` (new — `BrepData`, `BrepVertex`, `BrepEdge`, `BrepTrim`, `BrepLoop`, `BrepFace`, `BrepShell`, `BrepSolid`, `BrepCache`)
+  - `crates/kernel/src/session/objects.rs` (add `Brep(BrepData)` and `BrepInProgress(BrepData)` variants)
+  - `crates/kernel/src/session/store.rs` (add DashMap locking)
+  - `crates/kernel/src/kernel_impl/foundation.rs` (new FFI types: `RgmBrepValidationReport`, `RgmValidationIssue`, `RgmValidationSeverity`)
+  - `crates/kernel/src/elements/brep/ids.rs` (new — `define_index_type!` declarations)
+  - `crates/kernel/src/elements/brep/types.rs` (new — `BrepData`, `BrepVertex`, `BrepEdge`, `BrepTrim`, `BrepLoop`, `BrepFace`, `BrepShell`, `BrepSolid`, `BrepCache`)
 
 ### Phase 2: ABI and runtime wiring
 - Add exports and impl stubs.
 - Add generated binding updates.
 - Files:
-  - `crates/kernel-ffi/src/ffi/exports/brep.rs` (new)
-  - `crates/kernel-ffi/src/ffi/exports/mod.rs`
-  - `crates/kernel-ffi/src/kernel_impl/ffi_impl.rs`
+  - `crates/kernel/src/ffi/exports/brep.rs` (new)
+  - `crates/kernel/src/ffi/exports/mod.rs`
+  - `crates/kernel/src/kernel_impl/ffi_impl.rs`
   - `bindings/web/src/runtime/session/brep.ts` (new)
   - `bindings/web/src/runtime/session/index.ts`
   - `bindings/web/src/runtime/session/core.ts`
@@ -916,40 +916,40 @@ b.iter_batched(
 - Implement constructors, loop/edge ingest, validator reports, heal passes.
 - Run validation checks in canonical order (Checks 1–7 on commit, Checks 8–10 on explicit call).
 - **Fill existing stubs** in `elements/face/` — do NOT create new files for these:
-  - `crates/kernel-ffi/src/elements/face/heal.rs` (fill: passes 1–4 of healing pipeline)
-  - `crates/kernel-ffi/src/elements/face/loops.rs` (fill: loop reorder, chain validation)
-  - `crates/kernel-ffi/src/elements/face/tessellate.rs` (fill: constrained tessellation + basis row cache)
-  - `crates/kernel-ffi/src/elements/face/validate.rs` (fill: Checks 1–10)
-  - `crates/kernel-ffi/src/elements/brep/validator.rs` (new — `BrepData::validate()`)
-  - `crates/kernel-ffi/src/elements/brep/transaction.rs` (new — `apply_atomic`, `rollback`)
-  - `crates/kernel-ffi/src/elements/brep/cache.rs` (new — `BrepCache` rebuild methods)
-  - `crates/kernel-ffi/src/kernel_impl/ffi_impl.rs`
-  - `crates/kernel-ffi/src/tests/kernel_ffi.rs` (BREP integration tests)
+  - `crates/kernel/src/elements/face/heal.rs` (fill: passes 1–4 of healing pipeline)
+  - `crates/kernel/src/elements/face/loops.rs` (fill: loop reorder, chain validation)
+  - `crates/kernel/src/elements/face/tessellate.rs` (fill: constrained tessellation + basis row cache)
+  - `crates/kernel/src/elements/face/validate.rs` (fill: Checks 1–10)
+  - `crates/kernel/src/elements/brep/validator.rs` (new — `BrepData::validate()`)
+  - `crates/kernel/src/elements/brep/transaction.rs` (new — `apply_atomic`, `rollback`)
+  - `crates/kernel/src/elements/brep/cache.rs` (new — `BrepCache` rebuild methods)
+  - `crates/kernel/src/kernel_impl/ffi_impl.rs`
+  - `crates/kernel/src/tests/kernel_ffi.rs` (BREP integration tests)
 
 ### Phase 4: BREP operations
 - Implement sew/split/merge/adjacency/tessellate following the algorithm pseudocode in Section 4.
 - Files:
-  - `crates/kernel-ffi/src/ops/brep/sew.rs` (new — 6-phase sewing)
-  - `crates/kernel-ffi/src/ops/brep/heal.rs` (new — 8-pass healing pipeline)
-  - `crates/kernel-ffi/src/ops/brep/tessellate.rs` (new — watertight tessellation)
-  - `crates/kernel-ffi/src/ops/brep/adjacency.rs` (new — adjacency cache build)
-  - `crates/kernel-ffi/src/ops/brep/mod.rs` (new)
-  - `crates/kernel-ffi/src/elements/brep/`
-  - `crates/kernel-ffi/src/tests/kernel_ffi.rs`
+  - `crates/kernel/src/ops/brep/sew.rs` (new — 6-phase sewing)
+  - `crates/kernel/src/ops/brep/heal.rs` (new — 8-pass healing pipeline)
+  - `crates/kernel/src/ops/brep/tessellate.rs` (new — watertight tessellation)
+  - `crates/kernel/src/ops/brep/adjacency.rs` (new — adjacency cache build)
+  - `crates/kernel/src/ops/brep/mod.rs` (new)
+  - `crates/kernel/src/elements/brep/`
+  - `crates/kernel/src/tests/kernel_ffi.rs`
 
 ### Phase 5: NURBS bridges
 - Wrap existing surface/curve/face handles into BREP and back.
 - Files:
-  - `crates/kernel-ffi/src/elements/brep/bridge.rs` (new)
-  - `crates/kernel-ffi/src/kernel_impl/ffi_impl.rs`
+  - `crates/kernel/src/elements/brep/bridge.rs` (new)
+  - `crates/kernel/src/kernel_impl/ffi_impl.rs`
   - `bindings/web/src/runtime/session/brep.ts`
 
 ### Phase 6: I/O
 - Native binary format first (`bincode 3.0` with versioned envelope), STEP import-only next.
 - Files:
-  - `crates/kernel-ffi/src/io/brep_native.rs` (new — bincode 3.0 encode/decode)
-  - `crates/kernel-ffi/src/io/step.rs` (new — truck-stepio AP214 import only, no boolean ops; document TRIMMED_CURVE gap)
-  - `crates/kernel-ffi/src/ffi/exports/brep.rs`
+  - `crates/kernel/src/io/brep_native.rs` (new — bincode 3.0 encode/decode)
+  - `crates/kernel/src/io/step.rs` (new — truck-stepio AP214 import only, no boolean ops; document TRIMMED_CURVE gap)
+  - `crates/kernel/src/ffi/exports/brep.rs`
   - `bindings/web/src/runtime/session/brep.ts`
 
 ### Phase 7: ABI baseline and docs
