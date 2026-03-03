@@ -1,0 +1,1643 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LandXML xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.landxml.org/schema/LandXML-1.2 http://www.landxml.org/schema/landxml-1.2/LandXML-1.2.xsd" version="1.2" date="2025-01-13" time="15:01:41" xmlns="http://www.landxml.org/schema/LandXML-1.2">
+	<Units>
+		<Metric areaUnit="squareMeter" linearUnit="meter" volumeUnit="cubicMeter" temperatureUnit="celsius" pressureUnit="HPA" directionUnit="radians" />
+	</Units>
+	<Application name="OpenRail Designer" version="23.00.00.129" manufacturer="Bentley Systems, Inc." manufacturerURL="http://www.bentley.com" />
+	<CgPoints />
+	<Alignments>
+		<Alignment name="MW31 Ex. Surface Level" length="186.58813596507375" state="proposed" staStart="0">
+			<CoordGeom name="MW31 Ex. Surface Level" state="proposed">
+				<Line dir="5.4105951137588919" length="1.4911752595581858">
+					<Start>5880636.7193565657 327647.29234804417 0</Start>
+					<End>5880635.5771213919 327648.25094204705 0</End>
+					<Feature>
+						<Property label="style" value="Alignment\Railway Track and Civil\Permanent Way\Alignment (Geometric)\Forward Left\Rail_BG_Fwd-L_CH50m, Tick 10m" />
+					</Feature>
+				</Line>
+				<Line dir="0.048587750662397795" length="0.0040065828904884086">
+					<Start>5880635.5771213919 327648.25094204705 0</Start>
+					<End>5880635.5773159862 327648.25494390156 0</End>
+					<Feature>
+						<Property label="style" value="Alignment\Railway Track and Civil\Permanent Way\Alignment (Geometric)\Forward Left\Rail_BG_Fwd-L_CH50m, Tick 10m" />
+					</Feature>
+				</Line>
+				<Line dir="5.7641688394086215" length="0.57884998275238475">
+					<Start>5880635.5773159862 327648.25494390156 0</Start>
+					<End>5880635.2901911307 327648.75756365835 0</End>
+					<Feature>
+						<Property label="style" value="Alignment\Railway Track and Civil\Permanent Way\Alignment (Geometric)\Forward Left\Rail_BG_Fwd-L_CH50m, Tick 10m" />
+					</Feature>
+				</Line>
+				<Line dir="0.36688699291656085" length="0.38838291760175692">
+					<Start>5880635.2901911307 327648.75756365835 0</Start>
+					<End>5880635.4295084886 327649.12009912485 0</End>
+					<Feature>
+						<Property label="style" value="Alignment\Railway Track and Civil\Permanent Way\Alignment (Geometric)\Forward Left\Rail_BG_Fwd-L_CH50m, Tick 10m" />
+					</Feature>
+				</Line>
+				<Line dir="0.38424961668482749" length="0.72900115782227781">
+					<Start>5880635.4295084886 327649.12009912485 0</Start>
+					<End>5880635.7027844703 327649.79594150733 0</End>
+					<Feature>
+						<Property label="style" value="Alignment\Railway Track and Civil\Permanent Way\Alignment (Geometric)\Forward Left\Rail_BG_Fwd-L_CH50m, Tick 10m" />
+					</Feature>
+				</Line>
+				<Line dir="0.41207515453685978" length="1.3892387672973878">
+					<Start>5880635.7027844703 327649.79594150733 0</Start>
+					<End>5880636.2591907615 327651.06888942129 0</End>
+					<Feature>
+						<Property label="style" value="Alignment\Railway Track and Civil\Permanent Way\Alignment (Geometric)\Forward Left\Rail_BG_Fwd-L_CH50m, Tick 10m" />
+					</Feature>
+				</Line>
+				<Line dir="0.46534598962072804" length="1.4093867354646341">
+					<Start>5880636.2591907615 327651.06888942129 0</Start>
+					<End>5880636.8916277289 327652.3284109385 0</End>
+					<Feature>
+						<Property label="style" value="Alignment\Railway Track and Civil\Permanent Way\Alignment (Geometric)\Forward Left\Rail_BG_Fwd-L_CH50m, Tick 10m" />
+					</Feature>
+				</Line>
+				<Line dir="0.46533512110796993" length="4.8989838591179549">
+					<Start>5880636.8916277289 327652.3284109385 0</Start>
+					<End>5880639.089911106 327656.70649191603 0</End>
+					<Feature>
+						<Property label="style" value="Alignment\Railway Track and Civil\Permanent Way\Alignment (Geometric)\Forward Left\Rail_BG_Fwd-L_CH50m, Tick 10m" />
+					</Feature>
+				</Line>
+				<Line dir="0.46428158013079873" length="1.1384316870058959">
+					<Start>5880639.089911106 327656.70649191603 0</Start>
+					<End>5880639.5996786691 327657.72441319865 0</End>
+					<Feature>
+						<Property label="style" value="Alignment\Railway Track and Civil\Permanent Way\Alignment (Geometric)\Forward Left\Rail_BG_Fwd-L_CH50m, Tick 10m" />
+					</Feature>
+				</Line>
+				<Line dir="0.46143784766586471" length="0.58362212257625656">
+					<Start>5880639.5996786691 327657.72441319865 0</Start>
+					<End>5880639.8595282687 327658.24699617538 0</End>
+					<Feature>
+						<Property label="style" value="Alignment\Railway Track and Civil\Permanent Way\Alignment (Geometric)\Forward Left\Rail_BG_Fwd-L_CH50m, Tick 10m" />
+					</Feature>
+				</Line>
+				<Line dir="0.47498472795268615" length="0.42251700028799055">
+					<Start>5880639.8595282687 327658.24699617538 0</Start>
+					<End>5880640.0527557991 327658.62274041952 0</End>
+					<Feature>
+						<Property label="style" value="Alignment\Railway Track and Civil\Permanent Way\Alignment (Geometric)\Forward Left\Rail_BG_Fwd-L_CH50m, Tick 10m" />
+					</Feature>
+				</Line>
+				<Line dir="0.46767926493072703" length="3.4706624525418257">
+					<Start>5880640.0527557991 327658.62274041952 0</Start>
+					<End>5880641.6173858726 327661.7207124324 0</End>
+					<Feature>
+						<Property label="style" value="Alignment\Railway Track and Civil\Permanent Way\Alignment (Geometric)\Forward Left\Rail_BG_Fwd-L_CH50m, Tick 10m" />
+					</Feature>
+				</Line>
+				<Line dir="0.48103719146695612" length="0.47888711088423547">
+					<Start>5880641.6173858726 327661.7207124324 0</Start>
+					<End>5880641.8389664171 327662.14525327529 0</End>
+					<Feature>
+						<Property label="style" value="Alignment\Railway Track and Civil\Permanent Way\Alignment (Geometric)\Forward Left\Rail_BG_Fwd-L_CH50m, Tick 10m" />
+					</Feature>
+				</Line>
+				<Line dir="0.49635291026294232" length="4.5039229283017193">
+					<Start>5880641.8389664171 327662.14525327529 0</Start>
+					<End>5880643.9838324077 327666.10566633788 0</End>
+					<Feature>
+						<Property label="style" value="Alignment\Railway Track and Civil\Permanent Way\Alignment (Geometric)\Forward Left\Rail_BG_Fwd-L_CH50m, Tick 10m" />
+					</Feature>
+				</Line>
+				<Line dir="0.63950848252520609" length="1.4201717657327055">
+					<Start>5880643.9838324077 327666.10566633788 0</Start>
+					<End>5880644.8313925155 327667.24519681488 0</End>
+					<Feature>
+						<Property label="style" value="Alignment\Railway Track and Civil\Permanent Way\Alignment (Geometric)\Forward Left\Rail_BG_Fwd-L_CH50m, Tick 10m" />
+					</Feature>
+				</Line>
+				<Line dir="0.48005425720515643" length="1.4765360626998711">
+					<Start>5880644.8313925155 327667.24519681488 0</Start>
+					<End>5880645.5132971797 327668.55483980948 0</End>
+					<Feature>
+						<Property label="style" value="Alignment\Railway Track and Civil\Permanent Way\Alignment (Geometric)\Forward Left\Rail_BG_Fwd-L_CH50m, Tick 10m" />
+					</Feature>
+				</Line>
+				<Line dir="0.47796303868589263" length="4.3601753385520112">
+					<Start>5880645.5132971797 327668.55483980948 0</Start>
+					<End>5880647.5188533282 327672.4263864666 0</End>
+					<Feature>
+						<Property label="style" value="Alignment\Railway Track and Civil\Permanent Way\Alignment (Geometric)\Forward Left\Rail_BG_Fwd-L_CH50m, Tick 10m" />
+					</Feature>
+				</Line>
+				<Line dir="0.4785460753794053" length="2.1520391968492589">
+					<Start>5880647.5188533282 327672.4263864666 0</Start>
+					<End>5880648.509843844 327674.33667715191 0</End>
+					<Feature>
+						<Property label="style" value="Alignment\Railway Track and Civil\Permanent Way\Alignment (Geometric)\Forward Left\Rail_BG_Fwd-L_CH50m, Tick 10m" />
+					</Feature>
+				</Line>
+				<Line dir="0.47703758279227082" length="0.78009764284581684">
+					<Start>5880648.509843844 327674.33667715191 0</Start>
+					<End>5880648.8680252898 327675.02968392259 0</End>
+					<Feature>
+						<Property label="style" value="Alignment\Railway Track and Civil\Permanent Way\Alignment (Geometric)\Forward Left\Rail_BG_Fwd-L_CH50m, Tick 10m" />
+					</Feature>
+				</Line>
+				<Line dir="0.47347850122561735" length="1.7102416654600174">
+					<Start>5880648.8680252898 327675.02968392259 0</Start>
+					<End>5880649.6478695972 327676.55177768139 0</End>
+					<Feature>
+						<Property label="style" value="Alignment\Railway Track and Civil\Permanent Way\Alignment (Geometric)\Forward Left\Rail_BG_Fwd-L_CH50m, Tick 10m" />
+					</Feature>
+				</Line>
+				<Line dir="0.48355704046896897" length="1.2897383324428959">
+					<Start>5880649.6478695972 327676.55177768139 0</Start>
+					<End>5880650.2475093482 327677.69364331936 0</End>
+					<Feature>
+						<Property label="style" value="Alignment\Railway Track and Civil\Permanent Way\Alignment (Geometric)\Forward Left\Rail_BG_Fwd-L_CH50m, Tick 10m" />
+					</Feature>
+				</Line>
+				<Line dir="0.4938324618948553" length="4.5830178768823027">
+					<Start>5880650.2475093482 327677.69364331936 0</Start>
+					<End>5880652.4198778365 327681.7290947205 0</End>
+					<Feature>
+						<Property label="style" value="Alignment\Railway Track and Civil\Permanent Way\Alignment (Geometric)\Forward Left\Rail_BG_Fwd-L_CH50m, Tick 10m" />
+					</Feature>
+				</Line>
+				<Line dir="0.48454491966903279" length="2.5718521252997482">
+					<Start>5880652.4198778365 327681.7290947205 0</Start>
+					<End>5880653.6178612495 327684.00489328289 0</End>
+					<Feature>
+						<Property label="style" value="Alignment\Railway Track and Civil\Permanent Way\Alignment (Geometric)\Forward Left\Rail_BG_Fwd-L_CH50m, Tick 10m" />
+					</Feature>
+				</Line>
+				<Line dir="0.50743299618900917" length="0.23289884315458653">
+					<Start>5880653.6178612495 327684.00489328289 0</Start>
+					<End>5880653.7310350193 327684.20844565693 0</End>
+					<Feature>
+						<Property label="style" value="Alignment\Railway Track and Civil\Permanent Way\Alignment (Geometric)\Forward Left\Rail_BG_Fwd-L_CH50m, Tick 10m" />
+					</Feature>
+				</Line>
+				<Line dir="0.51075307605339748" length="2.5817635086247579">
+					<Start>5880653.7310350193 327684.20844565693 0</Start>
+					<End>5880654.9930897094 327686.4607157947 0</End>
+					<Feature>
+						<Property label="style" value="Alignment\Railway Track and Civil\Permanent Way\Alignment (Geometric)\Forward Left\Rail_BG_Fwd-L_CH50m, Tick 10m" />
+					</Feature>
+				</Line>
+				<Line dir="0.50528038203880843" length="0.71491805067793324">
+					<Start>5880654.9930897094 327686.4607157947 0</Start>
+					<End>5880655.3391477969 327687.08629682008 0</End>
+					<Feature>
+						<Property label="style" value="Alignment\Railway Track and Civil\Permanent Way\Alignment (Geometric)\Forward Left\Rail_BG_Fwd-L_CH50m, Tick 10m" />
+					</Feature>
+				</Line>
+				<Line dir="0.50289772517299525" length="9.6641510912292485">
+					<Start>5880655.3391477969 327687.08629682008 0</Start>
+					<End>5880659.9969450217 327695.55392584635 0</End>
+					<Feature>
+						<Property label="style" value="Alignment\Railway Track and Civil\Permanent Way\Alignment (Geometric)\Forward Left\Rail_BG_Fwd-L_CH50m, Tick 10m" />
+					</Feature>
+				</Line>
+				<Line dir="0.52911899515882532" length="0.29352922941260812">
+					<Start>5880659.9969450217 327695.55392584635 0</Start>
+					<End>5880660.1451106537 327695.80731557385 0</End>
+					<Feature>
+						<Property label="style" value="Alignment\Railway Track and Civil\Permanent Way\Alignment (Geometric)\Forward Left\Rail_BG_Fwd-L_CH50m, Tick 10m" />
+					</Feature>
+				</Line>
+				<Line dir="0.51598407310157002" length="4.8312795579063206">
+					<Start>5880660.1451106537 327695.80731557385 0</Start>
+					<End>5880662.5288207093 327700.00959930266 0</End>
+					<Feature>
+						<Property label="style" value="Alignment\Railway Track and Civil\Permanent Way\Alignment (Geometric)\Forward Left\Rail_BG_Fwd-L_CH50m, Tick 10m" />
+					</Feature>
+				</Line>
+				<Line dir="0.52907808882855667" length="0.94762693109091867">
+					<Start>5880662.5288207093 327700.00959930266 0</Start>
+					<End>5880663.0071237423 327700.82765981951 0</End>
+					<Feature>
+						<Property label="style" value="Alignment\Railway Track and Civil\Permanent Way\Alignment (Geometric)\Forward Left\Rail_BG_Fwd-L_CH50m, Tick 10m" />
+					</Feature>
+				</Line>
+				<Line dir="0.53590886738248633" length="2.4223505725823036">
+					<Start>5880663.0071237423 327700.82765981951 0</Start>
+					<End>5880664.2440309292 327702.91040870198 0</End>
+					<Feature>
+						<Property label="style" value="Alignment\Railway Track and Civil\Permanent Way\Alignment (Geometric)\Forward Left\Rail_BG_Fwd-L_CH50m, Tick 10m" />
+					</Feature>
+				</Line>
+				<Line dir="0.46921988403600007" length="0.25415023506120488">
+					<Start>5880664.2440309292 327702.91040870198 0</Start>
+					<End>5880664.3589552818 327703.13709071529 0</End>
+					<Feature>
+						<Property label="style" value="Alignment\Railway Track and Civil\Permanent Way\Alignment (Geometric)\Forward Left\Rail_BG_Fwd-L_CH50m, Tick 10m" />
+					</Feature>
+				</Line>
+				<Line dir="0.51843742532916337" length="5.637436061695877">
+					<Start>5880664.3589552818 327703.13709071529 0</Start>
+					<End>5880667.1524373274 327708.03373685427 0</End>
+					<Feature>
+						<Property label="style" value="Alignment\Railway Track and Civil\Permanent Way\Alignment (Geometric)\Forward Left\Rail_BG_Fwd-L_CH50m, Tick 10m" />
+					</Feature>
+				</Line>
+				<Line dir="0.5165931332099909" length="3.5202154791989226">
+					<Start>5880667.1524373274 327708.03373685427 0</Start>
+					<End>5880668.8911446761 327711.09458865982 0</End>
+					<Feature>
+						<Property label="style" value="Alignment\Railway Track and Civil\Permanent Way\Alignment (Geometric)\Forward Left\Rail_BG_Fwd-L_CH50m, Tick 10m" />
+					</Feature>
+				</Line>
+				<Line dir="0.52310607450790991" length="0.55838952076924897">
+					<Start>5880668.8911446761 327711.09458865982 0</Start>
+					<End>5880669.1701011425 327711.57830567088 0</End>
+					<Feature>
+						<Property label="style" value="Alignment\Railway Track and Civil\Permanent Way\Alignment (Geometric)\Forward Left\Rail_BG_Fwd-L_CH50m, Tick 10m" />
+					</Feature>
+				</Line>
+				<Line dir="0.61813055012364104" length="0.40727719725674416">
+					<Start>5880669.1701011425 327711.57830567088 0</Start>
+					<End>5880669.4061234267 327711.91022161918 0</End>
+					<Feature>
+						<Property label="style" value="Alignment\Railway Track and Civil\Permanent Way\Alignment (Geometric)\Forward Left\Rail_BG_Fwd-L_CH50m, Tick 10m" />
+					</Feature>
+				</Line>
+				<Line dir="0.58366627062689924" length="0.51014308182474011">
+					<Start>5880669.4061234267 327711.91022161918 0</Start>
+					<End>5880669.6872566193 327712.33590940613 0</End>
+					<Feature>
+						<Property label="style" value="Alignment\Railway Track and Civil\Permanent Way\Alignment (Geometric)\Forward Left\Rail_BG_Fwd-L_CH50m, Tick 10m" />
+					</Feature>
+				</Line>
+				<Line dir="0.55887197919042519" length="7.3321062560542956">
+					<Start>5880669.6872566193 327712.33590940613 0</Start>
+					<End>5880673.574960337 327718.5524632709 0</End>
+					<Feature>
+						<Property label="style" value="Alignment\Railway Track and Civil\Permanent Way\Alignment (Geometric)\Forward Left\Rail_BG_Fwd-L_CH50m, Tick 10m" />
+					</Feature>
+				</Line>
+				<Line dir="0.56224380730267953" length="1.9024821235758795">
+					<Start>5880673.574960337 327718.5524632709 0</Start>
+					<End>5880674.5891468013 327720.16207938857 0</End>
+					<Feature>
+						<Property label="style" value="Alignment\Railway Track and Civil\Permanent Way\Alignment (Geometric)\Forward Left\Rail_BG_Fwd-L_CH50m, Tick 10m" />
+					</Feature>
+				</Line>
+				<Line dir="0.57465658266212505" length="0.27653101769190347">
+					<Start>5880674.5891468013 327720.16207938857 0</Start>
+					<End>5880674.7394542862 327720.39419372188 0</End>
+					<Feature>
+						<Property label="style" value="Alignment\Railway Track and Civil\Permanent Way\Alignment (Geometric)\Forward Left\Rail_BG_Fwd-L_CH50m, Tick 10m" />
+					</Feature>
+				</Line>
+				<Line dir="0.54637957560756845" length="7.6546295356775778">
+					<Start>5880674.7394542862 327720.39419372188 0</Start>
+					<End>5880678.7167791985 327726.93439554371 0</End>
+					<Feature>
+						<Property label="style" value="Alignment\Railway Track and Civil\Permanent Way\Alignment (Geometric)\Forward Left\Rail_BG_Fwd-L_CH50m, Tick 10m" />
+					</Feature>
+				</Line>
+				<Line dir="0.54622293151517898" length="1.4655905118014472">
+					<Start>5880678.7167791985 327726.93439554371 0</Start>
+					<End>5880679.4780999236 327728.18673188105 0</End>
+					<Feature>
+						<Property label="style" value="Alignment\Railway Track and Civil\Permanent Way\Alignment (Geometric)\Forward Left\Rail_BG_Fwd-L_CH50m, Tick 10m" />
+					</Feature>
+				</Line>
+				<Line dir="0.56662814749352319" length="1.0848821756175062">
+					<Start>5880679.4780999236 327728.18673188105 0</Start>
+					<End>5880680.0604540659 327729.10206405458 0</End>
+					<Feature>
+						<Property label="style" value="Alignment\Railway Track and Civil\Permanent Way\Alignment (Geometric)\Forward Left\Rail_BG_Fwd-L_CH50m, Tick 10m" />
+					</Feature>
+				</Line>
+				<Line dir="0.56493726130522715" length="4.5751393516196597">
+					<Start>5880680.0604540659 327729.10206405458 0</Start>
+					<End>5880682.5098136012 327732.96632827353 0</End>
+					<Feature>
+						<Property label="style" value="Alignment\Railway Track and Civil\Permanent Way\Alignment (Geometric)\Forward Left\Rail_BG_Fwd-L_CH50m, Tick 10m" />
+					</Feature>
+				</Line>
+				<Line dir="0.56179763102179292" length="1.7183438219003329">
+					<Start>5880682.5098136012 327732.96632827353 0</Start>
+					<End>5880683.4251897736 327734.42056070105 0</End>
+					<Feature>
+						<Property label="style" value="Alignment\Railway Track and Civil\Permanent Way\Alignment (Geometric)\Forward Left\Rail_BG_Fwd-L_CH50m, Tick 10m" />
+					</Feature>
+				</Line>
+				<Line dir="0.54482118218504283" length="1.7700662753979801">
+					<Start>5880683.4251897736 327734.42056070105 0</Start>
+					<End>5880684.3425534731 327735.93435674481 0</End>
+					<Feature>
+						<Property label="style" value="Alignment\Railway Track and Civil\Permanent Way\Alignment (Geometric)\Forward Left\Rail_BG_Fwd-L_CH50m, Tick 10m" />
+					</Feature>
+				</Line>
+				<Line dir="0.56991277671940743" length="2.3382016568061044">
+					<Start>5880684.3425534731 327735.93435674481 0</Start>
+					<End>5880685.6041503167 327737.9030010479 0</End>
+					<Feature>
+						<Property label="style" value="Alignment\Railway Track and Civil\Permanent Way\Alignment (Geometric)\Forward Left\Rail_BG_Fwd-L_CH50m, Tick 10m" />
+					</Feature>
+				</Line>
+				<Line dir="0.56900123750345899" length="4.880411166960104">
+					<Start>5880685.6041503167 327737.9030010479 0</Start>
+					<End>5880688.2336715423 327742.01445228595 0</End>
+					<Feature>
+						<Property label="style" value="Alignment\Railway Track and Civil\Permanent Way\Alignment (Geometric)\Forward Left\Rail_BG_Fwd-L_CH50m, Tick 10m" />
+					</Feature>
+				</Line>
+				<Line dir="0.55574541899222885" length="1.5724101722214467">
+					<Start>5880688.2336715423 327742.01445228595 0</Start>
+					<End>5880689.0632384894 327743.35022637981 0</End>
+					<Feature>
+						<Property label="style" value="Alignment\Railway Track and Civil\Permanent Way\Alignment (Geometric)\Forward Left\Rail_BG_Fwd-L_CH50m, Tick 10m" />
+					</Feature>
+				</Line>
+				<Line dir="0.55461436042191103" length="1.0668235314108672">
+					<Start>5880689.0632384894 327743.35022637981 0</Start>
+					<End>5880689.625044303 327744.25713689084 0</End>
+					<Feature>
+						<Property label="style" value="Alignment\Railway Track and Civil\Permanent Way\Alignment (Geometric)\Forward Left\Rail_BG_Fwd-L_CH50m, Tick 10m" />
+					</Feature>
+				</Line>
+				<Line dir="0.58134332066329097" length="0.17724770773013734">
+					<Start>5880689.625044303 327744.25713689084 0</Start>
+					<End>5880689.7223793641 327744.40526735963 0</End>
+					<Feature>
+						<Property label="style" value="Alignment\Railway Track and Civil\Permanent Way\Alignment (Geometric)\Forward Left\Rail_BG_Fwd-L_CH50m, Tick 10m" />
+					</Feature>
+				</Line>
+				<Line dir="0.57499969944537999" length="2.2886110158839648">
+					<Start>5880689.7223793641 327744.40526735963 0</Start>
+					<End>5880690.9670050796 327746.32585248147 0</End>
+					<Feature>
+						<Property label="style" value="Alignment\Railway Track and Civil\Permanent Way\Alignment (Geometric)\Forward Left\Rail_BG_Fwd-L_CH50m, Tick 10m" />
+					</Feature>
+				</Line>
+				<Line dir="0.57230421621157801" length="3.5781791634212823">
+					<Start>5880690.9670050796 327746.32585248147 0</Start>
+					<End>5880692.9048414882 327749.33386780374 0</End>
+					<Feature>
+						<Property label="style" value="Alignment\Railway Track and Civil\Permanent Way\Alignment (Geometric)\Forward Left\Rail_BG_Fwd-L_CH50m, Tick 10m" />
+					</Feature>
+				</Line>
+				<Line dir="0.57124456149208258" length="1.7281011502156265">
+					<Start>5880692.9048414882 327749.33386780374 0</Start>
+					<End>5880693.8391902298 327750.78759611899 0</End>
+					<Feature>
+						<Property label="style" value="Alignment\Railway Track and Civil\Permanent Way\Alignment (Geometric)\Forward Left\Rail_BG_Fwd-L_CH50m, Tick 10m" />
+					</Feature>
+				</Line>
+				<Line dir="0.56635973405579731" length="2.6840683833071526">
+					<Start>5880693.8391902298 327750.78759611899 0</Start>
+					<End>5880695.2793639908 327753.05257351941 0</End>
+					<Feature>
+						<Property label="style" value="Alignment\Railway Track and Civil\Permanent Way\Alignment (Geometric)\Forward Left\Rail_BG_Fwd-L_CH50m, Tick 10m" />
+					</Feature>
+				</Line>
+				<Line dir="0.56528405281265803" length="0.46729124861456783">
+					<Start>5880695.2793639908 327753.05257351941 0</Start>
+					<End>5880695.5296712127 327753.44717129652 0</End>
+					<Feature>
+						<Property label="style" value="Alignment\Railway Track and Civil\Permanent Way\Alignment (Geometric)\Forward Left\Rail_BG_Fwd-L_CH50m, Tick 10m" />
+					</Feature>
+				</Line>
+				<Line dir="0.57978271161795369" length="1.2823472920512997">
+					<Start>5880695.5296712127 327753.44717129652 0</Start>
+					<End>5880696.2321951361 327754.51995958615 0</End>
+					<Feature>
+						<Property label="style" value="Alignment\Railway Track and Civil\Permanent Way\Alignment (Geometric)\Forward Left\Rail_BG_Fwd-L_CH50m, Tick 10m" />
+					</Feature>
+				</Line>
+				<Line dir="0.57907854646881152" length="1.5369162652213499">
+					<Start>5880696.2321951361 327754.51995958615 0</Start>
+					<End>5880697.0732770851 327755.80630820198 0</End>
+					<Feature>
+						<Property label="style" value="Alignment\Railway Track and Civil\Permanent Way\Alignment (Geometric)\Forward Left\Rail_BG_Fwd-L_CH50m, Tick 10m" />
+					</Feature>
+				</Line>
+				<Line dir="0.56775191494216248" length="7.4072261373186477">
+					<Start>5880697.0732770851 327755.80630820198 0</Start>
+					<End>5880701.0564242145 327762.0514293373 0</End>
+					<Feature>
+						<Property label="style" value="Alignment\Railway Track and Civil\Permanent Way\Alignment (Geometric)\Forward Left\Rail_BG_Fwd-L_CH50m, Tick 10m" />
+					</Feature>
+				</Line>
+				<Line dir="0.57804517150888646" length="1.0544075216389572">
+					<Start>5880701.0564242145 327762.0514293373 0</Start>
+					<End>5880701.6325395675 327762.93452974025 0</End>
+					<Feature>
+						<Property label="style" value="Alignment\Railway Track and Civil\Permanent Way\Alignment (Geometric)\Forward Left\Rail_BG_Fwd-L_CH50m, Tick 10m" />
+					</Feature>
+				</Line>
+				<Line dir="0.57248782169119561" length="0.50874976096245905">
+					<Start>5880701.6325395675 327762.93452974025 0</Start>
+					<End>5880701.9081419688 327763.36216233455 0</End>
+					<Feature>
+						<Property label="style" value="Alignment\Railway Track and Civil\Permanent Way\Alignment (Geometric)\Forward Left\Rail_BG_Fwd-L_CH50m, Tick 10m" />
+					</Feature>
+				</Line>
+				<Line dir="0.57724038369359121" length="1.017621683357441">
+					<Start>5880701.9081419688 327763.36216233455 0</Start>
+					<End>5880702.4634718969 327764.21490060701 0</End>
+					<Feature>
+						<Property label="style" value="Alignment\Railway Track and Civil\Permanent Way\Alignment (Geometric)\Forward Left\Rail_BG_Fwd-L_CH50m, Tick 10m" />
+					</Feature>
+				</Line>
+				<Line dir="0.60377569363113193" length="6.8578001179181527">
+					<Start>5880702.4634718969 327764.21490060701 0</Start>
+					<End>5880706.3570198417 327769.86022671446 0</End>
+					<Feature>
+						<Property label="style" value="Alignment\Railway Track and Civil\Permanent Way\Alignment (Geometric)\Forward Left\Rail_BG_Fwd-L_CH50m, Tick 10m" />
+					</Feature>
+				</Line>
+				<Line dir="0.66353715639155841" length="0.28469025669290854">
+					<Start>5880706.3570198417 327769.86022671446 0</Start>
+					<End>5880706.5323626595 327770.08451099502 0</End>
+					<Feature>
+						<Property label="style" value="Alignment\Railway Track and Civil\Permanent Way\Alignment (Geometric)\Forward Left\Rail_BG_Fwd-L_CH50m, Tick 10m" />
+					</Feature>
+				</Line>
+				<Line dir="0.63573624835156028" length="8.7448483815645233">
+					<Start>5880706.5323626595 327770.08451099502 0</Start>
+					<End>5880711.7247920372 327777.12091990683 0</End>
+					<Feature>
+						<Property label="style" value="Alignment\Railway Track and Civil\Permanent Way\Alignment (Geometric)\Forward Left\Rail_BG_Fwd-L_CH50m, Tick 10m" />
+					</Feature>
+				</Line>
+				<Line dir="0.64599526422307807" length="0.89759353320744839">
+					<Start>5880711.7247920372 327777.12091990683 0</Start>
+					<End>5880712.2651374703 327777.83764925861 0</End>
+					<Feature>
+						<Property label="style" value="Alignment\Railway Track and Civil\Permanent Way\Alignment (Geometric)\Forward Left\Rail_BG_Fwd-L_CH50m, Tick 10m" />
+					</Feature>
+				</Line>
+				<Line dir="0.65727422179974726" length="1.920551440669098">
+					<Start>5880712.2651374703 327777.83764925861 0</Start>
+					<End>5880713.4385199472 327779.35807400162 0</End>
+					<Feature>
+						<Property label="style" value="Alignment\Railway Track and Civil\Permanent Way\Alignment (Geometric)\Forward Left\Rail_BG_Fwd-L_CH50m, Tick 10m" />
+					</Feature>
+				</Line>
+				<Line dir="0.66203057630919582" length="0.70874572287295912">
+					<Start>5880713.4385199472 327779.35807400162 0</Start>
+					<End>5880713.8741999241 327779.91709408845 0</End>
+					<Feature>
+						<Property label="style" value="Alignment\Railway Track and Civil\Permanent Way\Alignment (Geometric)\Forward Left\Rail_BG_Fwd-L_CH50m, Tick 10m" />
+					</Feature>
+				</Line>
+				<Line dir="0.665422370014491" length="7.0240881360652008">
+					<Start>5880713.8741999241 327779.91709408845 0</Start>
+					<End>5880718.2108118674 327785.44263578102 0</End>
+					<Feature>
+						<Property label="style" value="Alignment\Railway Track and Civil\Permanent Way\Alignment (Geometric)\Forward Left\Rail_BG_Fwd-L_CH50m, Tick 10m" />
+					</Feature>
+				</Line>
+				<Line dir="0.70166031837128584" length="0.38184439255549851">
+					<Start>5880718.2108118674 327785.44263578102 0</Start>
+					<End>5880718.4572873367 327785.73427765584 0</End>
+					<Feature>
+						<Property label="style" value="Alignment\Railway Track and Civil\Permanent Way\Alignment (Geometric)\Forward Left\Rail_BG_Fwd-L_CH50m, Tick 10m" />
+					</Feature>
+				</Line>
+				<Line dir="0.71658268263516156" length="0.34145926370622592">
+					<Start>5880718.4572873367 327785.73427765584 0</Start>
+					<End>5880718.6815617653 327785.99175660539 0</End>
+					<Feature>
+						<Property label="style" value="Alignment\Railway Track and Civil\Permanent Way\Alignment (Geometric)\Forward Left\Rail_BG_Fwd-L_CH50m, Tick 10m" />
+					</Feature>
+				</Line>
+				<Line dir="0.70910527768244114" length="1.1015739728872356">
+					<Start>5880718.6815617653 327785.99175660539 0</Start>
+					<End>5880719.3988571512 327786.82779042475 0</End>
+					<Feature>
+						<Property label="style" value="Alignment\Railway Track and Civil\Permanent Way\Alignment (Geometric)\Forward Left\Rail_BG_Fwd-L_CH50m, Tick 10m" />
+					</Feature>
+				</Line>
+				<Line dir="0.69979087878059099" length="0.84387032821672336">
+					<Start>5880719.3988571512 327786.82779042475 0</Start>
+					<End>5880719.9423583578 327787.47333172412 0</End>
+					<Feature>
+						<Property label="style" value="Alignment\Railway Track and Civil\Permanent Way\Alignment (Geometric)\Forward Left\Rail_BG_Fwd-L_CH50m, Tick 10m" />
+					</Feature>
+				</Line>
+				<Line dir="0.67977294687650169" length="0.8760141224532535">
+					<Start>5880719.9423583578 327787.47333172412 0</Start>
+					<End>5880720.4930352522 327788.15462145745 0</End>
+					<Feature>
+						<Property label="style" value="Alignment\Railway Track and Civil\Permanent Way\Alignment (Geometric)\Forward Left\Rail_BG_Fwd-L_CH50m, Tick 10m" />
+					</Feature>
+				</Line>
+				<Line dir="0.67457411837078551" length="1.0855162426309883">
+					<Start>5880720.4930352522 327788.15462145745 0</Start>
+					<End>5880721.171010456 327789.00238034769 0</End>
+					<Feature>
+						<Property label="style" value="Alignment\Railway Track and Civil\Permanent Way\Alignment (Geometric)\Forward Left\Rail_BG_Fwd-L_CH50m, Tick 10m" />
+					</Feature>
+				</Line>
+				<Line dir="0.65663380279456618" length="1.7305547326976438">
+					<Start>5880721.171010456 327789.00238034769 0</Start>
+					<End>5880722.2274347115 327790.37306903419 0</End>
+					<Feature>
+						<Property label="style" value="Alignment\Railway Track and Civil\Permanent Way\Alignment (Geometric)\Forward Left\Rail_BG_Fwd-L_CH50m, Tick 10m" />
+					</Feature>
+				</Line>
+				<Line dir="0.65957696399800858" length="2.3408162762288551">
+					<Start>5880722.2274347115 327790.37306903419 0</Start>
+					<End>5880723.6618462 327792.22290268098 0</End>
+					<Feature>
+						<Property label="style" value="Alignment\Railway Track and Civil\Permanent Way\Alignment (Geometric)\Forward Left\Rail_BG_Fwd-L_CH50m, Tick 10m" />
+					</Feature>
+				</Line>
+				<Line dir="0.68581733307697079" length="4.9892620498136901">
+					<Start>5880723.6618462 327792.22290268098 0</Start>
+					<End>5880726.8215745864 327796.08410098276 0</End>
+					<Feature>
+						<Property label="style" value="Alignment\Railway Track and Civil\Permanent Way\Alignment (Geometric)\Forward Left\Rail_BG_Fwd-L_CH50m, Tick 10m" />
+					</Feature>
+				</Line>
+				<Line dir="0.68228115838755932" length="0.39407432243176277">
+					<Start>5880726.8215745864 327796.08410098276 0</Start>
+					<End>5880727.0700641219 327796.38995637733 0</End>
+					<Feature>
+						<Property label="style" value="Alignment\Railway Track and Civil\Permanent Way\Alignment (Geometric)\Forward Left\Rail_BG_Fwd-L_CH50m, Tick 10m" />
+					</Feature>
+				</Line>
+				<Line dir="0.64602321723634493" length="0.77845217497427721">
+					<Start>5880727.0700641219 327796.38995637733 0</Start>
+					<End>5880727.5387046123 327797.01153813337 0</End>
+					<Feature>
+						<Property label="style" value="Alignment\Railway Track and Civil\Permanent Way\Alignment (Geometric)\Forward Left\Rail_BG_Fwd-L_CH50m, Tick 10m" />
+					</Feature>
+				</Line>
+				<Line dir="0.69299321534606095" length="1.6320072715010359">
+					<Start>5880727.5387046123 327797.01153813337 0</Start>
+					<End>5880728.5813007606 327798.26710215234 0</End>
+					<Feature>
+						<Property label="style" value="Alignment\Railway Track and Civil\Permanent Way\Alignment (Geometric)\Forward Left\Rail_BG_Fwd-L_CH50m, Tick 10m" />
+					</Feature>
+				</Line>
+				<Line dir="0.68576184832580422" length="1.3014523413627685">
+					<Start>5880728.5813007606 327798.26710215234 0</Start>
+					<End>5880729.4054621374 327799.27434404078 0</End>
+					<Feature>
+						<Property label="style" value="Alignment\Railway Track and Civil\Permanent Way\Alignment (Geometric)\Forward Left\Rail_BG_Fwd-L_CH50m, Tick 10m" />
+					</Feature>
+				</Line>
+				<Line dir="0.67396116606089773" length="1.3266419661560276">
+					<Start>5880729.4054621374 327799.27434404078 0</Start>
+					<End>5880730.2334007556 327800.31092329533 0</End>
+					<Feature>
+						<Property label="style" value="Alignment\Railway Track and Civil\Permanent Way\Alignment (Geometric)\Forward Left\Rail_BG_Fwd-L_CH50m, Tick 10m" />
+					</Feature>
+				</Line>
+				<Line dir="0.67143009308262569" length="0.38057464162792232">
+					<Start>5880730.2334007556 327800.31092329533 0</Start>
+					<End>5880730.4701586338 327800.60888766393 0</End>
+					<Feature>
+						<Property label="style" value="Alignment\Railway Track and Civil\Permanent Way\Alignment (Geometric)\Forward Left\Rail_BG_Fwd-L_CH50m, Tick 10m" />
+					</Feature>
+				</Line>
+				<Line dir="0.66212812895310935" length="0.54781130369459075">
+					<Start>5880730.4701586338 327800.60888766393 0</Start>
+					<End>5880730.8069511978 327801.04093857907 0</End>
+					<Feature>
+						<Property label="style" value="Alignment\Railway Track and Civil\Permanent Way\Alignment (Geometric)\Forward Left\Rail_BG_Fwd-L_CH50m, Tick 10m" />
+					</Feature>
+				</Line>
+				<Line dir="0.64528006119057169" length="1.1862646124669747">
+					<Start>5880730.8069511978 327801.04093857907 0</Start>
+					<End>5880731.5203970848 327801.98868258309 0</End>
+					<Feature>
+						<Property label="style" value="Alignment\Railway Track and Civil\Permanent Way\Alignment (Geometric)\Forward Left\Rail_BG_Fwd-L_CH50m, Tick 10m" />
+					</Feature>
+				</Line>
+				<Line dir="0.71656395991580357" length="0.84588506828477383">
+					<Start>5880731.5203970848 327801.98868258309 0</Start>
+					<End>5880732.0759723252 327802.62653656403 0</End>
+					<Feature>
+						<Property label="style" value="Alignment\Railway Track and Civil\Permanent Way\Alignment (Geometric)\Forward Left\Rail_BG_Fwd-L_CH50m, Tick 10m" />
+					</Feature>
+				</Line>
+				<Line dir="0.67198174691367729" length="2.2902904345821908">
+					<Start>5880732.0759723252 327802.62653656403 0</Start>
+					<End>5880733.5017653871 327804.41889378824 0</End>
+					<Feature>
+						<Property label="style" value="Alignment\Railway Track and Civil\Permanent Way\Alignment (Geometric)\Forward Left\Rail_BG_Fwd-L_CH50m, Tick 10m" />
+					</Feature>
+				</Line>
+			</CoordGeom>
+			<Profile>
+				<ProfAlign name="CL_SG">
+					<PVI>0 209.10977029755574</PVI>
+					<PVI>1.491175259558186 209.13772053760863</PVI>
+					<PVI>2.0740318252010592 209.11944495245649</PVI>
+					<PVI>2.4624147428028165 209.10041864958396</PVI>
+					<PVI>3.1914159006250946 209.07100976586298</PVI>
+					<PVI>4.5806546679224818 209.03425230445268</PVI>
+					<PVI>5.9900414033871154 209.03448760865757</PVI>
+					<PVI>10.889025262505072 209.03530079669238</PVI>
+					<PVI>16.504258524917045 209.03308369283437</PVI>
+					<PVI>16.983145635801275 209.03609504737082</PVI>
+					<PVI>21.487068564102998 209.09891971151703</PVI>
+					<PVI>22.907240329835702 209.22712953755772</PVI>
+					<PVI>24.383776392535577 209.24452869950025</PVI>
+					<PVI>30.895990927936854 209.31448489146808</PVI>
+					<PVI>31.67608857078266 209.32681778488518</PVI>
+					<PVI>33.386330236242678 209.35652430506374</PVI>
+					<PVI>34.676068568685579 209.38543469771815</PVI>
+					<PVI>39.259086445567881 209.51174893186624</PVI>
+					<PVI>42.063837414022217 209.57610753080149</PVI>
+					<PVI>44.645600922646985 209.63922488287753</PVI>
+					<PVI>45.360518973324901 209.65496158594999</PVI>
+					<PVI>55.024670064554158 209.85622111638278</PVI>
+					<PVI>55.318199293966771 209.85989714669432</PVI>
+					<PVI>60.149478851873091 209.88544006626685</PVI>
+					<PVI>61.097105782963993 209.89665888973931</PVI>
+					<PVI>63.519456355546303 209.93361681525786</PVI>
+					<PVI>63.77360659018639 209.93636877268233</PVI>
+					<PVI>69.411042652343724 210.13972328271075</PVI>
+					<PVI>73.489647652311902 210.28340171531292</PVI>
+					<PVI>73.896924849568649 210.30130890125986</PVI>
+					<PVI>74.407067931393399 210.31779986733716</PVI>
+					<PVI>81.739174187447688 210.46576530667014</PVI>
+					<PVI>83.641656311023596 210.50737716263143</PVI>
+					<PVI>83.918187328209271 210.51275757863789</PVI>
+					<PVI>93.038407376172216 210.5612365937863</PVI>
+					<PVI>98.698428903409408 210.73269986755486</PVI>
+					<PVI>100.4167727253097 210.78203406673993</PVI>
+					<PVI>102.18683900070768 210.81781831782826</PVI>
+					<PVI>104.52504065751378 210.84377065057183</PVI>
+					<PVI>109.4054518244739 210.89545049560957</PVI>
+					<PVI>112.22193323583633 210.9064195242284</PVI>
+					<PVI>114.51054425121386 210.91282666130672</PVI>
+					<PVI>118.08872341513948 210.91803610735016</PVI>
+					<PVI>119.81682456485154 210.91964273516351</PVI>
+					<PVI>122.96818419727215 210.9154101130251</PVI>
+					<PVI>125.78744775403513 210.93468285006244</PVI>
+					<PVI>133.19467389185456 210.94221125464674</PVI>
+					<PVI>134.24908141298468 210.94435525382349</PVI>
+					<PVI>134.75783117445167 210.94397612110015</PVI>
+					<PVI>135.77545285780911 210.94563798060773</PVI>
+					<PVI>142.63325297572723 211.04790803756299</PVI>
+					<PVI>142.91794323242019 211.05151151807294</PVI>
+					<PVI>151.66279161398469 211.13791691703605</PVI>
+					<PVI>152.56038514719211 211.15139459256793</PVI>
+					<PVI>154.48093658786121 211.19106001311476</PVI>
+					<PVI>155.18968231073418 211.20738305007779</PVI>
+					<PVI>162.21377044679937 211.38069322358947</PVI>
+					<PVI>164.03864807595366 211.42192482046104</PVI>
+					<PVI>164.88251840417036 211.43774558520263</PVI>
+					<PVI>166.84404876925458 211.45403159500819</PVI>
+					<PVI>168.57460350195223 211.4630697399208</PVI>
+					<PVI>170.91541977818108 211.47874616287757</PVI>
+					<PVI>175.904681827405 211.57761932514404</PVI>
+					<PVI>176.298756150424 211.58473385885816</PVI>
+					<PVI>177.07720832539832 211.58434553820786</PVI>
+					<PVI>178.70921559689933 211.58520895761868</PVI>
+					<PVI>180.01066793826212 211.58119012198765</PVI>
+					<PVI>181.71788454604604 211.57441931031511</PVI>
+					<PVI>182.26569584974061 211.56962154838416</PVI>
+					<PVI>183.45196046220761 211.5500167045299</PVI>
+					<PVI>184.29784553049237 211.55646759122229</PVI>
+					<PVI>186.58813596507451 211.52025402697177</PVI>
+					<Feature code="ProfAlign">
+						<Property label="style" value="Alignment\Railway Track and Civil\Permanent Way\Alignment (Geometric)\Forward Left\Rail_SG_Fwd-L_CH50m, Tick 10m" />
+					</Feature>
+				</ProfAlign>
+			</Profile>
+		</Alignment>
+		<Alignment name="MW31 TOP" length="185.91131047381302" state="proposed" staStart="0">
+			<CoordGeom name="MW31 TOP" state="proposed">
+				<Line dir="0.46789497037995587" length="0.34218785541147584">
+					<Start>5880631.8606515639 327649.76110992674 0</Start>
+					<End>5880632.0149811972 327650.06651931209 0</End>
+					<Feature>
+						<Property label="style" value="Alignment\Railway Track and Civil\Permanent Way\Alignment (Geometric)\Forward Left\Rail_BG_Fwd-L_CH50m, Tick 10m" />
+					</Feature>
+				</Line>
+				<Line dir="1.4254226306550442" length="0.55195816153494237">
+					<Start>5880632.0149811972 327650.06651931209 0</Start>
+					<End>5880632.561117216 327650.14647718245 0</End>
+					<Feature>
+						<Property label="style" value="Alignment\Railway Track and Civil\Permanent Way\Alignment (Geometric)\Forward Left\Rail_BG_Fwd-L_CH50m, Tick 10m" />
+					</Feature>
+				</Line>
+				<Line dir="0.46525950542291683" length="10.559961427787151">
+					<Start>5880632.561117216 327650.14647718245 0</Start>
+					<End>5880637.2988939425 327659.58396927762 0</End>
+					<Feature>
+						<Property label="style" value="Alignment\Railway Track and Civil\Permanent Way\Alignment (Geometric)\Forward Left\Rail_BG_Fwd-L_CH50m, Tick 10m" />
+					</Feature>
+				</Line>
+				<Line dir="0.49657847673834626" length="9.0832555495437521">
+					<Start>5880637.2988939425 327659.58396927762 0</Start>
+					<End>5880641.6263391785 327667.57012912497 0</End>
+					<Feature>
+						<Property label="style" value="Alignment\Railway Track and Civil\Permanent Way\Alignment (Geometric)\Forward Left\Rail_BG_Fwd-L_CH50m, Tick 10m" />
+					</Feature>
+				</Line>
+				<Line dir="0.47817493802838662" length="9.4717546963407955">
+					<Start>5880641.6263391785 327667.57012912497 0</Start>
+					<End>5880645.9848579047 327675.97949601797 0</End>
+					<Feature>
+						<Property label="style" value="Alignment\Railway Track and Civil\Permanent Way\Alignment (Geometric)\Forward Left\Rail_BG_Fwd-L_CH50m, Tick 10m" />
+					</Feature>
+				</Line>
+				<Line dir="0.49404792183471957" length="10.793775403743915">
+					<Start>5880645.9848579047 327675.97949601797 0</Start>
+					<End>5880651.1031975215 327685.48255799996 0</End>
+					<Feature>
+						<Property label="style" value="Alignment\Railway Track and Civil\Permanent Way\Alignment (Geometric)\Forward Left\Rail_BG_Fwd-L_CH50m, Tick 10m" />
+					</Feature>
+				</Line>
+				<Line dir="0.51012835853801053" length="13.16886005970637">
+					<Start>5880651.1031975215 327685.48255799996 0</Start>
+					<End>5880657.5334105482 327696.97478301096 0</End>
+					<Feature>
+						<Property label="style" value="Alignment\Railway Track and Civil\Permanent Way\Alignment (Geometric)\Forward Left\Rail_BG_Fwd-L_CH50m, Tick 10m" />
+					</Feature>
+				</Line>
+				<Line dir="0.51604358570975695" length="8.5191039606461185">
+					<Start>5880657.5334105482 327696.97478301096 0</Start>
+					<End>5880661.7371011088 327704.38451431267 0</End>
+					<Feature>
+						<Property label="style" value="Alignment\Railway Track and Civil\Permanent Way\Alignment (Geometric)\Forward Left\Rail_BG_Fwd-L_CH50m, Tick 10m" />
+					</Feature>
+				</Line>
+				<Line dir="0.51874014941993807" length="9.9981160070399433">
+					<Start>5880661.7371011088 327704.38451431267 0</Start>
+					<End>5880666.6940312637 327713.06732302468 0</End>
+					<Feature>
+						<Property label="style" value="Alignment\Railway Track and Civil\Permanent Way\Alignment (Geometric)\Forward Left\Rail_BG_Fwd-L_CH50m, Tick 10m" />
+					</Feature>
+				</Line>
+				<Line dir="0.55906919500142838" length="10.179838005712377">
+					<Start>5880666.6940312637 327713.06732302468 0</Start>
+					<End>5880672.0933902496 327721.6972722924 0</End>
+					<Feature>
+						<Property label="style" value="Alignment\Railway Track and Civil\Permanent Way\Alignment (Geometric)\Forward Left\Rail_BG_Fwd-L_CH50m, Tick 10m" />
+					</Feature>
+				</Line>
+				<Line dir="0.54640032828243279" length="9.4239920186684571">
+					<Start>5880672.0933902496 327721.6972722924 0</Start>
+					<End>5880676.9902382465 327729.74913575768 0</End>
+					<Feature>
+						<Property label="style" value="Alignment\Railway Track and Civil\Permanent Way\Alignment (Geometric)\Forward Left\Rail_BG_Fwd-L_CH50m, Tick 10m" />
+					</Feature>
+				</Line>
+				<Line dir="0.56502665420831566" length="9.1744592760200163">
+					<Start>5880676.9902382465 327729.74913575768 0</Start>
+					<End>5880681.9025953785 327737.49764854502 0</End>
+					<Feature>
+						<Property label="style" value="Alignment\Railway Track and Civil\Permanent Way\Alignment (Geometric)\Forward Left\Rail_BG_Fwd-L_CH50m, Tick 10m" />
+					</Feature>
+				</Line>
+				<Line dir="0.56906339194139477" length="9.8854923016690694">
+					<Start>5880681.9025953785 327737.49764854502 0</Start>
+					<End>5880687.2293264838 327745.82524686493 0</End>
+					<Feature>
+						<Property label="style" value="Alignment\Railway Track and Civil\Permanent Way\Alignment (Geometric)\Forward Left\Rail_BG_Fwd-L_CH50m, Tick 10m" />
+					</Feature>
+				</Line>
+				<Line dir="0.57234618943971971" length="10.485577896032588">
+					<Start>5880687.2293264838 327745.82524686493 0</Start>
+					<End>5880692.9083765075 327754.63976526598 0</End>
+					<Feature>
+						<Property label="style" value="Alignment\Railway Track and Civil\Permanent Way\Alignment (Geometric)\Forward Left\Rail_BG_Fwd-L_CH50m, Tick 10m" />
+					</Feature>
+				</Line>
+				<Line dir="0.57989710011293938" length="10.721336561833063">
+					<Start>5880692.9083765075 327754.63976526598 0</Start>
+					<End>5880698.7830027407 327763.60836740298 0</End>
+					<Feature>
+						<Property label="style" value="Alignment\Railway Track and Civil\Permanent Way\Alignment (Geometric)\Forward Left\Rail_BG_Fwd-L_CH50m, Tick 10m" />
+					</Feature>
+				</Line>
+				<Line dir="0.5726619560240227" length="9.4692772630586681">
+					<Start>5880698.7830027407 327763.60836740298 0</Start>
+					<End>5880703.9141317299 327771.56693053845 0</End>
+					<Feature>
+						<Property label="style" value="Alignment\Railway Track and Civil\Permanent Way\Alignment (Geometric)\Forward Left\Rail_BG_Fwd-L_CH50m, Tick 10m" />
+					</Feature>
+				</Line>
+				<Line dir="0.65729225223523813" length="19.7265592331124">
+					<Start>5880703.9141317299 327771.56693053845 0</Start>
+					<End>5880715.9665762633 327787.18345127598 0</End>
+					<Feature>
+						<Property label="style" value="Alignment\Railway Track and Civil\Permanent Way\Alignment (Geometric)\Forward Left\Rail_BG_Fwd-L_CH50m, Tick 10m" />
+					</Feature>
+				</Line>
+				<Line dir="0.70690182681933134" length="4.5598058540930522">
+					<Start>5880715.9665762633 327787.18345127598 0</Start>
+					<End>5880718.9280840307 327790.65062608704 0</End>
+					<Feature>
+						<Property label="style" value="Alignment\Railway Track and Civil\Permanent Way\Alignment (Geometric)\Forward Left\Rail_BG_Fwd-L_CH50m, Tick 10m" />
+					</Feature>
+				</Line>
+				<Line dir="0.65671836761443192" length="10.25707059956008">
+					<Start>5880718.9280840307 327790.65062608704 0</Start>
+					<End>5880725.1902419655 327798.77422598394 0</End>
+					<Feature>
+						<Property label="style" value="Alignment\Railway Track and Civil\Permanent Way\Alignment (Geometric)\Forward Left\Rail_BG_Fwd-L_CH50m, Tick 10m" />
+					</Feature>
+				</Line>
+				<Line dir="0.69648835079702809" length="2.9428838418546719">
+					<Start>5880725.1902419655 327798.77422598394 0</Start>
+					<End>5880727.0781839481 327801.03171139408 0</End>
+					<Feature>
+						<Property label="style" value="Alignment\Railway Track and Civil\Permanent Way\Alignment (Geometric)\Forward Left\Rail_BG_Fwd-L_CH50m, Tick 10m" />
+					</Feature>
+				</Line>
+				<Line dir="0.64661205973250402" length="3.4507353774012812">
+					<Start>5880727.0781839481 327801.03171139408 0</Start>
+					<End>5880729.1572031965 327803.78584530682 0</End>
+					<Feature>
+						<Property label="style" value="Alignment\Railway Track and Civil\Permanent Way\Alignment (Geometric)\Forward Left\Rail_BG_Fwd-L_CH50m, Tick 10m" />
+					</Feature>
+				</Line>
+				<Line dir="0.68906425043455832" length="3.1453091230428263">
+					<Start>5880729.1572031965 327803.78584530682 0</Start>
+					<End>5880731.1570385788 327806.21352484159 0</End>
+					<Feature>
+						<Property label="style" value="Alignment\Railway Track and Civil\Permanent Way\Alignment (Geometric)\Forward Left\Rail_BG_Fwd-L_CH50m, Tick 10m" />
+					</Feature>
+				</Line>
+			</CoordGeom>
+			<Profile>
+				<ProfAlign name="CL_BG">
+					<PVI>0 206.38480242995882</PVI>
+					<PVI>0.33851805485797515 207.13865323779669</PVI>
+					<PVI>0.34218785541147589 207.13869438188939</PVI>
+					<PVI>0.89414601694641827 207.58835667935435</PVI>
+					<PVI>11.454107444733568 207.59000768883797</PVI>
+					<PVI>12.83875061101989 207.60817730715445</PVI>
+					<PVI>20.537362994277323 207.71622925999924</PVI>
+					<PVI>27.617278505516566 207.79262923022338</PVI>
+					<PVI>30.009117690618123 207.81773404416907</PVI>
+					<PVI>40.698418721563321 208.11195248207559</PVI>
+					<PVI>53.971753154068409 208.43426496525313</PVI>
+					<PVI>62.49085711471453 208.47951189517025</PVI>
+					<PVI>71.928938638372244 208.82005865927962</PVI>
+					<PVI>72.488973121754469 208.83874823406995</PVI>
+					<PVI>73.407534635732461 208.85487276920418</PVI>
+					<PVI>82.668811127466853 209.04231590000035</PVI>
+					<PVI>92.09280314613531 209.09234571979079</PVI>
+					<PVI>101.26726242215533 209.3689155645072</PVI>
+					<PVI>111.1527547238244 209.47366371814823</PVI>
+					<PVI>121.63833261985698 209.48898855332618</PVI>
+					<PVI>132.35966918169004 209.56448655999998</PVI>
+					<PVI>141.82894644474871 209.5578962700651</PVI>
+					<PVI>142.40774738743517 209.56668614519916</PVI>
+					<PVI>159.36733038985753 209.91700291995156</PVI>
+					<PVI>163.29814880781981 209.99740779424488</PVI>
+					<PVI>165.02475718067765 210.03598944144343</PVI>
+					<PVI>166.11531153195415 210.06232105000072</PVI>
+					<PVI>176.37238213151423 210.11615402643775</PVI>
+					<PVI>179.31526597336889 210.12306085999936</PVI>
+					<PVI>181.96557461093798 210.07791591139662</PVI>
+					<PVI>182.76600135077021 210.06555727390139</PVI>
+					<PVI>185.91131047381305 210.04390342215467</PVI>
+					<Feature code="ProfAlign">
+						<Property label="style" value="Alignment\Railway Track and Civil\Permanent Way\Alignment (Geometric)\Forward Left\Rail_BG_Fwd-L_CH50m, Tick 10m" />
+					</Feature>
+				</ProfAlign>
+			</Profile>
+		</Alignment>
+		<Alignment name="MW31 BTM" length="186.0745036992665" state="proposed" staStart="0">
+			<CoordGeom name="MW31 BTM" state="proposed">
+				<Line dir="0.46861016022332841" length="1.7814304732382873">
+					<Start>5880629.8547405247 327650.78033556644 0</Start>
+					<End>5880630.6593177393 327652.36972225213 0</End>
+					<Feature>
+						<Property label="style" value="Alignment\Railway Track and Civil\Permanent Way\Alignment (Geometric)\Forward Left\Rail_BG_Fwd-L_CH50m, Tick 10m" />
+					</Feature>
+				</Line>
+				<Line dir="0.47055945104903435" length="2.154102932327135">
+					<Start>5880630.6593177393 327652.36972225213 0</Start>
+					<End>5880631.6359557044 327654.28970603546 0</End>
+					<Feature>
+						<Property label="style" value="Alignment\Railway Track and Civil\Permanent Way\Alignment (Geometric)\Forward Left\Rail_BG_Fwd-L_CH50m, Tick 10m" />
+					</Feature>
+				</Line>
+				<Line dir="0.47195368776701346" length="0.65743753029612562">
+					<Start>5880631.6359557044 327654.28970603546 0</Start>
+					<End>5880631.9348447314 327654.875273671 0</End>
+					<Feature>
+						<Property label="style" value="Alignment\Railway Track and Civil\Permanent Way\Alignment (Geometric)\Forward Left\Rail_BG_Fwd-L_CH50m, Tick 10m" />
+					</Feature>
+				</Line>
+				<Line dir="0.46294366923872748" length="0.299799122084486">
+					<Start>5880631.9348447314 327654.875273671 0</Start>
+					<End>5880632.0687301811 327655.14351647138 0</End>
+					<Feature>
+						<Property label="style" value="Alignment\Railway Track and Civil\Permanent Way\Alignment (Geometric)\Forward Left\Rail_BG_Fwd-L_CH50m, Tick 10m" />
+					</Feature>
+				</Line>
+				<Line dir="0.47295112642373344" length="1.1160095455410266">
+					<Start>5880632.0687301811 327655.14351647138 0</Start>
+					<End>5880632.5770897605 327656.13701928657 0</End>
+					<Feature>
+						<Property label="style" value="Alignment\Railway Track and Civil\Permanent Way\Alignment (Geometric)\Forward Left\Rail_BG_Fwd-L_CH50m, Tick 10m" />
+					</Feature>
+				</Line>
+				<Line dir="0.47490215781549217" length="2.3636614658761008">
+					<Start>5880632.5770897605 327656.13701928657 0</Start>
+					<End>5880633.6578773567 327658.23911198124 0</End>
+					<Feature>
+						<Property label="style" value="Alignment\Railway Track and Civil\Permanent Way\Alignment (Geometric)\Forward Left\Rail_BG_Fwd-L_CH50m, Tick 10m" />
+					</Feature>
+				</Line>
+				<Line dir="0.47720945153683064" length="2.2906569862373529">
+					<Start>5880633.6578773567 327658.23911198124 0</Start>
+					<End>5880634.7099811006 327660.27385696297 0</End>
+					<Feature>
+						<Property label="style" value="Alignment\Railway Track and Civil\Permanent Way\Alignment (Geometric)\Forward Left\Rail_BG_Fwd-L_CH50m, Tick 10m" />
+					</Feature>
+				</Line>
+				<Line dir="0.47860611551257937" length="1.0115071753446077">
+					<Start>5880634.7099811006 327660.27385696297 0</Start>
+					<End>5880635.1758230012 327661.17170889367 0</End>
+					<Feature>
+						<Property label="style" value="Alignment\Railway Track and Civil\Permanent Way\Alignment (Geometric)\Forward Left\Rail_BG_Fwd-L_CH50m, Tick 10m" />
+					</Feature>
+				</Line>
+				<Line dir="0.48069725004384123" length="2.8329134309137274">
+					<Start>5880635.1758230012 327661.17170889367 0</Start>
+					<End>5880636.4857551474 327663.68357598397 0</End>
+					<Feature>
+						<Property label="style" value="Alignment\Railway Track and Civil\Permanent Way\Alignment (Geometric)\Forward Left\Rail_BG_Fwd-L_CH50m, Tick 10m" />
+					</Feature>
+				</Line>
+				<Line dir="0.48294160316427498" length="1.137626691336123">
+					<Start>5880636.4857551474 327663.68357598397 0</Start>
+					<End>5880637.0140534667 327664.69109540049 0</End>
+					<Feature>
+						<Property label="style" value="Alignment\Railway Track and Civil\Permanent Way\Alignment (Geometric)\Forward Left\Rail_BG_Fwd-L_CH50m, Tick 10m" />
+					</Feature>
+				</Line>
+				<Line dir="0.48387126807587527" length="1.6952875873179589">
+					<Start>5880637.0140534667 327664.69109540049 0</Start>
+					<End>5880637.8027173607 327666.1917650064 0</End>
+					<Feature>
+						<Property label="style" value="Alignment\Railway Track and Civil\Permanent Way\Alignment (Geometric)\Forward Left\Rail_BG_Fwd-L_CH50m, Tick 10m" />
+					</Feature>
+				</Line>
+				<Line dir="0.48604160929091705" length="2.2045004744804366">
+					<Start>5880637.8027173607 327666.1917650064 0</Start>
+					<End>5880638.8325047679 327668.14095977292 0</End>
+					<Feature>
+						<Property label="style" value="Alignment\Railway Track and Civil\Permanent Way\Alignment (Geometric)\Forward Left\Rail_BG_Fwd-L_CH50m, Tick 10m" />
+					</Feature>
+				</Line>
+				<Line dir="0.48815868141346785" length="2.0406899441713189">
+					<Start>5880638.8325047679 327668.14095977292 0</Start>
+					<End>5880639.7895892402 327669.94329291669 0</End>
+					<Feature>
+						<Property label="style" value="Alignment\Railway Track and Civil\Permanent Way\Alignment (Geometric)\Forward Left\Rail_BG_Fwd-L_CH50m, Tick 10m" />
+					</Feature>
+				</Line>
+				<Line dir="0.4896786860089305" length="1.4847817615717798">
+					<Start>5880639.7895892402 327669.94329291669 0</Start>
+					<End>5880640.4879449951 327671.2535891119 0</End>
+					<Feature>
+						<Property label="style" value="Alignment\Railway Track and Civil\Permanent Way\Alignment (Geometric)\Forward Left\Rail_BG_Fwd-L_CH50m, Tick 10m" />
+					</Feature>
+				</Line>
+				<Line dir="0.49152751270533057" length="1.7942133243649985">
+					<Start>5880640.4879449951 327671.2535891119 0</Start>
+					<End>5880641.3347654436 327672.83539080026 0</End>
+					<Feature>
+						<Property label="style" value="Alignment\Railway Track and Civil\Permanent Way\Alignment (Geometric)\Forward Left\Rail_BG_Fwd-L_CH50m, Tick 10m" />
+					</Feature>
+				</Line>
+				<Line dir="0.49326966749119494" length="1.5972636209829432">
+					<Start>5880641.3347654436 327672.83539080026 0</Start>
+					<End>5880642.0910830293 327674.24224359443 0</End>
+					<Feature>
+						<Property label="style" value="Alignment\Railway Track and Civil\Permanent Way\Alignment (Geometric)\Forward Left\Rail_BG_Fwd-L_CH50m, Tick 10m" />
+					</Feature>
+				</Line>
+				<Line dir="0.49482319801156871" length="2.2102132098285896">
+					<Start>5880642.0910830293 327674.24224359443 0</Start>
+					<End>5880643.1406603782 327676.18734765891 0</End>
+					<Feature>
+						<Property label="style" value="Alignment\Railway Track and Civil\Permanent Way\Alignment (Geometric)\Forward Left\Rail_BG_Fwd-L_CH50m, Tick 10m" />
+					</Feature>
+				</Line>
+				<Line dir="0.49707366221140115" length="1.7301672174803031">
+					<Start>5880643.1406603782 327676.18734765891 0</Start>
+					<End>5880643.9656999353 327677.70813309069 0</End>
+					<Feature>
+						<Property label="style" value="Alignment\Railway Track and Civil\Permanent Way\Alignment (Geometric)\Forward Left\Rail_BG_Fwd-L_CH50m, Tick 10m" />
+					</Feature>
+				</Line>
+				<Line dir="0.49878006938601294" length="1.7190201439652291">
+					<Start>5880643.9656999353 327677.70813309069 0</Start>
+					<End>5880644.7880011154 327679.21771946602 0</End>
+					<Feature>
+						<Property label="style" value="Alignment\Railway Track and Civil\Permanent Way\Alignment (Geometric)\Forward Left\Rail_BG_Fwd-L_CH50m, Tick 10m" />
+					</Feature>
+				</Line>
+				<Line dir="0.49996825342600726" length="1.2965755594035757">
+					<Start>5880644.7880011154 327679.21771946602 0</Start>
+					<End>5880645.4095764281 327680.35559130058 0</End>
+					<Feature>
+						<Property label="style" value="Alignment\Railway Track and Civil\Permanent Way\Alignment (Geometric)\Forward Left\Rail_BG_Fwd-L_CH50m, Tick 10m" />
+					</Feature>
+				</Line>
+				<Line dir="0.5017054265283778" length="1.5331509719560439">
+					<Start>5880645.4095764281 327680.35559130058 0</Start>
+					<End>5880646.146901683 327681.69980235968 0</End>
+					<Feature>
+						<Property label="style" value="Alignment\Railway Track and Civil\Permanent Way\Alignment (Geometric)\Forward Left\Rail_BG_Fwd-L_CH50m, Tick 10m" />
+					</Feature>
+				</Line>
+				<Line dir="0.50282306885173678" length="1.4102004135977197">
+					<Start>5880646.146901683 327681.69980235968 0</Start>
+					<End>5880646.8264788147 327682.93545608484 0</End>
+					<Feature>
+						<Property label="style" value="Alignment\Railway Track and Civil\Permanent Way\Alignment (Geometric)\Forward Left\Rail_BG_Fwd-L_CH50m, Tick 10m" />
+					</Feature>
+				</Line>
+				<Line dir="0.50465282065118222" length="1.6643319601889996">
+					<Start>5880646.8264788147 327682.93545608484 0</Start>
+					<End>5880647.6311892569 327684.39231640002 0</End>
+					<Feature>
+						<Property label="style" value="Alignment\Railway Track and Civil\Permanent Way\Alignment (Geometric)\Forward Left\Rail_BG_Fwd-L_CH50m, Tick 10m" />
+					</Feature>
+				</Line>
+				<Line dir="0.50614488933876356" length="1.9782274418620287">
+					<Start>5880647.6311892569 327684.39231640002 0</Start>
+					<End>5880648.5902519245 327686.12251367531 0</End>
+					<Feature>
+						<Property label="style" value="Alignment\Railway Track and Civil\Permanent Way\Alignment (Geometric)\Forward Left\Rail_BG_Fwd-L_CH50m, Tick 10m" />
+					</Feature>
+				</Line>
+				<Line dir="0.50848266855699631" length="2.2991440144034261">
+					<Start>5880648.5902519245 327686.12251367531 0</Start>
+					<End>5880649.7095958041 327688.13077971298 0</End>
+					<Feature>
+						<Property label="style" value="Alignment\Railway Track and Civil\Permanent Way\Alignment (Geometric)\Forward Left\Rail_BG_Fwd-L_CH50m, Tick 10m" />
+					</Feature>
+				</Line>
+				<Line dir="0.51058885646696728" length="1.8561152926892941">
+					<Start>5880649.7095958041 327688.13077971298 0</Start>
+					<End>5880650.6166627975 327689.75016028876 0</End>
+					<Feature>
+						<Property label="style" value="Alignment\Railway Track and Civil\Permanent Way\Alignment (Geometric)\Forward Left\Rail_BG_Fwd-L_CH50m, Tick 10m" />
+					</Feature>
+				</Line>
+				<Line dir="0.5119797817803986" length="1.5105829829744954">
+					<Start>5880650.6166627975 327689.75016028876 0</Start>
+					<End>5880651.3567036437 327691.06705075287 0</End>
+					<Feature>
+						<Property label="style" value="Alignment\Railway Track and Civil\Permanent Way\Alignment (Geometric)\Forward Left\Rail_BG_Fwd-L_CH50m, Tick 10m" />
+					</Feature>
+				</Line>
+				<Line dir="0.5143062276550433" length="2.8329223571789419">
+					<Start>5880651.3567036437 327691.06705075287 0</Start>
+					<End>5880652.7503058175 327693.5334898993 0</End>
+					<Feature>
+						<Property label="style" value="Alignment\Railway Track and Civil\Permanent Way\Alignment (Geometric)\Forward Left\Rail_BG_Fwd-L_CH50m, Tick 10m" />
+					</Feature>
+				</Line>
+				<Line dir="0.51654315163690689" length="1.2119666122223203">
+					<Start>5880652.7503058175 327693.5334898993 0</Start>
+					<End>5880653.3488685619 327694.58733320364 0</End>
+					<Feature>
+						<Property label="style" value="Alignment\Railway Track and Civil\Permanent Way\Alignment (Geometric)\Forward Left\Rail_BG_Fwd-L_CH50m, Tick 10m" />
+					</Feature>
+				</Line>
+				<Line dir="0.51752865966167061" length="1.6209570501654491">
+					<Start>5880653.3488685619 327694.58733320364 0</Start>
+					<End>5880654.1508110398 327695.99601699377 0</End>
+					<Feature>
+						<Property label="style" value="Alignment\Railway Track and Civil\Permanent Way\Alignment (Geometric)\Forward Left\Rail_BG_Fwd-L_CH50m, Tick 10m" />
+					</Feature>
+				</Line>
+				<Line dir="0.51936457460302576" length="1.330860017285115">
+					<Start>5880654.1508110398 327695.99601699377 0</Start>
+					<End>5880654.8113549333 327697.15138280182 0</End>
+					<Feature>
+						<Property label="style" value="Alignment\Railway Track and Civil\Permanent Way\Alignment (Geometric)\Forward Left\Rail_BG_Fwd-L_CH50m, Tick 10m" />
+					</Feature>
+				</Line>
+				<Line dir="0.52038947965129145" length="1.5020646806587752">
+					<Start>5880654.8113549333 327697.15138280182 0</Start>
+					<End>5880655.558208677 327698.45461255533 0</End>
+					<Feature>
+						<Property label="style" value="Alignment\Railway Track and Civil\Permanent Way\Alignment (Geometric)\Forward Left\Rail_BG_Fwd-L_CH50m, Tick 10m" />
+					</Feature>
+				</Line>
+				<Line dir="0.5221279790194614" length="1.4456603661921772">
+					<Start>5880655.558208677 327698.45461255533 0</Start>
+					<End>5880656.2791966731 327699.70765293931 0</End>
+					<Feature>
+						<Property label="style" value="Alignment\Railway Track and Civil\Permanent Way\Alignment (Geometric)\Forward Left\Rail_BG_Fwd-L_CH50m, Tick 10m" />
+					</Feature>
+				</Line>
+				<Line dir="0.52369525580623466" length="1.9753998675180697">
+					<Start>5880656.2791966731 327699.70765293931 0</Start>
+					<End>5880657.2670616554 327701.41830410575 0</End>
+					<Feature>
+						<Property label="style" value="Alignment\Railway Track and Civil\Permanent Way\Alignment (Geometric)\Forward Left\Rail_BG_Fwd-L_CH50m, Tick 10m" />
+					</Feature>
+				</Line>
+				<Line dir="0.52531449701801891" length="1.4352287737953784">
+					<Start>5880657.2670616554 327701.41830410575 0</Start>
+					<End>5880657.9868075317 327702.66001562891 0</End>
+					<Feature>
+						<Property label="style" value="Alignment\Railway Track and Civil\Permanent Way\Alignment (Geometric)\Forward Left\Rail_BG_Fwd-L_CH50m, Tick 10m" />
+					</Feature>
+				</Line>
+				<Line dir="0.52680275239606955" length="1.3946518713042688">
+					<Start>5880657.9868075317 327702.66001562891 0</Start>
+					<End>5880658.6879996574 327703.86557916726 0</End>
+					<Feature>
+						<Property label="style" value="Alignment\Railway Track and Civil\Permanent Way\Alignment (Geometric)\Forward Left\Rail_BG_Fwd-L_CH50m, Tick 10m" />
+					</Feature>
+				</Line>
+				<Line dir="0.52851983746696551" length="2.2478402730571974">
+					<Start>5880658.6879996574 327703.86557916726 0</Start>
+					<End>5880659.8214859124 327705.80671151791 0</End>
+					<Feature>
+						<Property label="style" value="Alignment\Railway Track and Civil\Permanent Way\Alignment (Geometric)\Forward Left\Rail_BG_Fwd-L_CH50m, Tick 10m" />
+					</Feature>
+				</Line>
+				<Line dir="0.53059157370655541" length="1.7994856847569412">
+					<Start>5880659.8214859124 327705.80671151791 0</Start>
+					<End>5880660.7321042465 327707.35878206376 0</End>
+					<Feature>
+						<Property label="style" value="Alignment\Railway Track and Civil\Permanent Way\Alignment (Geometric)\Forward Left\Rail_BG_Fwd-L_CH50m, Tick 10m" />
+					</Feature>
+				</Line>
+				<Line dir="0.53228850913355252" length="1.612485365933072">
+					<Start>5880660.7321042465 327707.35878206376 0</Start>
+					<End>5880661.5504511436 327708.7481766842 0</End>
+					<Feature>
+						<Property label="style" value="Alignment\Railway Track and Civil\Permanent Way\Alignment (Geometric)\Forward Left\Rail_BG_Fwd-L_CH50m, Tick 10m" />
+					</Feature>
+				</Line>
+				<Line dir="0.53412898435182166" length="2.2538900642329769">
+					<Start>5880661.5504511436 327708.7481766842 0</Start>
+					<End>5880662.6978875045 327710.68812777108 0</End>
+					<Feature>
+						<Property label="style" value="Alignment\Railway Track and Civil\Permanent Way\Alignment (Geometric)\Forward Left\Rail_BG_Fwd-L_CH50m, Tick 10m" />
+					</Feature>
+				</Line>
+				<Line dir="0.53630914909257532" length="2.0289769703915446">
+					<Start>5880662.6978875045 327710.68812777108 0</Start>
+					<End>5880663.7346274192 327712.43223725609 0</End>
+					<Feature>
+						<Property label="style" value="Alignment\Railway Track and Civil\Permanent Way\Alignment (Geometric)\Forward Left\Rail_BG_Fwd-L_CH50m, Tick 10m" />
+					</Feature>
+				</Line>
+				<Line dir="0.53852999660842971" length="2.4775496247056652">
+					<Start>5880663.7346274192 327712.43223725609 0</Start>
+					<End>5880665.0052996967 327714.55912326759 0</End>
+					<Feature>
+						<Property label="style" value="Alignment\Railway Track and Civil\Permanent Way\Alignment (Geometric)\Forward Left\Rail_BG_Fwd-L_CH50m, Tick 10m" />
+					</Feature>
+				</Line>
+				<Line dir="0.54075286765312713" length="1.9876321069285738">
+					<Start>5880665.0052996967 327714.55912326759 0</Start>
+					<End>5880666.0284961071 327716.26316273259 0</End>
+					<Feature>
+						<Property label="style" value="Alignment\Railway Track and Civil\Permanent Way\Alignment (Geometric)\Forward Left\Rail_BG_Fwd-L_CH50m, Tick 10m" />
+					</Feature>
+				</Line>
+				<Line dir="0.54267058597309115" length="2.0046429901495766">
+					<Start>5880666.0284961071 327716.26316273259 0</Start>
+					<End>5880667.0637433426 327717.97980383638 0</End>
+					<Feature>
+						<Property label="style" value="Alignment\Railway Track and Civil\Permanent Way\Alignment (Geometric)\Forward Left\Rail_BG_Fwd-L_CH50m, Tick 10m" />
+					</Feature>
+				</Line>
+				<Line dir="0.54415184049973098" length="0.56712817873252341">
+					<Start>5880667.0637433426 327717.97980383638 0</Start>
+					<End>5880667.3573414152 327718.46501981188 0</End>
+					<Feature>
+						<Property label="style" value="Alignment\Railway Track and Civil\Permanent Way\Alignment (Geometric)\Forward Left\Rail_BG_Fwd-L_CH50m, Tick 10m" />
+					</Feature>
+				</Line>
+				<Line dir="0.5453473391789122" length="2.2658084879383278">
+					<Start>5880667.3573414152 327718.46501981188 0</Start>
+					<End>5880668.5326504428 327720.40216637158 0</End>
+					<Feature>
+						<Property label="style" value="Alignment\Railway Track and Civil\Permanent Way\Alignment (Geometric)\Forward Left\Rail_BG_Fwd-L_CH50m, Tick 10m" />
+					</Feature>
+				</Line>
+				<Line dir="0.54754564714428999" length="2.0578020875798373">
+					<Start>5880668.5326504428 327720.40216637158 0</Start>
+					<End>5880669.6039283415 327722.15912769595 0</End>
+					<Feature>
+						<Property label="style" value="Alignment\Railway Track and Civil\Permanent Way\Alignment (Geometric)\Forward Left\Rail_BG_Fwd-L_CH50m, Tick 10m" />
+					</Feature>
+				</Line>
+				<Line dir="0.54959349401231294" length="2.0791977024159665">
+					<Start>5880669.6039283415 327722.15912769595 0</Start>
+					<End>5880670.6899777781 327723.93213635555 0</End>
+					<Feature>
+						<Property label="style" value="Alignment\Railway Track and Civil\Permanent Way\Alignment (Geometric)\Forward Left\Rail_BG_Fwd-L_CH50m, Tick 10m" />
+					</Feature>
+				</Line>
+				<Line dir="0.55165638158297425" length="2.0872252879280109">
+					<Start>5880670.6899777781 327723.93213635555 0</Start>
+					<End>5880671.7838896653 327725.70973760041 0</End>
+					<Feature>
+						<Property label="style" value="Alignment\Railway Track and Civil\Permanent Way\Alignment (Geometric)\Forward Left\Rail_BG_Fwd-L_CH50m, Tick 10m" />
+					</Feature>
+				</Line>
+				<Line dir="0.5537611601287874" length="2.2745928589221878">
+					<Start>5880671.7838896653 327725.70973760041 0</Start>
+					<End>5880672.9800753165 327727.64439843933 0</End>
+					<Feature>
+						<Property label="style" value="Alignment\Railway Track and Civil\Permanent Way\Alignment (Geometric)\Forward Left\Rail_BG_Fwd-L_CH50m, Tick 10m" />
+					</Feature>
+				</Line>
+				<Line dir="0.55568644973974102" length="1.4523582649649824">
+					<Start>5880672.9800753165 327727.64439843933 0</Start>
+					<End>5880673.7462329194 327728.8782327302 0</End>
+					<Feature>
+						<Property label="style" value="Alignment\Railway Track and Civil\Permanent Way\Alignment (Geometric)\Forward Left\Rail_BG_Fwd-L_CH50m, Tick 10m" />
+					</Feature>
+				</Line>
+				<Line dir="0.55734285264898697" length="1.9331496773101597">
+					<Start>5880673.7462329194 327728.8782327302 0</Start>
+					<End>5880674.7687396621 327730.51882641419 0</End>
+					<Feature>
+						<Property label="style" value="Alignment\Railway Track and Civil\Permanent Way\Alignment (Geometric)\Forward Left\Rail_BG_Fwd-L_CH50m, Tick 10m" />
+					</Feature>
+				</Line>
+				<Line dir="0.55904355922640492" length="1.6201372904849247">
+					<Start>5880674.7687396621 327730.51882641419 0</Start>
+					<End>5880675.628020959 327731.89231849386 0</End>
+					<Feature>
+						<Property label="style" value="Alignment\Railway Track and Civil\Permanent Way\Alignment (Geometric)\Forward Left\Rail_BG_Fwd-L_CH50m, Tick 10m" />
+					</Feature>
+				</Line>
+				<Line dir="0.56086819315069414" length="1.9461145954327679">
+					<Start>5880675.628020959 327731.89231849386 0</Start>
+					<End>5880676.6632013069 327733.54027591617 0</End>
+					<Feature>
+						<Property label="style" value="Alignment\Railway Track and Civil\Permanent Way\Alignment (Geometric)\Forward Left\Rail_BG_Fwd-L_CH50m, Tick 10m" />
+					</Feature>
+				</Line>
+				<Line dir="0.56312998971842121" length="2.6527729851155346">
+					<Start>5880676.6632013069 327733.54027591617 0</Start>
+					<End>5880678.079345677 327735.78342986398 0</End>
+					<Feature>
+						<Property label="style" value="Alignment\Railway Track and Civil\Permanent Way\Alignment (Geometric)\Forward Left\Rail_BG_Fwd-L_CH50m, Tick 10m" />
+					</Feature>
+				</Line>
+				<Line dir="0.56557549647789207" length="2.2712406071076119">
+					<Start>5880678.079345677 327735.78342986398 0</Start>
+					<End>5880679.2965075728 327737.70099363476 0</End>
+					<Feature>
+						<Property label="style" value="Alignment\Railway Track and Civil\Permanent Way\Alignment (Geometric)\Forward Left\Rail_BG_Fwd-L_CH50m, Tick 10m" />
+					</Feature>
+				</Line>
+				<Line dir="0.56778429619990911" length="2.2889496492449801">
+					<Start>5880679.2965075728 327737.70099363476 0</Start>
+					<End>5880680.527425319 327739.63079466048 0</End>
+					<Feature>
+						<Property label="style" value="Alignment\Railway Track and Civil\Permanent Way\Alignment (Geometric)\Forward Left\Rail_BG_Fwd-L_CH50m, Tick 10m" />
+					</Feature>
+				</Line>
+				<Line dir="0.56964653328156156" length="1.29600312425088">
+					<Start>5880680.527425319 327739.63079466048 0</Start>
+					<End>5880681.2264044266 327740.72214808862 0</End>
+					<Feature>
+						<Property label="style" value="Alignment\Railway Track and Civil\Permanent Way\Alignment (Geometric)\Forward Left\Rail_BG_Fwd-L_CH50m, Tick 10m" />
+					</Feature>
+				</Line>
+				<Line dir="0.57128313812466935" length="2.0752993974361789">
+					<Start>5880681.2264044266 327740.72214808862 0</Start>
+					<End>5880682.3485434642 327742.46790625324 0</End>
+					<Feature>
+						<Property label="style" value="Alignment\Railway Track and Civil\Permanent Way\Alignment (Geometric)\Forward Left\Rail_BG_Fwd-L_CH50m, Tick 10m" />
+					</Feature>
+				</Line>
+				<Line dir="0.5733935841944704" length="2.2945960575318334">
+					<Start>5880682.3485434642 327742.46790625324 0</Start>
+					<End>5880683.593329696 327744.39551573247 0</End>
+					<Feature>
+						<Property label="style" value="Alignment\Railway Track and Civil\Permanent Way\Alignment (Geometric)\Forward Left\Rail_BG_Fwd-L_CH50m, Tick 10m" />
+					</Feature>
+				</Line>
+				<Line dir="0.57563039016863737" length="2.1156308432907696">
+					<Start>5880683.593329696 327744.39551573247 0</Start>
+					<End>5880684.7450023321 327746.17021120049 0</End>
+					<Feature>
+						<Property label="style" value="Alignment\Railway Track and Civil\Permanent Way\Alignment (Geometric)\Forward Left\Rail_BG_Fwd-L_CH50m, Tick 10m" />
+					</Feature>
+				</Line>
+				<Line dir="0.57733287134007638" length="1.2500840232578956">
+					<Start>5880684.7450023321 327746.17021120049 0</Start>
+					<End>5880685.4272869872 327747.21768325963 0</End>
+					<Feature>
+						<Property label="style" value="Alignment\Railway Track and Civil\Permanent Way\Alignment (Geometric)\Forward Left\Rail_BG_Fwd-L_CH50m, Tick 10m" />
+					</Feature>
+				</Line>
+				<Line dir="0.57900289089409929" length="2.3001889956229542">
+					<Start>5880685.4272869872 327747.21768325963 0</Start>
+					<End>5880686.6859265296 327749.14296140004 0</End>
+					<Feature>
+						<Property label="style" value="Alignment\Railway Track and Civil\Permanent Way\Alignment (Geometric)\Forward Left\Rail_BG_Fwd-L_CH50m, Tick 10m" />
+					</Feature>
+				</Line>
+				<Line dir="0.58082650325527041" length="1.1961031660562293">
+					<Start>5880686.6859265296 327749.14296140004 0</Start>
+					<End>5880687.3422463844 327750.14291491499 0</End>
+					<Feature>
+						<Property label="style" value="Alignment\Railway Track and Civil\Permanent Way\Alignment (Geometric)\Forward Left\Rail_BG_Fwd-L_CH50m, Tick 10m" />
+					</Feature>
+				</Line>
+				<Line dir="0.58256090386939752" length="2.3999260659047859">
+					<Start>5880687.3422463844 327750.14291491499 0</Start>
+					<End>5880688.6625998793 327752.14698870858 0</End>
+					<Feature>
+						<Property label="style" value="Alignment\Railway Track and Civil\Permanent Way\Alignment (Geometric)\Forward Left\Rail_BG_Fwd-L_CH50m, Tick 10m" />
+					</Feature>
+				</Line>
+				<Line dir="0.58503068864244001" length="2.5943551801989022">
+					<Start>5880688.6625998793 327752.14698870858 0</Start>
+					<End>5880690.0952675845 327754.30989001179 0</End>
+					<Feature>
+						<Property label="style" value="Alignment\Railway Track and Civil\Permanent Way\Alignment (Geometric)\Forward Left\Rail_BG_Fwd-L_CH50m, Tick 10m" />
+					</Feature>
+				</Line>
+				<Line dir="0.58757616265725487" length="2.5852317463168171">
+					<Start>5880690.0952675845 327754.30989001179 0</Start>
+					<End>5880691.5283787185 327756.46154418006 0</End>
+					<Feature>
+						<Property label="style" value="Alignment\Railway Track and Civil\Permanent Way\Alignment (Geometric)\Forward Left\Rail_BG_Fwd-L_CH50m, Tick 10m" />
+					</Feature>
+				</Line>
+				<Line dir="0.58938578963429489" length="1.0118530385445625">
+					<Start>5880691.5283787185 327756.46154418006 0</Start>
+					<End>5880692.0908177821 327757.3026796456 0</End>
+					<Feature>
+						<Property label="style" value="Alignment\Railway Track and Civil\Permanent Way\Alignment (Geometric)\Forward Left\Rail_BG_Fwd-L_CH50m, Tick 10m" />
+					</Feature>
+				</Line>
+				<Line dir="0.59091049733930323" length="2.0633677646168582">
+					<Start>5880692.0908177821 327757.3026796456 0</Start>
+					<End>5880693.2403557869 327759.01616991626 0</End>
+					<Feature>
+						<Property label="style" value="Alignment\Railway Track and Civil\Permanent Way\Alignment (Geometric)\Forward Left\Rail_BG_Fwd-L_CH50m, Tick 10m" />
+					</Feature>
+				</Line>
+				<Line dir="0.59230691222227638" length="0.86106053216085454">
+					<Start>5880693.2403557869 327759.01616991626 0</Start>
+					<End>5880693.7210656023 327759.73055308615 0</End>
+					<Feature>
+						<Property label="style" value="Alignment\Railway Track and Civil\Permanent Way\Alignment (Geometric)\Forward Left\Rail_BG_Fwd-L_CH50m, Tick 10m" />
+					</Feature>
+				</Line>
+				<Line dir="0.5937626781764912" length="1.9691865934997754">
+					<Start>5880693.7210656023 327759.73055308615 0</Start>
+					<End>5880694.8227932844 327761.36269644822 0</End>
+					<Feature>
+						<Property label="style" value="Alignment\Railway Track and Civil\Permanent Way\Alignment (Geometric)\Forward Left\Rail_BG_Fwd-L_CH50m, Tick 10m" />
+					</Feature>
+				</Line>
+				<Line dir="0.5959737137817227" length="2.5644925903070463">
+					<Start>5880694.8227932844 327761.36269644822 0</Start>
+					<End>5880696.2622811049 327763.4850764944 0</End>
+					<Feature>
+						<Property label="style" value="Alignment\Railway Track and Civil\Permanent Way\Alignment (Geometric)\Forward Left\Rail_BG_Fwd-L_CH50m, Tick 10m" />
+					</Feature>
+				</Line>
+				<Line dir="0.59801574635441013" length="1.5260350863376393">
+					<Start>5880696.2622811049 327763.4850764944 0</Start>
+					<End>5880697.1214444861 327764.74627488054 0</End>
+					<Feature>
+						<Property label="style" value="Alignment\Railway Track and Civil\Permanent Way\Alignment (Geometric)\Forward Left\Rail_BG_Fwd-L_CH50m, Tick 10m" />
+					</Feature>
+				</Line>
+				<Line dir="0.59958015445119506" length="1.5700069446840637">
+					<Start>5880697.1214444861 327764.74627488054 0</Start>
+					<End>5880698.0073929839 327766.0424296034 0</End>
+					<Feature>
+						<Property label="style" value="Alignment\Railway Track and Civil\Permanent Way\Alignment (Geometric)\Forward Left\Rail_BG_Fwd-L_CH50m, Tick 10m" />
+					</Feature>
+				</Line>
+				<Line dir="0.60108580762903985" length="1.6059878413548272">
+					<Start>5880698.0073929839 327766.0424296034 0</Start>
+					<End>5880698.9156406112 327767.36692316475 0</End>
+					<Feature>
+						<Property label="style" value="Alignment\Railway Track and Civil\Permanent Way\Alignment (Geometric)\Forward Left\Rail_BG_Fwd-L_CH50m, Tick 10m" />
+					</Feature>
+				</Line>
+				<Line dir="0.60263796765707578" length="1.3736773977986523">
+					<Start>5880698.9156406112 327767.36692316475 0</Start>
+					<End>5880699.6942652948 327768.49861799786 0</End>
+					<Feature>
+						<Property label="style" value="Alignment\Railway Track and Civil\Permanent Way\Alignment (Geometric)\Forward Left\Rail_BG_Fwd-L_CH50m, Tick 10m" />
+					</Feature>
+				</Line>
+				<Line dir="0.60444637809401647" length="2.3943290702703131">
+					<Start>5880699.6942652948 327768.49861799786 0</Start>
+					<End>5880701.0549783893 327770.46871230303 0</End>
+					<Feature>
+						<Property label="style" value="Alignment\Railway Track and Civil\Permanent Way\Alignment (Geometric)\Forward Left\Rail_BG_Fwd-L_CH50m, Tick 10m" />
+					</Feature>
+				</Line>
+				<Line dir="0.6070478959083353" length="2.8233657443981168">
+					<Start>5880701.0549783893 327770.46871230303 0</Start>
+					<End>5880702.665554055 327772.78764312383 0</End>
+					<Feature>
+						<Property label="style" value="Alignment\Railway Track and Civil\Permanent Way\Alignment (Geometric)\Forward Left\Rail_BG_Fwd-L_CH50m, Tick 10m" />
+					</Feature>
+				</Line>
+				<Line dir="0.60948164630566892" length="2.1058892378964624">
+					<Start>5880702.665554055 327772.78764312383 0</Start>
+					<End>5880703.8710545879 327774.51435617107 0</End>
+					<Feature>
+						<Property label="style" value="Alignment\Railway Track and Civil\Permanent Way\Alignment (Geometric)\Forward Left\Rail_BG_Fwd-L_CH50m, Tick 10m" />
+					</Feature>
+				</Line>
+				<Line dir="0.61128022127118997" length="1.4388853512836182">
+					<Start>5880703.8710545879 327774.51435617107 0</Start>
+					<End>5880704.6968543753 327775.69267945661 0</End>
+					<Feature>
+						<Property label="style" value="Alignment\Railway Track and Civil\Permanent Way\Alignment (Geometric)\Forward Left\Rail_BG_Fwd-L_CH50m, Tick 10m" />
+					</Feature>
+				</Line>
+				<Line dir="0.61330822100437887" length="2.7251074065208942">
+					<Start>5880704.6968543753 327775.69267945661 0</Start>
+					<End>5880706.2653605156 327777.92113157973 0</End>
+					<Feature>
+						<Property label="style" value="Alignment\Railway Track and Civil\Permanent Way\Alignment (Geometric)\Forward Left\Rail_BG_Fwd-L_CH50m, Tick 10m" />
+					</Feature>
+				</Line>
+				<Line dir="0.61590611204478263" length="2.5146761996055242">
+					<Start>5880706.2653605156 327777.92113157973 0</Start>
+					<End>5880707.7180848662 327779.9737368389 0</End>
+					<Feature>
+						<Property label="style" value="Alignment\Railway Track and Civil\Permanent Way\Alignment (Geometric)\Forward Left\Rail_BG_Fwd-L_CH50m, Tick 10m" />
+					</Feature>
+				</Line>
+				<Line dir="0.61836748540357012" length="2.5091752993895384">
+					<Start>5880707.7180848662 327779.9737368389 0</Start>
+					<End>5880709.1726681357 327782.01827791089 0</End>
+					<Feature>
+						<Property label="style" value="Alignment\Railway Track and Civil\Permanent Way\Alignment (Geometric)\Forward Left\Rail_BG_Fwd-L_CH50m, Tick 10m" />
+					</Feature>
+				</Line>
+				<Line dir="0.62039817137383801" length="1.5317008747902328">
+					<Start>5880709.1726681357 327782.01827791089 0</Start>
+					<End>5880710.0631364966 327783.26454179472 0</End>
+					<Feature>
+						<Property label="style" value="Alignment\Railway Track and Civil\Permanent Way\Alignment (Geometric)\Forward Left\Rail_BG_Fwd-L_CH50m, Tick 10m" />
+					</Feature>
+				</Line>
+				<Line dir="0.62197792162944543" length="1.6198649180416957">
+					<Start>5880710.0631364966 327783.26454179472 0</Start>
+					<End>5880711.0069407653 327784.58105075976 0</End>
+					<Feature>
+						<Property label="style" value="Alignment\Railway Track and Civil\Permanent Way\Alignment (Geometric)\Forward Left\Rail_BG_Fwd-L_CH50m, Tick 10m" />
+					</Feature>
+				</Line>
+				<Line dir="0.62346651005446674" length="1.5120481209268628">
+					<Start>5880711.0069407653 327784.58105075976 0</Start>
+					<End>5880711.8897545692 327785.80862124969 0</End>
+					<Feature>
+						<Property label="style" value="Alignment\Railway Track and Civil\Permanent Way\Alignment (Geometric)\Forward Left\Rail_BG_Fwd-L_CH50m, Tick 10m" />
+					</Feature>
+				</Line>
+				<Line dir="0.62494460287283549" length="1.3183410586180171">
+					<Start>5880711.8897545692 327785.80862124969 0</Start>
+					<End>5880712.6610530997 327786.87778995652 0</End>
+					<Feature>
+						<Property label="style" value="Alignment\Railway Track and Civil\Permanent Way\Alignment (Geometric)\Forward Left\Rail_BG_Fwd-L_CH50m, Tick 10m" />
+					</Feature>
+				</Line>
+				<Line dir="0.62676524709882531" length="2.4884178278663258">
+					<Start>5880712.6610530997 327786.87778995652 0</Start>
+					<End>5880714.1205796096 327788.89323175739 0</End>
+					<Feature>
+						<Property label="style" value="Alignment\Railway Track and Civil\Permanent Way\Alignment (Geometric)\Forward Left\Rail_BG_Fwd-L_CH50m, Tick 10m" />
+					</Feature>
+				</Line>
+				<Line dir="0.62875105840462453" length="1.446061522638092">
+					<Start>5880714.1205796096 327788.89323175739 0</Start>
+					<End>5880714.9710591761 327790.06275235757 0</End>
+					<Feature>
+						<Property label="style" value="Alignment\Railway Track and Civil\Permanent Way\Alignment (Geometric)\Forward Left\Rail_BG_Fwd-L_CH50m, Tick 10m" />
+					</Feature>
+				</Line>
+				<Line dir="0.63033077219419975" length="1.7263346403874622">
+					<Start>5880714.9710591761 327790.06275235757 0</Start>
+					<End>5880715.988581527 327791.45734174375 0</End>
+					<Feature>
+						<Property label="style" value="Alignment\Railway Track and Civil\Permanent Way\Alignment (Geometric)\Forward Left\Rail_BG_Fwd-L_CH50m, Tick 10m" />
+					</Feature>
+				</Line>
+				<Line dir="0.63177520810525367" length="1.3067290032947987">
+					<Start>5880715.988581527 327791.45734174375 0</Start>
+					<End>5880716.7603072496 327792.51184641285 0</End>
+					<Feature>
+						<Property label="style" value="Alignment\Railway Track and Civil\Permanent Way\Alignment (Geometric)\Forward Left\Rail_BG_Fwd-L_CH50m, Tick 10m" />
+					</Feature>
+				</Line>
+				<Line dir="0.63324193417993524" length="1.5236959949517244">
+					<Start>5880716.7603072496 327792.51184641285 0</Start>
+					<End>5880717.6619714648 327793.7401180148 0</End>
+					<Feature>
+						<Property label="style" value="Alignment\Railway Track and Civil\Permanent Way\Alignment (Geometric)\Forward Left\Rail_BG_Fwd-L_CH50m, Tick 10m" />
+					</Feature>
+				</Line>
+				<Line dir="0.63536807580901622" length="2.8304359120241949">
+					<Start>5880717.6619714648 327793.7401180148 0</Start>
+					<End>5880719.3417610256 327796.01820372068 0</End>
+					<Feature>
+						<Property label="style" value="Alignment\Railway Track and Civil\Permanent Way\Alignment (Geometric)\Forward Left\Rail_BG_Fwd-L_CH50m, Tick 10m" />
+					</Feature>
+				</Line>
+				<Line dir="0.6375908557054164" length="1.7282306421608755">
+					<Start>5880719.3417610256 327796.01820372068 0</Start>
+					<End>5880720.3705099234 327797.4068926195 0</End>
+					<Feature>
+						<Property label="style" value="Alignment\Railway Track and Civil\Permanent Way\Alignment (Geometric)\Forward Left\Rail_BG_Fwd-L_CH50m, Tick 10m" />
+					</Feature>
+				</Line>
+				<Line dir="0.63908160344221587" length="1.1022175499983107">
+					<Start>5880720.3705099234 327797.4068926195 0</Start>
+					<End>5880721.0279370025 327798.2915807924 0</End>
+					<Feature>
+						<Property label="style" value="Alignment\Railway Track and Civil\Permanent Way\Alignment (Geometric)\Forward Left\Rail_BG_Fwd-L_CH50m, Tick 10m" />
+					</Feature>
+				</Line>
+				<Line dir="0.64076160616872024" length="2.4537937056682959">
+					<Start>5880721.0279370025 327798.2915807924 0</Start>
+					<End>5880722.4948299685 327800.25864169031 0</End>
+					<Feature>
+						<Property label="style" value="Alignment\Railway Track and Civil\Permanent Way\Alignment (Geometric)\Forward Left\Rail_BG_Fwd-L_CH50m, Tick 10m" />
+					</Feature>
+				</Line>
+				<Line dir="0.64303206061668494" length="2.0706553261031342">
+					<Start>5880722.4948299685 327800.25864169031 0</Start>
+					<End>5880723.7364460379 327801.91574851121 0</End>
+					<Feature>
+						<Property label="style" value="Alignment\Railway Track and Civil\Permanent Way\Alignment (Geometric)\Forward Left\Rail_BG_Fwd-L_CH50m, Tick 10m" />
+					</Feature>
+				</Line>
+				<Line dir="0.64481737915108639" length="1.4778162930282346">
+					<Start>5880723.7364460379 327801.91574851121 0</Start>
+					<End>5880724.6246912098 327803.09683339833 0</End>
+					<Feature>
+						<Property label="style" value="Alignment\Railway Track and Civil\Permanent Way\Alignment (Geometric)\Forward Left\Rail_BG_Fwd-L_CH50m, Tick 10m" />
+					</Feature>
+				</Line>
+				<Line dir="0.6465297144631269" length="2.0985963605977007">
+					<Start>5880724.6246912098 327803.09683339833 0</Start>
+					<End>5880725.8889279002 327804.77188930043 0</End>
+					<Feature>
+						<Property label="style" value="Alignment\Railway Track and Civil\Permanent Way\Alignment (Geometric)\Forward Left\Rail_BG_Fwd-L_CH50m, Tick 10m" />
+					</Feature>
+				</Line>
+				<Line dir="0.64903176486425884" length="2.8235468857106363">
+					<Start>5880725.8889279002 327804.77188930043 0</Start>
+					<End>5880727.5955229113 327807.02132266999 0</End>
+					<Feature>
+						<Property label="style" value="Alignment\Railway Track and Civil\Permanent Way\Alignment (Geometric)\Forward Left\Rail_BG_Fwd-L_CH50m, Tick 10m" />
+					</Feature>
+				</Line>
+				<Line dir="0.65123649133374606" length="1.5231987398359605">
+					<Start>5880727.5955229113 327807.02132266999 0</Start>
+					<End>5880728.5188407386 327808.23277576064 0</End>
+					<Feature>
+						<Property label="style" value="Alignment\Railway Track and Civil\Permanent Way\Alignment (Geometric)\Forward Left\Rail_BG_Fwd-L_CH50m, Tick 10m" />
+					</Feature>
+				</Line>
+			</CoordGeom>
+			<Profile>
+				<ProfAlign name="CL_BG">
+					<PVI>0 204.88479492995882</PVI>
+					<PVI>4.5929709358615494 204.93966071044505</PVI>
+					<PVI>4.8927700579460343 204.94521343150572</PVI>
+					<PVI>8.3724410693631626 204.98886130033304</PVI>
+					<PVI>11.674605230945126 205.03187089519466</PVI>
+					<PVI>15.645145353194978 205.08573157694869</PVI>
+					<PVI>19.54493341499516 205.14099054814952</PVI>
+					<PVI>23.070405120738258 205.19272247037787</PVI>
+					<PVI>26.461882066086204 205.24414151032138</PVI>
+					<PVI>32.121282637360324 205.33391455950064</PVI>
+					<PVI>34.951009168719949 205.38056137942851</PVI>
+					<PVI>40.003768984368705 205.46690939323329</PVI>
+					<PVI>42.302912998772129 205.50743005907816</PVI>
+					<PVI>45.669611274437052 205.56802803353807</PVI>
+					<PVI>48.502533631615989 205.62035109297918</PVI>
+					<PVI>51.335457294003767 205.67384995350005</PVI>
+					<PVI>55.614042358139848 205.75674235656268</PVI>
+					<PVI>184.55130495943621 208.2841190030469</PVI>
+					<PVI>186.0745036992721 208.31336794399601</PVI>
+					<Feature code="ProfAlign">
+						<Property label="style" value="Alignment\Railway Track and Civil\Permanent Way\Alignment (Geometric)\Forward Left\Rail_BG_Fwd-L_CH50m, Tick 10m" />
+					</Feature>
+				</ProfAlign>
+			</Profile>
+		</Alignment>
+	</Alignments>
+</LandXML>

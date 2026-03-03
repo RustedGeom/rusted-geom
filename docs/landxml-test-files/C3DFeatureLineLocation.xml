@@ -1,0 +1,245 @@
+<?xml version="1.0"?>
+<LandXML xmlns="http://www.landxml.org/schema/LandXML-1.2" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.landxml.org/schema/LandXML-1.2 http://www.landxml.org/schema/LandXML-1.2/LandXML-1.2.xsd" date="2025-11-07" time="11:46:57" version="1.2" language="English" readOnly="false">
+	<Units>
+		<Metric areaUnit="squareMeter" linearUnit="meter" volumeUnit="cubicMeter" temperatureUnit="celsius" pressureUnit="milliBars" diameterUnit="millimeter" angularUnit="decimal degrees" directionUnit="decimal degrees"></Metric>
+	</Units>
+	<Project name="C:\Users\christian.pallaria\AppData\Roaming\Autodesk\C3D 2023\enu\Template\_Autodesk Civil 3D (Metric) NCS.dwt"></Project>
+	<Application name="Autodesk Civil 3D" desc="Civil 3D" manufacturer="Autodesk, Inc." version="2023" manufacturerURL="www.autodesk.com/civil" timeStamp="2025-11-07T11:46:57"></Application>
+	<PlanFeatures name="Siteless FeatureLines">
+		<PlanFeature name="FL_2">
+			<CoordGeom>
+				<Line>
+					<Start>5932098.157559514046 372140.200633328408 178.308300114078</Start>
+					<End>5932085.405586751178 372130.656654528342 178.494394673441</End>
+				</Line>
+				<Curve radius="7.999529690328">
+					<Start>5932085.405586751178 372130.656654528342 178.494394673441</Start>
+					<Center>5932078.220133522525 372129.427412218938 179.020985819528</Center>
+					<End>5932078.118715722114 372129.459931113757 179.029673184256</End>
+				</Curve>
+				<Curve radius="8.000002212628">
+					<Start>5932078.118715722114 372129.459931113757 179.029673184256</Start>
+					<Center>5932078.019585303031 372129.493164870248 179.038201423577</Center>
+					<End>5932077.920897675678 372129.527691307943 179.046729662898</End>
+				</Curve>
+				<Curve radius="290.773689880639">
+					<Start>5932077.920897675678 372129.527691307943 179.046729662898</Start>
+					<Center>5931962.339255109429 372133.415779554693 181.43350535179</Center>
+					<End>5931932.65807007812 372126.81343657244 183.918521937932</End>
+				</Curve>
+				<Curve radius="168.307412696865">
+					<Start>5931932.65807007812 372126.81343657244 183.918521937932</Start>
+					<Center>5931921.064434529282 372125.346673728665 179.106712332156</Center>
+					<End>5931920.608449544758 372125.305633118376 178.878421793945</End>
+				</Curve>
+				<Line>
+					<Start>5931920.608449544758 372125.305633118376 178.878421793945</Start>
+					<End>5931919.69178279303 372125.273743084166 178.868991172838</End>
+				</Line>
+				<Line>
+					<Start>5931919.69178279303 372125.273743084166 178.868991172838</Start>
+					<End>5931918.781460158527 372125.247147849295 178.862565131958</End>
+				</Line>
+				<Line>
+					<Start>5931918.781460158527 372125.247147849295 178.862565131958</Start>
+					<End>5931917.871260948479 372125.225627981592 178.859941963339</End>
+				</Line>
+				<Line>
+					<Start>5931917.871260948479 372125.225627981592 178.859941963339</Start>
+					<End>5931916.961213450879 372125.209181288257 178.888513389497</End>
+				</Line>
+				<Line>
+					<Start>5931916.961213450879 372125.209181288257 178.888513389497</Start>
+					<End>5931916.051345929503 372125.197805417702 178.91119630989</End>
+				</Line>
+				<Line>
+					<Start>5931916.051345929503 372125.197805417702 178.91119630989</Start>
+					<End>5931915.141686633229 372125.191497861873 178.934072561896</End>
+				</Line>
+				<Line>
+					<Start>5931915.141686633229 372125.191497861873 178.934072561896</Start>
+					<End>5931914.232263788581 372125.190255955327 178.948281723577</End>
+				</Line>
+				<Line>
+					<Start>5931914.232263788581 372125.190255955327 178.948281723577</Start>
+					<End>5931912.515730474144 372125.201714382973 178.964473817808</End>
+				</Line>
+				<Line>
+					<Start>5931912.515730474144 372125.201714382973 178.964473817808</Start>
+					<End>5931911.504070704803 372125.216929103248 179.408940621819</End>
+				</Line>
+				<Line>
+					<Start>5931911.504070704803 372125.216929103248 179.408940621819</Start>
+					<End>5931910.597500551492 372125.235886016861 179.956762691521</End>
+				</Line>
+				<Line>
+					<Start>5931910.597500551492 372125.235886016861 179.956762691521</Start>
+					<End>5931909.689682472497 372125.259926881175 180.486517465295</End>
+				</Line>
+				<Line>
+					<Start>5931909.689682472497 372125.259926881175 180.486517465295</Start>
+					<End>5931908.782269667834 372125.289014107548 181.014120266934</End>
+				</Line>
+				<Line>
+					<Start>5931908.782269667834 372125.289014107548 181.014120266934</Start>
+					<End>5931907.875290188938 372125.323143935762 181.541847387754</End>
+				</Line>
+				<Line>
+					<Start>5931907.875290188938 372125.323143935762 181.541847387754</Start>
+					<End>5931906.968772031367 372125.362312448211 182.06968233252</End>
+				</Line>
+				<Line>
+					<Start>5931906.968772031367 372125.362312448211 182.06968233252</Start>
+					<End>5931906.057682953775 372125.406762449536 182.597813413421</End>
+				</Line>
+				<Line>
+					<Start>5931906.057682953775 372125.406762449536 182.597813413421</Start>
+					<End>5931904.944354932755 372125.45473588258 182.968680311343</End>
+				</Line>
+				<Curve radius="163.050000583525">
+					<Start>5931904.944354932755 372125.45473588258 182.968680311343</Start>
+					<Center>5931836.115005496889 372141.245574202447 177.984788526428</Center>
+					<End>5931834.551055938005 372141.999355908949 178.008871754877</End>
+				</Curve>
+			</CoordGeom>
+			<Location desc="FeatureLine Elevation Point">5932094.154932174832 372137.204940726049 178.340851689275</Location>
+			<Location desc="FeatureLine Elevation Point">5932093.136105284095 372136.442418532446 178.358235594524</Location>
+			<Location desc="FeatureLine Elevation Point">5932092.447150934488 372135.926783357281 178.367861550549</Location>
+			<Location desc="FeatureLine Elevation Point">5932092.02547364682 372135.611186769325 178.367646765966</Location>
+			<Location desc="FeatureLine Elevation Point">5932089.954580070451 372134.061264670454 178.406573021946</Location>
+			<Location desc="FeatureLine Elevation Point">5932089.483713516966 372133.708853283897 178.420980501563</Location>
+			<Location desc="FeatureLine Elevation Point">5932087.62387704663 372132.316892982926 178.448860921803</Location>
+			<Location desc="FeatureLine Elevation Point">5932085.468801612034 372130.703966524918 178.493145382814</Location>
+			<Location desc="FeatureLine Elevation Point">5932085.400833427906 372130.653099741787 178.494596202429</Location>
+			<Location desc="FeatureLine Elevation Point">5932085.391982808709 372130.646495413501 178.49541857394</Location>
+			<Location desc="FeatureLine Elevation Point">5932084.974716208875 372130.355739263818 178.528925301471</Location>
+			<Location desc="FeatureLine Elevation Point">5932084.525017935783 372130.08376337029 178.561495875212</Location>
+			<Location desc="FeatureLine Elevation Point">5932083.99159700051 372129.810373396147 178.595814681426</Location>
+			<Location desc="FeatureLine Elevation Point">5932083.160396136343 372129.478217245545 178.676180860782</Location>
+			<Location desc="FeatureLine Elevation Point">5932083.082719698548 372129.452555073425 178.675425647872</Location>
+			<Location desc="FeatureLine Elevation Point">5932082.47535167262 372129.281499605626 178.670830590803</Location>
+			<Location desc="FeatureLine Elevation Point">5932081.592903330922 372129.121834364254 178.743654201124</Location>
+			<Location desc="FeatureLine Elevation Point">5932081.544733971357 372129.116031629033 178.747074097609</Location>
+			<Location desc="FeatureLine Elevation Point">5932081.021040342748 372129.071936218068 178.787173423508</Location>
+			<Location desc="FeatureLine Elevation Point">5932080.49558153376 372129.06232058024 178.83014781614</Location>
+			<Location desc="FeatureLine Elevation Point">5932079.970625219867 372129.087226213422 178.875811814548</Location>
+			<Location desc="FeatureLine Elevation Point">5932079.362026751041 372129.15973154828 178.932356415086</Location>
+			<Location desc="FeatureLine Elevation Point">5932079.083923343569 372129.208771386649 178.948199864359</Location>
+			<Location desc="FeatureLine Elevation Point">5932078.931270174682 372129.240022843238 178.959724574524</Location>
+			<Location desc="FeatureLine Elevation Point">5932078.321975249797 372129.396246348042 179.012298454799</Location>
+			<Location desc="FeatureLine Elevation Point">5932074.956453505903 372130.217383693904 179.152543628372</Location>
+			<Location desc="FeatureLine Elevation Point">5932074.366813061759 372130.350672914647 179.17564507323</Location>
+			<Location desc="FeatureLine Elevation Point">5932072.354288846254 372130.795920937322 179.253070090396</Location>
+			<Location desc="FeatureLine Elevation Point">5932070.770004123449 372131.13592002634 179.302961192491</Location>
+			<Location desc="FeatureLine Elevation Point">5932067.229068616405 372131.862550414633 179.395573668747</Location>
+			<Location desc="FeatureLine Elevation Point">5932063.646532319486 372132.551208327524 179.534927707839</Location>
+			<Location desc="FeatureLine Elevation Point">5932062.178137212992 372132.820034612902 179.418737139204</Location>
+			<Location desc="FeatureLine Elevation Point">5932060.055638061836 372133.194865460508 179.144816850726</Location>
+			<Location desc="FeatureLine Elevation Point">5932058.975326700136 372133.379425090738 179.018759330142</Location>
+			<Location desc="FeatureLine Elevation Point">5932056.456951091066 372133.793420494534 178.653151953971</Location>
+			<Location desc="FeatureLine Elevation Point">5932055.883352553472 372133.884543390945 178.575088392304</Location>
+			<Location desc="FeatureLine Elevation Point">5932053.995895892382 372134.176106174942 178.448920463485</Location>
+			<Location desc="FeatureLine Elevation Point">5932052.851037865505 372134.346779212821 178.25119478195</Location>
+			<Location desc="FeatureLine Elevation Point">5932052.0764312502 372134.459615390748 178.127820131117</Location>
+			<Location desc="FeatureLine Elevation Point">5932049.238465990871 372134.854854511563 178.318637567281</Location>
+			<Location desc="FeatureLine Elevation Point">5932045.619804114103 372135.317566415295 178.545254891363</Location>
+			<Location desc="FeatureLine Elevation Point">5932041.995621856302 372135.734842088073 178.761066807879</Location>
+			<Location desc="FeatureLine Elevation Point">5932041.395217552781 372135.799526106566 178.807698760652</Location>
+			<Location desc="FeatureLine Elevation Point">5932038.904729686677 372136.054382327478 178.896428814908</Location>
+			<Location desc="FeatureLine Elevation Point">5932038.284116819501 372136.114520585164 178.974789160006</Location>
+			<Location desc="FeatureLine Elevation Point">5932034.732978854328 372136.432829174679 178.986009573443</Location>
+			<Location desc="FeatureLine Elevation Point">5932032.340737115592 372136.622545888647 178.99290523922</Location>
+			<Location desc="FeatureLine Elevation Point">5932031.095661323518 372136.713430718519 178.99775979378</Location>
+			<Location desc="FeatureLine Elevation Point">5932030.025844432414 372136.787231670227 179.001619715263</Location>
+			<Location desc="FeatureLine Elevation Point">5932027.45510962978 372136.948376310524 179.029644094027</Location>
+			<Location desc="FeatureLine Elevation Point">5932023.127857865766 372137.168054137379 179.076700185467</Location>
+			<Location desc="FeatureLine Elevation Point">5932020.166596405208 372137.281158902217 179.104872978633</Location>
+			<Location desc="FeatureLine Elevation Point">5932017.755424896255 372137.350939793978 179.127882840782</Location>
+			<Location desc="FeatureLine Elevation Point">5932012.872028103098 372137.430967426859 179.091442298209</Location>
+			<Location desc="FeatureLine Elevation Point">5932012.242139380425 372137.435316630173 179.086676786998</Location>
+			<Location desc="FeatureLine Elevation Point">5932009.22390846163 372137.43722243607 179.073766594816</Location>
+			<Location desc="FeatureLine Elevation Point">5932008.066382531077 372137.42964161979 179.068448696952</Location>
+			<Location desc="FeatureLine Elevation Point">5932004.749640773982 372137.382396602537 179.006556583846</Location>
+			<Location desc="FeatureLine Elevation Point">5932001.928869329393 372137.312429026701 178.976405649265</Location>
+			<Location desc="FeatureLine Elevation Point">5932000.688202988356 372137.2729802127 178.96334362281</Location>
+			<Location desc="FeatureLine Elevation Point">5931998.283098146319 372137.181400251109 178.951782232022</Location>
+			<Location desc="FeatureLine Elevation Point">5931995.66782800667 372137.059179164004 178.939393005164</Location>
+			<Location desc="FeatureLine Elevation Point">5931993.92391725257 372136.964558090549 178.939588909766</Location>
+			<Location desc="FeatureLine Elevation Point">5931992.547627819702 372136.882463266607 178.948488765647</Location>
+			<Location desc="FeatureLine Elevation Point">5931931.686773350462 372126.659032782074 183.949771521413</Location>
+			<Location desc="FeatureLine Elevation Point">5931929.310174077749 372126.305706405081 184.057847863103</Location>
+			<Location desc="FeatureLine Elevation Point">5931929.058507971466 372126.270319437608 184.42894027287</Location>
+			<Location desc="FeatureLine Elevation Point">5931928.883339960128 372126.245917605236 184.436495548923</Location>
+			<Location desc="FeatureLine Elevation Point">5931928.294772734866 372126.165300742723 184.467411135531</Location>
+			<Location desc="FeatureLine Elevation Point">5931928.046243272722 372126.131894558668 184.481820070497</Location>
+			<Location desc="FeatureLine Elevation Point">5931928.036249760538 372126.130559159908 184.485071751805</Location>
+			<Location desc="FeatureLine Elevation Point">5931927.983846887946 372126.123566718772 184.442173994292</Location>
+			<Location desc="FeatureLine Elevation Point">5931927.770498845726 372126.095271283295 179.011514526908</Location>
+			<Location desc="FeatureLine Elevation Point">5931927.766142634675 372126.094696429558 179.01052372391</Location>
+			<Location desc="FeatureLine Elevation Point">5931926.954481452703 372125.989606043324 179.010966275779</Location>
+			<Location desc="FeatureLine Elevation Point">5931926.634798172861 372125.949315788224 179.09077082241</Location>
+			<Location desc="FeatureLine Elevation Point">5931925.372443702072 372125.796287386212 179.382344941092</Location>
+			<Location desc="FeatureLine Elevation Point">5931924.477753188461 372125.693682624027 179.485482994307</Location>
+			<Location desc="FeatureLine Elevation Point">5931923.56758695282 372125.59427524684 179.509178208554</Location>
+			<Location desc="FeatureLine Elevation Point">5931922.037628654391 372125.438450380694 179.449413254729</Location>
+			<Location desc="FeatureLine Elevation Point">5931921.520306188613 372125.38895455189 179.335002870368</Location>
+			<Location desc="FeatureLine Elevation Point">5931920.33554343693 372125.296138953418 178.882109781287</Location>
+			<Location desc="FeatureLine Elevation Point">5931917.234049741179 372125.214112080168 178.854387034636</Location>
+			<Location desc="FeatureLine Elevation Point">5931917.002334967256 372125.20992445061 178.886904669177</Location>
+			<Location desc="FeatureLine Elevation Point">5931903.176571935415 372125.47711389279 183.861337936341</Location>
+			<Location desc="FeatureLine Elevation Point">5931901.472712175921 372125.516831193119 183.870524206888</Location>
+			<Location desc="FeatureLine Elevation Point">5931900.526147443801 372125.546597679611 183.873818959493</Location>
+			<Location desc="FeatureLine Elevation Point">5931900.300775911659 372125.55449616164 183.871593186765</Location>
+			<Location desc="FeatureLine Elevation Point">5931900.19050783664 372125.558474379592 183.864869438269</Location>
+			<Location desc="FeatureLine Elevation Point">5931899.803617730737 372125.573023529723 183.901333694236</Location>
+			<Location desc="FeatureLine Elevation Point">5931898.003178950399 372125.652837889269 184.0113190363</Location>
+			<Location desc="FeatureLine Elevation Point">5931896.311227453873 372125.746030587237 184.096306109649</Location>
+			<Location desc="FeatureLine Elevation Point">5931894.537328563631 372125.862694293261 184.161692369007</Location>
+			<Location desc="FeatureLine Elevation Point">5931893.431581199169 372125.945251947735 184.170992301021</Location>
+			<Location desc="FeatureLine Elevation Point">5931893.161198306829 372125.966590365395 184.16280329173</Location>
+			<Location desc="FeatureLine Elevation Point">5931893.012226879597 372125.978540472221 184.139122302301</Location>
+			<Location desc="FeatureLine Elevation Point">5931892.676415719092 372126.005982532632 184.255230308482</Location>
+			<Location desc="FeatureLine Elevation Point">5931892.663689397275 372126.007036251016 184.255752645424</Location>
+			<Location desc="FeatureLine Elevation Point">5931892.323275920004 372126.035594430752 184.267541573856</Location>
+			<Location desc="FeatureLine Elevation Point">5931892.276125498116 372126.03960663965 184.268135953366</Location>
+			<Location desc="FeatureLine Elevation Point">5931892.260103289038 372126.040973168332 184.271863673019</Location>
+			<Location desc="FeatureLine Elevation Point">5931891.033866681159 372126.150283921976 184.539960751916</Location>
+			<Location desc="FeatureLine Elevation Point">5931889.353081405163 372126.315296899527 184.25695930888</Location>
+			<Location desc="FeatureLine Elevation Point">5931889.027929138392 372126.349249653984 184.093298807424</Location>
+			<Location desc="FeatureLine Elevation Point">5931887.622960824519 372126.503542108461 183.400286630219</Location>
+			<Location desc="FeatureLine Elevation Point">5931884.177579067647 372126.934242902324 181.667019303532</Location>
+			<Location desc="FeatureLine Elevation Point">5931883.705722918734 372126.999040552415 181.425154878449</Location>
+			<Location desc="FeatureLine Elevation Point">5931881.755391683429 372127.281796527561 180.450788796459</Location>
+			<Location desc="FeatureLine Elevation Point">5931880.742149915546 372127.438212300651 180.246282305501</Location>
+			<Location desc="FeatureLine Elevation Point">5931877.318231295794 372128.01522175828 179.523552643251</Location>
+			<Location desc="FeatureLine Elevation Point">5931873.907375924289 372128.665009607561 178.864609983171</Location>
+			<Location desc="FeatureLine Elevation Point">5931871.27261339128 372129.218755381182 178.830806286134</Location>
+			<Location desc="FeatureLine Elevation Point">5931869.468856696039 372129.624155845959 178.943605790025</Location>
+			<Location desc="FeatureLine Elevation Point">5931867.131035443395 372130.181708923075 178.816045514442</Location>
+			<Location desc="FeatureLine Elevation Point">5931865.893099559471 372130.491750822403 178.745556451689</Location>
+			<Location desc="FeatureLine Elevation Point">5931865.202657274902 372130.669154978823 178.537342907635</Location>
+			<Location desc="FeatureLine Elevation Point">5931863.768623333424 372131.04793258151 178.47937555266</Location>
+			<Location desc="FeatureLine Elevation Point">5931863.313093617558 372131.171179953963 178.45200657401</Location>
+			<Location desc="FeatureLine Elevation Point">5931862.739369295537 372131.328421905171 178.44139295068</Location>
+			<Location desc="FeatureLine Elevation Point">5931860.425419077277 372131.985559328925 178.387192147229</Location>
+			<Location desc="FeatureLine Elevation Point">5931859.915172955021 372132.135443308856 178.374553158549</Location>
+			<Location desc="FeatureLine Elevation Point">5931857.102938780561 372132.994163961615 178.219943592506</Location>
+			<Location desc="FeatureLine Elevation Point">5931853.802689157426 372134.073289086577 178.138057548165</Location>
+			<Location desc="FeatureLine Elevation Point">5931853.018051106483 372134.341358960606 178.10059916562</Location>
+			<Location desc="FeatureLine Elevation Point">5931851.843743940815 372134.750912424643 178.079034460626</Location>
+			<Location desc="FeatureLine Elevation Point">5931850.17385179922 372135.350698164199 178.021125997546</Location>
+			<Location desc="FeatureLine Elevation Point">5931848.187622444704 372136.090999440756 178.010070850889</Location>
+			<Location desc="FeatureLine Elevation Point">5931847.274857677519 372136.44111157069 178.017945459212</Location>
+			<Location desc="FeatureLine Elevation Point">5931845.011986728758 372137.336351980455 178.032105444221</Location>
+			<Location desc="FeatureLine Elevation Point">5931844.169196777046 372137.67981286766 178.040893922625</Location>
+			<Location desc="FeatureLine Elevation Point">5931844.050236128271 372137.728735146113 178.037523850053</Location>
+			<Location desc="FeatureLine Elevation Point">5931843.154049314559 372138.100825753063 178.010583578208</Location>
+			<Location desc="FeatureLine Elevation Point">5931840.853764511645 372139.084732137155 177.989975145726</Location>
+			<Location desc="FeatureLine Elevation Point">5931837.686892401427 372140.508487610146 177.960705297978</Location>
+			<Feature code="FeatureLine" source="Autodesk Civil 3D">
+				<Property label="layer" value="0"></Property>
+			</Feature>
+		</PlanFeature>
+		<Feature code="FeatureLines" source="Autodesk Civil 3D"></Feature>
+	</PlanFeatures>
+</LandXML>

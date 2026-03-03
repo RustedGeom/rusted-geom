@@ -16,12 +16,12 @@ This roadmap is curve-complete and conversion-complete now, with architecture de
    1. Periodic parameter normalization before evaluation.
    2. Robust span location with knot-edge tolerance handling.
    3. Derivative-based differential properties (`D1`,`D2`) for normal/curvature logic.
-3. Keep the current API philosophy but replace placeholder math in `/Users/cesarecaoduro/GitHub/rusted-geom/crates/kernel-ffi/src/lib.rs`.
+3. Keep the current API philosophy but replace placeholder math in `/Users/cesarecaoduro/GitHub/rusted-geom/crates/kernel/src/lib.rs`.
 
 ## Public API and Type Additions (Decision-Complete)
 
 ### New FFI Types
-Add to `/Users/cesarecaoduro/GitHub/rusted-geom/crates/kernel-ffi/src/lib.rs` and generated headers:
+Add to `/Users/cesarecaoduro/GitHub/rusted-geom/crates/kernel/src/lib.rs` and generated headers:
 ```c
 typedef struct RgmLine3 {
   RgmPoint3 start;
@@ -81,7 +81,7 @@ Each non-NURBS primitive stores:
 4. Optional cached concatenated single NURBS for `toNurbs`.
 
 ## Core Evaluator Design (Reusable for Surfaces Later)
-Create internal modules under `/Users/cesarecaoduro/GitHub/rusted-geom/crates/kernel-ffi/src/`:
+Create internal modules under `/Users/cesarecaoduro/GitHub/rusted-geom/crates/kernel/src/`:
 1. `math/basis.rs` for A2.x routines.
 2. `math/nurbs_curve_eval.rs` for homogeneous de Boor + derivative evaluation.
 3. `math/arc_length.rs` for integration/inversion.
@@ -214,7 +214,7 @@ Expose one canonical function:
 4. Implement `toNurbs` concatenation path.
 
 ### Phase 5: ABI/Bindings/Tooling Updates
-1. Update metadata annotations in `/Users/cesarecaoduro/GitHub/rusted-geom/crates/kernel-ffi/src/lib.rs`.
+1. Update metadata annotations in `/Users/cesarecaoduro/GitHub/rusted-geom/crates/kernel/src/lib.rs`.
 2. Regenerate:
    1. `/Users/cesarecaoduro/GitHub/rusted-geom/bindings/web/src/generated/*`
 3. Update ABI baseline at `/Users/cesarecaoduro/GitHub/rusted-geom/abi/baseline/rgm_abi.json`.

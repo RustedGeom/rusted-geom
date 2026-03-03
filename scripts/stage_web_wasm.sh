@@ -12,13 +12,13 @@ repo_root="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$repo_root"
 
 wasm-pack build --target web --release \
-  --out-dir "$repo_root/crates/kernel-ffi/pkg" \
-  "$repo_root/crates/kernel-ffi"
+  --out-dir "$repo_root/crates/kernel/pkg" \
+  "$repo_root/crates/kernel"
 
 # Stage the WASM binary for showcase public assets.
 mkdir -p "$repo_root/showcase/public/wasm"
-cp "$repo_root/crates/kernel-ffi/pkg/rusted_geom_bg.wasm" \
+cp "$repo_root/crates/kernel/pkg/rusted_geom_bg.wasm" \
    "$repo_root/showcase/public/wasm/rusted_geom.wasm"
 
 echo "Staged wasm to showcase/public/wasm/rusted_geom.wasm"
-echo "Bindings pkg available at crates/kernel-ffi/pkg/"
+echo "Bindings pkg available at crates/kernel/pkg/"

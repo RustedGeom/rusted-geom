@@ -1,0 +1,24 @@
+<?xml version="1.0"?>
+<LandXML xmlns="http://www.landxml.org/schema/LandXML-1.2" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.landxml.org/schema/LandXML-1.2 http://www.landxml.org/schema/LandXML-1.2/LandXML-1.2.xsd" version="1.2" date="2025-01-20" time="10:00:00" readOnly="false" language="English">
+  <Application name="Autodesk Civil 3D" manufacturer="Autodesk" manufacturerURL="www.autodesk.com" version="2024">
+    <Author createdBy="Test Author" createdByEmail="test@test.com"/>
+  </Application>
+  <Project name="Coordinate Test Project" desc="Simple test for coordinate system flipping"/>
+  <Units>
+    <Metric linearUnit="meter" areaUnit="squareMeter" volumeUnit="cubicMeter" temperatureUnit="celsius" pressureUnit="HPA"/>
+  </Units>
+  <PlanFeatures name="Test FeatureLines">
+    <PlanFeature name="Test Feature Line">
+      <CoordGeom>
+        <Line>
+          <Start>100.0 200.0 0.0</Start>
+          <End>300.0 400.0 5.0</End>
+        </Line>
+        <Line>
+          <Start>300.0 400.0 5.0</Start>
+          <End>500.0 600.0 10.0</End>
+        </Line>
+      </CoordGeom>
+    </PlanFeature>
+  </PlanFeatures>
+</LandXML>

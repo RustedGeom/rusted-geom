@@ -23,7 +23,7 @@ jobs:
         run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
 
       - name: Rust tests
-        run: cargo test -p kernel-ffi
+        run: cargo test -p kernel
 
       - name: Modularity guard
         run: ./scripts/check_modularity.sh
@@ -34,7 +34,7 @@ jobs:
           node-version: '20'
 
       - name: Build WASM for tests
-        run: wasm-pack build --target web --release --out-dir crates/kernel-ffi/pkg crates/kernel-ffi
+        run: wasm-pack build --target web --release --out-dir pkg crates/kernel
 
       - name: Web smoke typecheck
         run: |
@@ -46,3 +46,31 @@ jobs:
 
       - name: Web package smoke build
         run: npm --prefix ./bindings/web run build
+
+  benchmark-smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Build benchmark targets
+        run: cargo bench -p kernel --no-run
+
+      - name: Run bounds smoke benchmark
+        run: cargo bench -p kernel --bench bounds_bench -- --noplot --sample-size 10 --warm-up-time 0.1 --measurement-time 0.2
+
+      - name: Run curve smoke benchmark
+        run: cargo bench -p kernel --bench curve_bench -- --noplot --sample-size 10 --warm-up-time 0.1 --measurement-time 0.2
+
+      - name: Check benchmark thresholds
+        run: python3 ./scripts/check_benchmark_thresholds.py
+
+      - name: Upload benchmark artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: criterion-smoke
+          path: target/criterion

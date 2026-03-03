@@ -7,6 +7,7 @@ import {
   type CurveHandle,
   type FaceHandle,
   type IntersectionHandle,
+  type LandXmlDocHandle,
   type MeshHandle,
   type SurfaceHandle,
 } from "@rusted-geom/bindings-web";
@@ -42,6 +43,7 @@ import { parseExampleSelection } from "@/lib/examples";
 import { useTheme } from "@/lib/use-theme";
 import { useKeyboardShortcuts } from "@/lib/use-keyboard-shortcut";
 import type {
+  CameraMode,
   CameraSnapshot,
   ExampleKey,
   GizmoMode,
@@ -51,11 +53,15 @@ import type {
   MeshVisual,
   OverlayCurveVisual,
   ProbeUiState,
+  SceneUpAxis,
   SegmentOverlayVisual,
   SurfaceProbeUiState,
   TransformTarget,
   ViewerPerformance,
+  ViewPresetName,
 } from "@/lib/viewer-types";
+import { LANDXML_FILE_LIST, type LandXmlExampleKey, type LandXmlAlignmentInfo, type LandXmlProbeUiState } from "@/lib/viewer-types";
+import type { Bounds3 } from "@rusted-geom/bindings-web";
 import { ViewerToolbar } from "./viewer/toolbar/ViewerToolbar";
 import { InspectorPanel } from "./viewer/inspector/InspectorPanel";
 import { KernelConsole } from "./viewer/console/KernelConsole";
@@ -686,7 +692,8 @@ function shouldShowProbeForExample(example: ExampleKey): boolean {
     example !== "brepSolidFaceSurgery" &&
     example !== "brepFaceBridgeRoundtrip" &&
     example !== "brepNativeRoundtrip" &&
-    example !== "bboxBrepSolidLifecycle"
+    example !== "bboxBrepSolidLifecycle" &&
+    example !== "landxmlViewer"
   );
 }
 
@@ -847,8 +854,6 @@ function planeVisualSize(points: RgmPoint3[]): number {
 }
 
 // ── Bounds3 (new flat API) helpers ────────────────────────────────────────────
-
-import type { Bounds3 } from "@rusted-geom/bindings-web";
 
 function aabbExtentsFromBounds3(bounds: Bounds3): RgmVec3 {
   return {
@@ -1039,29 +1044,448 @@ function boundsOverlaySegments(bounds: Bounds3): SegmentOverlayVisual[] {
   ];
 }
 
-function fitViewToPoints(
-  camera: THREE.PerspectiveCamera,
+function boundsToBox3(b: Bounds3): THREE.Box3 {
+  return new THREE.Box3(
+    new THREE.Vector3(b.aabb_min_x, b.aabb_min_y, b.aabb_min_z),
+    new THREE.Vector3(b.aabb_max_x, b.aabb_max_y, b.aabb_max_z),
+  );
+}
+
+function computeSceneBounds(
+  session: KernelSession,
+  handles: Array<{ objectId: number }>,
+): THREE.Box3 {
+  const union = new THREE.Box3();
+  for (const { objectId } of handles) {
+    try {
+      const b = session.compute_bounds(objectId, 0, 0, 0);
+      union.union(boundsToBox3(b));
+    } catch {
+      // handle may have been freed
+    }
+  }
+  return union;
+}
+
+/**
+ * After changing camera.up, OrbitControls' internal quaternion (computed once
+ * at construction) becomes stale.  This syncs it to the current camera.up so
+ * spherical-coordinate math inside controls.update() uses the right frame.
+ */
+function syncControlsUpAxis(
   controls: OrbitControls,
-  points: RgmPoint3[],
+  camera: THREE.Camera,
 ): void {
-  if (points.length === 0) {
-    return;
+  const c = controls as unknown as {
+    _quat: THREE.Quaternion;
+    _quatInverse: THREE.Quaternion;
+  };
+  c._quat.setFromUnitVectors(camera.up, new THREE.Vector3(0, 1, 0));
+  c._quatInverse.copy(c._quat).invert();
+}
+
+function zoomToFit(
+  camera: THREE.PerspectiveCamera | THREE.OrthographicCamera,
+  controls: OrbitControls,
+  box: THREE.Box3,
+  fog?: THREE.Fog | null,
+): void {
+  const center = box.getCenter(new THREE.Vector3());
+  const size = box.getSize(new THREE.Vector3());
+  const maxDim = Math.max(size.x, size.y, size.z);
+  if (maxDim < 1e-10) return;
+
+  const dir = new THREE.Vector3().subVectors(camera.position, controls.target);
+  if (dir.lengthSq() < 1e-10) dir.set(1, 0.55, 1);
+  dir.normalize();
+
+  const sphere = box.getBoundingSphere(new THREE.Sphere());
+
+  if (camera instanceof THREE.PerspectiveCamera) {
+    const fovRad = THREE.MathUtils.degToRad(camera.fov);
+    const aspect = camera.aspect;
+    const fitH = maxDim / (2 * Math.tan(fovRad / 2));
+    const fitW = maxDim / (2 * Math.tan(fovRad / 2) * aspect);
+    const distance = Math.max(fitH, fitW) * 1.15;
+    camera.position.copy(center).addScaledVector(dir, distance);
+    camera.near = Math.max(0.001, distance - sphere.radius);
+    camera.far = distance + sphere.radius * 2;
+  } else {
+    const aspect = (camera.right - camera.left) / (camera.top - camera.bottom) || 1;
+    const halfH = maxDim * 0.575;
+    const halfW = halfH * aspect;
+    camera.left = -halfW;
+    camera.right = halfW;
+    camera.top = halfH;
+    camera.bottom = -halfH;
+    camera.near = 0.001;
+    camera.far = sphere.radius * 4;
+    camera.position.copy(center).addScaledVector(dir, sphere.radius * 2);
+  }
+  camera.updateProjectionMatrix();
+  controls.target.copy(center);
+
+  if (fog) {
+    const r = sphere.radius;
+    fog.near = r > 5000 ? 1e9 : Math.max(34, r * 0.5);
+    fog.far = r > 5000 ? 1e9 : Math.max(138, r * 3.5);
+  }
+  controls.update();
+}
+
+function getViewPresets(upAxis: SceneUpAxis) {
+  if (upAxis === "z") {
+    return {
+      top: { dir: new THREE.Vector3(0, 0, -1), up: new THREE.Vector3(0, 1, 0) },
+      bottom: { dir: new THREE.Vector3(0, 0, 1), up: new THREE.Vector3(0, -1, 0) },
+      front: { dir: new THREE.Vector3(0, -1, 0), up: new THREE.Vector3(0, 0, 1) },
+      back: { dir: new THREE.Vector3(0, 1, 0), up: new THREE.Vector3(0, 0, 1) },
+      left: { dir: new THREE.Vector3(1, 0, 0), up: new THREE.Vector3(0, 0, 1) },
+      right: { dir: new THREE.Vector3(-1, 0, 0), up: new THREE.Vector3(0, 0, 1) },
+    };
+  }
+  return {
+    top: { dir: new THREE.Vector3(0, -1, 0), up: new THREE.Vector3(0, 0, -1) },
+    bottom: { dir: new THREE.Vector3(0, 1, 0), up: new THREE.Vector3(0, 0, 1) },
+    front: { dir: new THREE.Vector3(0, 0, -1), up: new THREE.Vector3(0, 1, 0) },
+    back: { dir: new THREE.Vector3(0, 0, 1), up: new THREE.Vector3(0, 1, 0) },
+    left: { dir: new THREE.Vector3(1, 0, 0), up: new THREE.Vector3(0, 1, 0) },
+    right: { dir: new THREE.Vector3(-1, 0, 0), up: new THREE.Vector3(0, 1, 0) },
+  };
+}
+
+function isAsyncExample(key: ExampleKey): key is LandXmlExampleKey {
+  return key === "landxmlViewer";
+}
+
+interface LandXmlStats {
+  surfCount: number;
+  alignCount: number;
+  vertCount: number;
+  featureLineCount: number;
+  breaklineCount: number;
+  unit: string;
+  warnCount: number;
+  parseMs: number;
+}
+
+const HORIZ_COLORS: Record<number, string> = { 0: "#2d7bff", 1: "#ff3b30", 2: "#20d66b" };
+const HORIZ_LABELS: Record<number, string> = { 0: "Line", 1: "Arc", 2: "Spiral" };
+const RESULTANT_3D_COLOR = "#ffef00";
+const PLAN_LINEAR_COLORS: Record<number, string> = { 0: "#9ec4ff", 1: "#ffb454" };
+const PLAN_LINEAR_LABELS: Record<number, string> = { 0: "FeatureLine", 1: "Breakline" };
+interface LandXmlCurveData {
+  horizCurves: OverlayCurveVisual[];
+  raw3dCurves: OverlayCurveVisual[];
+}
+
+interface LandXmlContext {
+  docHandle: LandXmlDocHandle;
+  centroidX: number;
+  centroidY: number;
+  centroidZ: number;
+  alignments: LandXmlAlignmentInfo[];
+}
+
+function applyDatumAndExaggeration(
+  data: LandXmlCurveData,
+  datumOffset: number,
+  vertExag: number,
+): OverlayCurveVisual[] {
+  const transformed3d = data.raw3dCurves.map((c) => ({
+    ...c,
+    points: c.points.map((p) => ({
+      x: p.x,
+      y: p.y,
+      z: (p.z - datumOffset) * vertExag,
+    })),
+  }));
+  return [...data.horizCurves, ...transformed3d];
+}
+
+async function buildLandXmlExample(
+  session: KernelSession,
+  filename: string,
+  signal: AbortSignal,
+): Promise<{
+  built: BuiltExample;
+  stats: LandXmlStats;
+  curveData: LandXmlCurveData;
+  zRange: { min: number; max: number };
+  defaultDatum: number;
+  context: LandXmlContext;
+}> {
+  const t0 = performance.now();
+  const response = await fetch("/landxml/" + filename, { signal });
+  if (!response.ok) throw new Error(`Failed to fetch ${filename}: ${response.status}`);
+  const xmlText = await response.text();
+  if (signal.aborted) throw new DOMException("Aborted", "AbortError");
+
+  const doc = session.landxml_parse(xmlText, 1, 0, 0);
+  const parseMs = performance.now() - t0;
+
+  const surfCount = session.landxml_surface_count(doc);
+  const alignCount = session.landxml_alignment_count(doc);
+  const warnCount = session.landxml_warning_count(doc);
+  const unit = session.landxml_linear_unit(doc);
+
+  let centroidX = 0;
+  let centroidY = 0;
+  let centroidZ = 0;
+  let totalVertCount = 0;
+
+  if (surfCount > 0) {
+    const rawVerts = session.landxml_surface_copy_vertices(doc, 0);
+    const nv = rawVerts.length / 3;
+    for (let i = 0; i < rawVerts.length; i += 3) {
+      centroidX += rawVerts[i];
+      centroidY += rawVerts[i + 1];
+      centroidZ += rawVerts[i + 2];
+    }
+    if (nv > 0) {
+      centroidX /= nv;
+      centroidY /= nv;
+      centroidZ /= nv;
+    }
+    totalVertCount += nv;
+  } else if (alignCount > 0) {
+    let ptCount = 0;
+    for (let a = 0; a < alignCount; a++) {
+      const packed = session.landxml_sample_horiz_2d_segments(doc, a);
+      const segCount = packed[0];
+      let idx = 1;
+      for (let s = 0; s < segCount; s++) {
+        idx++; // skip seg type
+        const n = packed[idx++];
+        for (let j = 0; j < n; j++) {
+          centroidX += packed[idx];
+          centroidY += packed[idx + 1];
+          idx += 3;
+          ptCount++;
+        }
+      }
+    }
+    if (ptCount > 0) {
+      centroidX /= ptCount;
+      centroidY /= ptCount;
+    }
   }
 
-  const bounds = new THREE.Box3();
-  points.forEach((point) => {
-    bounds.expandByPoint(new THREE.Vector3(point.x, point.y, point.z));
-  });
+  let meshVisual: MeshVisual | null = null;
+  const overlayMeshes: MeshVisual[] = [];
 
-  const sphere = bounds.getBoundingSphere(new THREE.Sphere());
-  const distance = Math.max(4, sphere.radius * 2.8);
-  camera.position.set(
-    sphere.center.x + distance,
-    sphere.center.y + distance * 0.55,
-    sphere.center.z + distance,
-  );
-  controls.target.copy(sphere.center);
-  controls.update();
+  for (let si = 0; si < surfCount; si++) {
+    const rawV = session.landxml_surface_copy_vertices(doc, si);
+    const rawI = session.landxml_surface_copy_indices(doc, si);
+    const name = session.landxml_surface_name(doc, si);
+
+    const verts: RgmPoint3[] = [];
+    for (let i = 0; i < rawV.length; i += 3) {
+      verts.push({
+        x: rawV[i] - centroidX,
+        y: rawV[i + 1] - centroidY,
+        z: rawV[i + 2] - centroidZ,
+      });
+    }
+    totalVertCount += verts.length;
+
+    const mv: MeshVisual = {
+      vertices: verts,
+      indices: Array.from(rawI),
+      color: si === 0 ? "#8cb4d0" : "#a0c8a0",
+      opacity: 0.85,
+      wireframe: false,
+      name,
+    };
+    if (si === 0) {
+      meshVisual = mv;
+    } else {
+      overlayMeshes.push(mv);
+    }
+  }
+
+  const horizCurves: OverlayCurveVisual[] = [];
+  const raw3dCurves: OverlayCurveVisual[] = [];
+  const debugLogs: string[] = [];
+  let zMin = Infinity;
+  let zMax = -Infinity;
+
+  if (alignCount > 0) {
+    for (let a = 0; a < alignCount; a++) {
+      const aName = session.landxml_alignment_name(doc, a);
+
+      const packed2d = session.landxml_sample_horiz_2d_segments(doc, a);
+      const segCount = packed2d[0];
+      let idx = 1;
+      for (let s = 0; s < segCount; s++) {
+        const segType = packed2d[idx++];
+        const nPts = packed2d[idx++];
+        const pts: RgmPoint3[] = [];
+        for (let j = 0; j < nPts; j++) {
+          pts.push({
+            x: packed2d[idx] - centroidX,
+            y: packed2d[idx + 1] - centroidY,
+            z: 0,
+          });
+          idx += 3;
+        }
+        if (pts.length >= 2) {
+          horizCurves.push({
+            points: pts,
+            color: HORIZ_COLORS[segType] ?? "#cccccc",
+            width: 3,
+            opacity: 1.0,
+            name: `${aName} — ${HORIZ_LABELS[segType] ?? "?"} #${s + 1}`,
+          });
+        }
+      }
+
+      const profCount = session.landxml_alignment_profile_count(doc, a);
+      if (profCount === 0) {
+        debugLogs.push(`${aName}: no profiles found`);
+      }
+      for (let p = 0; p < profCount; p++) {
+        try {
+          const profName = session.landxml_alignment_profile_name(doc, a, p);
+          const packed3d = session.landxml_sample_alignment_3d(doc, a, p, 500);
+          const nPts3d = packed3d[0];
+          const pts3d: RgmPoint3[] = [];
+          for (let j = 0; j < nPts3d; j++) {
+            const z = packed3d[1 + j * 3 + 2] - centroidZ;
+            pts3d.push({
+              x: packed3d[1 + j * 3] - centroidX,
+              y: packed3d[1 + j * 3 + 1] - centroidY,
+              z,
+            });
+            if (z < zMin) zMin = z;
+            if (z > zMax) zMax = z;
+          }
+          if (pts3d.length >= 2) {
+            raw3dCurves.push({
+              points: pts3d,
+              color: RESULTANT_3D_COLOR,
+              width: 2,
+              opacity: 1.0,
+              name: `${aName} — 3D [${profName}]`,
+            });
+            debugLogs.push(`${aName} / ${profName}: ${nPts3d} pts, Z range [${zMin.toFixed(1)}, ${zMax.toFixed(1)}]`);
+          } else {
+            debugLogs.push(`${aName} / ${profName}: 3D sampling returned ${nPts3d} pts — skipped`);
+          }
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : String(err);
+          debugLogs.push(`${aName} profile ${p}: 3D eval failed — ${msg}`);
+        }
+      }
+    }
+  }
+
+  const planLinearCount = session.landxml_plan_linear_count(doc);
+  let featureLineCount = 0;
+  let breaklineCount = 0;
+  for (let i = 0; i < planLinearCount; i++) {
+    const name = session.landxml_plan_linear_name(doc, i);
+    const kind = session.landxml_plan_linear_kind(doc, i);
+    const rawPts = session.landxml_plan_linear_copy_points(doc, i);
+    const pts: RgmPoint3[] = [];
+    for (let j = 0; j < rawPts.length; j += 3) {
+      pts.push({
+        x: rawPts[j] - centroidX,
+        y: rawPts[j + 1] - centroidY,
+        z: rawPts[j + 2] - centroidZ,
+      });
+    }
+    if (pts.length >= 2) {
+      horizCurves.push({
+        points: pts,
+        color: PLAN_LINEAR_COLORS[kind] ?? "#cccccc",
+        width: kind === 1 ? 2 : 1.5,
+        opacity: kind === 1 ? 0.88 : 0.74,
+        name: `${PLAN_LINEAR_LABELS[kind] ?? "?"}: ${name}`,
+      });
+    }
+    if (kind === 1) breaklineCount++;
+    else featureLineCount++;
+  }
+
+  const alignmentInfos: LandXmlAlignmentInfo[] = [];
+  for (let a = 0; a < alignCount; a++) {
+    const aName = session.landxml_alignment_name(doc, a);
+    const profCount = session.landxml_alignment_profile_count(doc, a);
+    const profNames: string[] = [];
+    for (let p = 0; p < profCount; p++) {
+      profNames.push(session.landxml_alignment_profile_name(doc, a, p));
+    }
+    const staInfo = session.landxml_alignment_station_range(doc, a);
+    alignmentInfos.push({
+      index: a,
+      name: aName,
+      profileCount: profCount,
+      profileNames: profNames,
+      staStart: staInfo[0],
+      staEnd: staInfo[1],
+    });
+  }
+
+  const curveData: LandXmlCurveData = { horizCurves, raw3dCurves };
+  const defaultDatum = 0;
+  const overlayCurves = applyDatumAndExaggeration(curveData, defaultDatum, 1);
+
+  const context: LandXmlContext = {
+    docHandle: doc,
+    centroidX,
+    centroidY,
+    centroidZ,
+    alignments: alignmentInfos,
+  };
+
+  const logs = [
+    `LandXML parsed in ${parseMs.toFixed(1)}ms`,
+    `Surfaces: ${surfCount}, Alignments: ${alignCount}, Vertices: ${totalVertCount}`,
+    `FeatureLines: ${featureLineCount}, Breaklines: ${breaklineCount}`,
+    `Units: ${unit}, Warnings: ${warnCount}`,
+    ...debugLogs,
+  ];
+
+  const built: BuiltExample = {
+    kind: "mesh",
+    curveHandle: null,
+    ownedHandles: [],
+    name: filename,
+    degreeLabel: `LandXML 1.2`,
+    renderDegree: 0,
+    renderSamples: 0,
+    meshVisual,
+    overlayMeshes,
+    overlayCurves,
+    segmentOverlays: [],
+    intersectionPoints: [],
+    planeVisual: null,
+    interactiveMeshHandle: null,
+    transformTargets: [],
+    defaultTransformTargetKey: null,
+    intersectionMs: 0,
+    boundsMs: 0,
+    logs,
+  };
+
+  return {
+    built,
+    stats: {
+      surfCount,
+      alignCount,
+      vertCount: totalVertCount,
+      featureLineCount,
+      breaklineCount,
+      unit,
+      warnCount,
+      parseMs,
+    },
+    curveData,
+    zRange: { min: isFinite(zMin) ? zMin : 0, max: isFinite(zMax) ? zMax : 0 },
+    defaultDatum,
+    context,
+  };
 }
 
 export function KernelViewer() {
@@ -1075,8 +1499,12 @@ export function KernelViewer() {
 
   const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
   const sceneRef = useRef<THREE.Scene | null>(null);
-  const cameraRef = useRef<THREE.PerspectiveCamera | null>(null);
+  const perspCameraRef = useRef<THREE.PerspectiveCamera | null>(null);
+  const orthoCameraRef = useRef<THREE.OrthographicCamera | null>(null);
+  const cameraRef = useRef<THREE.PerspectiveCamera | THREE.OrthographicCamera | null>(null);
   const controlsRef = useRef<OrbitControls | null>(null);
+  const activeHandlesRef = useRef<Array<{ objectId: number }>>([]);
+  const meshToHandleMap = useRef(new WeakMap<THREE.Object3D, { objectId: number }>());
   const lineRef = useRef<Line2 | null>(null);
   const overlayLineRefs = useRef<Line2[]>([]);
   const segmentOverlayRefs = useRef<LineSegments2[]>([]);
@@ -1112,10 +1540,10 @@ export function KernelViewer() {
   const intersectionMarkerRefs = useRef<
     THREE.Mesh<THREE.SphereGeometry, THREE.MeshStandardMaterial>[]
   >([]);
-  const planeMeshRef = useRef<THREE.Mesh<THREE.PlaneGeometry, THREE.MeshStandardMaterial> | null>(
+  const planeMeshRef = useRef<THREE.Mesh<THREE.BufferGeometry, THREE.MeshStandardMaterial> | null>(
     null,
   );
-  const planeWireRef = useRef<THREE.LineSegments<THREE.EdgesGeometry, THREE.LineBasicMaterial> | null>(
+  const planeWireRef = useRef<THREE.LineSegments<THREE.BufferGeometry, THREE.LineBasicMaterial> | null>(
     null,
   );
   const planeNormalRef = useRef<THREE.ArrowHelper | null>(null);
@@ -1166,6 +1594,11 @@ export function KernelViewer() {
   const [showGrid, setShowGrid] = useState(true);
   const [showAxes, setShowAxes] = useState(false);
   const [orbitEnabled, setOrbitEnabled] = useState(true);
+  const [cameraMode, setCameraMode] = useState<CameraMode>("perspective");
+  const cameraModeRef = useRef<CameraMode>("perspective");
+  const [sceneUpAxis, setSceneUpAxis] = useState<SceneUpAxis>("y");
+  const [followCamera, setFollowCamera] = useState(false);
+  const followCameraRef = useRef(false);
   const [probeUiState, setProbeUiState] = useState<ProbeUiState>({
     tNorm: 0.35,
     x: 0,
@@ -1192,6 +1625,27 @@ export function KernelViewer() {
   const [kernelStatus, setKernelStatus] = useState<KernelStatus>("booting");
   const [isExampleBrowserOpen, setIsExampleBrowserOpen] = useState(false);
   const [consoleFilter, setConsoleFilter] = useState<LogLevel | "all">("all");
+  const [activeLandXmlFile, setActiveLandXmlFile] = useState<string>("12DExample.xml");
+  const [landXmlStats, setLandXmlStats] = useState<LandXmlStats | null>(null);
+  const [landXmlDatumOffset, setLandXmlDatumOffset] = useState(0);
+  const [landXmlVertExag, setLandXmlVertExag] = useState(1);
+  const [landXmlZRange, setLandXmlZRange] = useState<{ min: number; max: number }>({ min: 0, max: 0 });
+  const landXmlCurveDataRef = useRef<LandXmlCurveData | null>(null);
+  const landXmlContextRef = useRef<LandXmlContext | null>(null);
+  const [landXmlAlignments, setLandXmlAlignments] = useState<LandXmlAlignmentInfo[]>([]);
+  const [landXmlProbeAlignIdx, setLandXmlProbeAlignIdx] = useState(0);
+  const [landXmlProbeProfileIdx, setLandXmlProbeProfileIdx] = useState(0);
+  const [landXmlProbeUiState, setLandXmlProbeUiState] = useState<LandXmlProbeUiState>({
+    station: 0,
+    stationNorm: 0.5,
+    alignmentIndex: 0,
+    profileIndex: 0,
+    alignmentPoint: { x: 0, y: 0, z: 0 },
+    profilePoint: { x: 0, y: 0, z: 0 },
+    tangent: { x: 1, y: 0, z: 0 },
+    grade: 0,
+  });
+  const pendingAsyncExampleRef = useRef<AbortController | null>(null);
 
   const { isDarkMode, toggleDarkMode } = useTheme();
   const isDarkModeRef = useRef(isDarkMode);
@@ -3434,6 +3888,10 @@ export function KernelViewer() {
       curveHandleRef.current = built.curveHandle;
       ownedCurveHandlesRef.current = built.ownedHandles;
       surfaceProbeHandleRef.current = example === "surfaceUvEval" ? (built.surfaceProbeHandle ?? null) : null;
+
+      activeHandlesRef.current = built.ownedHandles
+        .filter(h => typeof h.object_id === "function")
+        .map(h => ({ objectId: h.object_id() }));
       surfaceProbeD1ScaleRef.current = built.surfaceProbeD1Scale ?? 0.2;
       surfaceProbeD2ScaleRef.current = built.surfaceProbeD2Scale ?? 0.1;
 
@@ -3454,6 +3912,7 @@ export function KernelViewer() {
         probePointRef.current = evaluatedProbe;
         if (probeRef.current) {
           probeRef.current.position.set(evaluatedProbe.x, evaluatedProbe.y, evaluatedProbe.z);
+          probeRef.current.scale.setScalar(1);
           probeRef.current.visible = shouldShowProbeForExample(example);
         }
         setProbeUiState({
@@ -3484,6 +3943,13 @@ export function KernelViewer() {
         nurbsPresetRef.current = nurbsPresetOverride;
         setPreset(nurbsPresetOverride);
       }
+
+      if (cameraRef.current) cameraRef.current.up.set(0, 1, 0);
+      if (gridRef.current) gridRef.current.rotation.x = 0;
+      setSceneUpAxis("y");
+      landXmlCurveDataRef.current = null;
+      landXmlContextRef.current = null;
+      setLandXmlAlignments([]);
 
       setActiveExample(example);
       setActiveCurveName(built.name);
@@ -3553,6 +4019,15 @@ export function KernelViewer() {
           if (!camera || !controls) {
             return;
           }
+          const session = sessionRef.current;
+          const fog = sceneRef.current?.fog as THREE.Fog | null;
+          if (session && activeHandlesRef.current.length > 0) {
+            const box = computeSceneBounds(session, activeHandlesRef.current);
+            if (!box.isEmpty()) {
+              zoomToFit(camera, controls, box, fog);
+              return;
+            }
+          }
           const points =
             curveSamples.length > 0
               ? curveSamples
@@ -3560,7 +4035,11 @@ export function KernelViewer() {
                   ...(built.meshVisual?.vertices ?? []),
                   ...built.overlayMeshes.flatMap((visual) => visual.vertices),
                 ];
-          fitViewToPoints(camera, controls, points);
+          if (points.length > 0) {
+            const box = new THREE.Box3();
+            for (const p of points) box.expandByPoint(new THREE.Vector3(p.x, p.y, p.z));
+            zoomToFit(camera, controls, box, fog);
+          }
         });
       }
       appendLog(
@@ -3570,6 +4049,148 @@ export function KernelViewer() {
     },
     [appendLog, buildExampleCurve, releaseOwnedCurveHandles],
   );
+
+  const updateLandXmlFile = useCallback(
+    async (filename: string): Promise<void> => {
+      const session = sessionRef.current;
+      if (!session) return;
+
+      if (pendingAsyncExampleRef.current) {
+        pendingAsyncExampleRef.current.abort();
+      }
+      const controller = new AbortController();
+      pendingAsyncExampleRef.current = controller;
+
+      setKernelStatus("computing");
+      appendLog("info", `Loading LandXML: ${filename}`);
+      releaseOwnedCurveHandles();
+
+      try {
+        const { built, stats, curveData, zRange, defaultDatum, context } = await buildLandXmlExample(session, filename, controller.signal);
+        if (controller.signal.aborted) return;
+
+        for (const line of built.logs) {
+          appendLog("debug", line);
+        }
+
+        landXmlCurveDataRef.current = curveData;
+        landXmlContextRef.current = context;
+        setLandXmlZRange(zRange);
+        setLandXmlDatumOffset(defaultDatum);
+        setLandXmlVertExag(1);
+        setLandXmlAlignments(context.alignments);
+
+        const defaultAlign = 0;
+        const defaultProf = 0;
+        setLandXmlProbeAlignIdx(defaultAlign);
+        setLandXmlProbeProfileIdx(defaultProf);
+
+        setActiveExample("landxmlViewer");
+        setActiveCurveName(built.name);
+        setActiveDegreeLabel(built.degreeLabel);
+        setActiveRenderDegree(built.renderDegree);
+        setSampledPoints([]);
+        setMeshVisual(built.meshVisual);
+        setOverlayMeshes(built.overlayMeshes);
+        setOverlayCurves(built.overlayCurves);
+        setSegmentOverlays([]);
+        setIntersectionPoints([]);
+        setIntersectionPlane(null);
+        setLandXmlStats(stats);
+        setPerfStats({ loadMs: stats.parseMs, intersectionMs: 0, boundsMs: 0 });
+
+        totalLengthRef.current = 0;
+        probePointRef.current = null;
+        if (probeRef.current) probeRef.current.visible = false;
+
+        setKernelStatus("ready");
+        setStatusMessage(
+          `Loaded ${filename} — Surfaces: ${stats.surfCount} · Alignments: ${stats.alignCount} · Features: ${stats.featureLineCount + stats.breaklineCount} · Vertices: ${stats.vertCount.toLocaleString()} · ${stats.parseMs.toFixed(1)}ms`,
+        );
+
+        window.requestAnimationFrame(() => {
+          const camera = cameraRef.current;
+          const controls = controlsRef.current;
+          const scene = sceneRef.current;
+          if (!camera || !controls) return;
+
+          camera.up.set(0, 0, 1);
+          syncControlsUpAxis(controls, camera);
+          setSceneUpAxis("z");
+
+          const grid = gridRef.current;
+          if (grid) {
+            grid.rotation.x = Math.PI / 2;
+          }
+
+          const fog = scene?.fog instanceof THREE.Fog ? scene.fog : null;
+
+          // For LandXML, frame the alignment curves (not the terrain mesh).
+          // The terrain can be vastly larger and distorts the view ratio.
+          const curvePts: THREE.Vector3[] = [];
+          for (const c of built.overlayCurves) {
+            for (const v of c.points) {
+              curvePts.push(new THREE.Vector3(v.x, v.y, v.z));
+            }
+          }
+
+          if (curvePts.length > 0) {
+            const box = new THREE.Box3();
+            for (const p of curvePts) box.expandByPoint(p);
+            zoomToFit(camera, controls, box, fog);
+          } else {
+            // Pure surface case (no alignments) -- use mesh vertices
+            const allPts: THREE.Vector3[] = [];
+            if (built.meshVisual) {
+              for (const v of built.meshVisual.vertices) {
+                allPts.push(new THREE.Vector3(v.x, v.y, v.z));
+              }
+            }
+            for (const m of built.overlayMeshes) {
+              for (const v of m.vertices) {
+                allPts.push(new THREE.Vector3(v.x, v.y, v.z));
+              }
+            }
+            if (allPts.length > 0) {
+              const box = new THREE.Box3();
+              for (const p of allPts) box.expandByPoint(p);
+              zoomToFit(camera, controls, box, fog);
+            }
+          }
+        });
+      } catch (err) {
+        if (err instanceof DOMException && err.name === "AbortError") return;
+        const msg = err instanceof Error ? err.message : String(err);
+        setErrorMessage(msg);
+        setKernelStatus("error");
+        appendLog("error", `LandXML load failed: ${msg}`);
+      } finally {
+        if (pendingAsyncExampleRef.current === controller) {
+          pendingAsyncExampleRef.current = null;
+        }
+      }
+    },
+    [appendLog, releaseOwnedCurveHandles],
+  );
+
+  useEffect(() => {
+    const data = landXmlCurveDataRef.current;
+    if (!data || activeExample !== "landxmlViewer") return;
+    setOverlayCurves(applyDatumAndExaggeration(data, landXmlDatumOffset, landXmlVertExag));
+  }, [landXmlDatumOffset, landXmlVertExag, activeExample]);
+
+  useEffect(() => {
+    if (activeExample !== "landxmlViewer") return;
+    const ctx = landXmlContextRef.current;
+    if (!ctx || ctx.alignments.length === 0) return;
+    if (ctx.alignments[landXmlProbeAlignIdx]?.profileCount === 0) return;
+    updateLandXmlProbe(
+      landXmlProbeUiState.stationNorm,
+      landXmlProbeAlignIdx,
+      landXmlProbeProfileIdx,
+      false,
+    );
+  }, [landXmlDatumOffset, landXmlVertExag, landXmlAlignments]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const loadDefaultPreset = useCallback(async (): Promise<CurvePreset> => {
     const response = await fetch("/showcases/default.json");
@@ -3592,26 +4213,49 @@ export function KernelViewer() {
       position: toPoint3(camera.position),
       target: toPoint3(controls.target),
       up: toPoint3(camera.up),
-      fov: camera.fov,
+      fov: camera instanceof THREE.PerspectiveCamera ? camera.fov : 46,
+      mode: cameraModeRef.current,
     };
   }, []);
 
   const zoomExtents = useCallback((): void => {
     const camera = cameraRef.current;
     const controls = controlsRef.current;
-    if (!camera || !controls) {
+    const session = sessionRef.current;
+    const scene = sceneRef.current;
+    if (!camera || !controls) return;
+
+    const fog = scene?.fog as THREE.Fog | null;
+
+    if (session && activeHandlesRef.current.length > 0) {
+      const box = computeSceneBounds(session, activeHandlesRef.current);
+      if (!box.isEmpty()) {
+        zoomToFit(camera, controls, box, fog);
+        return;
+      }
+    }
+
+    // For LandXML, prefer overlay curves (alignments) over terrain mesh
+    const curvePoints = overlayCurves.flatMap((c) => c.points);
+    if (activeExample === "landxmlViewer" && curvePoints.length > 0) {
+      const box = new THREE.Box3();
+      for (const p of curvePoints) box.expandByPoint(new THREE.Vector3(p.x, p.y, p.z));
+      zoomToFit(camera, controls, box, fog);
       return;
     }
 
-    const allPoints =
-      sampledPoints.length > 0
-        ? sampledPoints
-        : [
-            ...(meshVisual?.vertices ?? []),
-            ...overlayMeshes.flatMap((visual) => visual.vertices),
-          ];
-    fitViewToPoints(camera, controls, allPoints);
-  }, [meshVisual, overlayMeshes, sampledPoints]);
+    const allPoints = sampledPoints.length > 0
+      ? sampledPoints
+      : [
+          ...(meshVisual?.vertices ?? []),
+          ...overlayMeshes.flatMap((visual) => visual.vertices),
+          ...curvePoints,
+        ];
+    if (allPoints.length === 0) return;
+    const box = new THREE.Box3();
+    for (const p of allPoints) box.expandByPoint(new THREE.Vector3(p.x, p.y, p.z));
+    zoomToFit(camera, controls, box, fog);
+  }, [activeExample, meshVisual, overlayMeshes, overlayCurves, sampledPoints]);
 
   const resetCamera = useCallback((): void => {
     const camera = cameraRef.current;
@@ -3623,8 +4267,103 @@ export function KernelViewer() {
     camera.position.copy(DEFAULT_CAMERA_POSITION);
     controls.target.copy(DEFAULT_CAMERA_TARGET);
     camera.up.set(0, 1, 0);
+    syncControlsUpAxis(controls, camera);
+    if (gridRef.current) gridRef.current.rotation.x = 0;
     controls.update();
   }, []);
+
+  const toggleCameraMode = useCallback((): void => {
+    const persp = perspCameraRef.current;
+    const ortho = orthoCameraRef.current;
+    const controls = controlsRef.current;
+    if (!persp || !ortho || !controls) return;
+
+    const nextMode: CameraMode = cameraModeRef.current === "perspective" ? "orthographic" : "perspective";
+    cameraModeRef.current = nextMode;
+    setCameraMode(nextMode);
+
+    if (nextMode === "orthographic") {
+      const dist = persp.position.distanceTo(controls.target);
+      const halfH = dist * Math.tan(THREE.MathUtils.degToRad(persp.fov / 2));
+      const halfW = halfH * persp.aspect;
+      ortho.left = -halfW;
+      ortho.right = halfW;
+      ortho.top = halfH;
+      ortho.bottom = -halfH;
+      ortho.near = 0.001;
+      ortho.far = dist * 10;
+      ortho.position.copy(persp.position);
+      ortho.quaternion.copy(persp.quaternion);
+      ortho.up.copy(persp.up);
+      ortho.updateProjectionMatrix();
+      cameraRef.current = ortho;
+      (controls as unknown as { object: THREE.Camera }).object = ortho;
+      syncControlsUpAxis(controls, ortho);
+    } else {
+      persp.position.copy(ortho.position);
+      persp.quaternion.copy(ortho.quaternion);
+      persp.up.copy(ortho.up);
+
+      // Sync near/far from the current ortho setup so the scene doesn't clip
+      const dist = ortho.position.distanceTo(controls.target);
+      persp.near = Math.max(0.001, dist * 0.01);
+      persp.far = Math.max(1200, dist * 10);
+      persp.updateProjectionMatrix();
+      cameraRef.current = persp;
+      (controls as unknown as { object: THREE.Camera }).object = persp;
+      syncControlsUpAxis(controls, persp);
+    }
+    controls.update();
+  }, []);
+
+  const applyViewPreset = useCallback((presetName: ViewPresetName): void => {
+    const controls = controlsRef.current;
+    const session = sessionRef.current;
+    const scene = sceneRef.current;
+    if (!controls) return;
+
+    if (cameraModeRef.current === "perspective") {
+      toggleCameraMode();
+    }
+
+    // Re-read camera AFTER potential toggle so we operate on the active (ortho) camera
+    const camera = cameraRef.current;
+    if (!camera) return;
+
+    const presets = getViewPresets(sceneUpAxis);
+    const preset = presets[presetName];
+
+    let box: THREE.Box3 | null = null;
+    if (session && activeHandlesRef.current.length > 0) {
+      box = computeSceneBounds(session, activeHandlesRef.current);
+      if (box.isEmpty()) box = null;
+    }
+
+    const center = box ? box.getCenter(new THREE.Vector3()) : controls.target.clone();
+    const radius = box ? box.getBoundingSphere(new THREE.Sphere()).radius : 10;
+    const distance = Math.max(radius * 2, 4);
+
+    camera.position.copy(center).addScaledVector(preset.dir, -distance);
+    camera.up.copy(preset.up);
+    syncControlsUpAxis(controls, camera);
+    controls.target.copy(center);
+
+    if (box) {
+      zoomToFit(camera, controls, box, scene?.fog as THREE.Fog | null);
+    } else {
+      camera.lookAt(center);
+      controls.update();
+    }
+  }, [sceneUpAxis, toggleCameraMode]);
+
+  const toggleFollowCamera = useCallback((): void => {
+    const next = !followCameraRef.current;
+    followCameraRef.current = next;
+    setFollowCamera(next);
+    if (controlsRef.current) {
+      controlsRef.current.enabled = !next && orbitEnabled;
+    }
+  }, [orbitEnabled]);
 
   const updateSurfaceProbeForUv = useCallback(
     (nextU: number, nextV: number, logCommit: boolean): void => {
@@ -3745,6 +4484,18 @@ export function KernelViewer() {
         const probeLength = liveSession.curve_length_at(liveCurveHandle, next);
         const totalLength = totalLengthRef.current;
 
+        let tangent: { x: number; y: number; z: number } | undefined;
+        let normal: { x: number; y: number; z: number } | undefined;
+        let binormal: { x: number; y: number; z: number } | undefined;
+        try {
+          const frame = liveSession.curve_plane_at(liveCurveHandle, next);
+          tangent = { x: frame[3], y: frame[4], z: frame[5] };
+          binormal = { x: frame[6], y: frame[7], z: frame[8] };
+          normal = { x: frame[9], y: frame[10], z: frame[11] };
+        } catch {
+          // Frenet frame may not exist for degenerate curves
+        }
+
         probePointRef.current = point;
         if (probeRef.current) {
           probeRef.current.position.set(point.x, point.y, point.z);
@@ -3758,8 +4509,32 @@ export function KernelViewer() {
           z: point.z,
           probeLength,
           totalLength,
+          tangent,
+          normal,
+          binormal,
         });
         setErrorMessage(null);
+
+        if (followCameraRef.current && tangent) {
+          const cam = cameraRef.current;
+          const ctrl = controlsRef.current;
+          if (cam && ctrl) {
+            const probePos = new THREE.Vector3(point.x, point.y, point.z);
+            const t = new THREE.Vector3(tangent.x, tangent.y, tangent.z).normalize();
+            const up = normal
+              ? new THREE.Vector3(normal.x, normal.y, normal.z).normalize()
+              : new THREE.Vector3(0, 1, 0);
+            const scale = Math.max(1, totalLength * 0.08);
+            cam.position.copy(probePos)
+              .addScaledVector(t, -scale)
+              .addScaledVector(up, scale * 0.4);
+            ctrl.target.copy(probePos);
+            cam.up.copy(up);
+            syncControlsUpAxis(ctrl, cam);
+            cam.lookAt(probePos);
+            ctrl.update();
+          }
+        }
 
         if (logCommit) {
           appendLog(
@@ -3772,6 +4547,98 @@ export function KernelViewer() {
       }
     },
     [activeExample, appendLog],
+  );
+
+  const updateLandXmlProbe = useCallback(
+    (stationNorm: number, alignIdx: number, profIdx: number, logCommit: boolean): void => {
+      const session = sessionRef.current;
+      const ctx = landXmlContextRef.current;
+      if (!session || !ctx) return;
+
+      const info = ctx.alignments[alignIdx];
+      if (!info || info.profileCount === 0) return;
+      const pIdx = Math.min(profIdx, info.profileCount - 1);
+
+      const t = Math.min(1, Math.max(0, stationNorm));
+      const station = info.staStart + t * (info.staEnd - info.staStart);
+
+      try {
+        const packed = session.landxml_probe_alignment(ctx.docHandle, alignIdx, pIdx, station);
+        const px = packed[0] - ctx.centroidX;
+        const py = packed[1] - ctx.centroidY;
+        const pz = packed[2] - ctx.centroidZ;
+        const tx = packed[3];
+        const ty = packed[4];
+        const tz = packed[5];
+        const grade = packed[6];
+
+        const displayZ = (pz - landXmlDatumOffset) * landXmlVertExag;
+        const profilePt = { x: px, y: py, z: displayZ };
+
+        probePointRef.current = profilePt;
+        if (probeRef.current) {
+          probeRef.current.position.set(profilePt.x, profilePt.y, profilePt.z);
+          probeRef.current.scale.setScalar(8);
+          probeRef.current.visible = true;
+        }
+
+        // Vertical plane perpendicular to the horizontal alignment tangent.
+        // Use only the plan component (tx, ty) so the plane is perfectly vertical.
+        const planLen = Math.sqrt(tx * tx + ty * ty);
+        const ntx = planLen > 1e-12 ? tx / planLen : 1;
+        const nty = planLen > 1e-12 ? ty / planLen : 0;
+
+        setIntersectionPlane({
+          origin: profilePt,
+          x_axis: { x: -nty, y: ntx, z: 0 },
+          y_axis: { x: 0, y: 0, z: 1 },
+          z_axis: { x: ntx, y: nty, z: 0 },
+        });
+        setIntersectionPoints([profilePt]);
+
+        setLandXmlProbeUiState({
+          station,
+          stationNorm: t,
+          alignmentIndex: alignIdx,
+          profileIndex: pIdx,
+          alignmentPoint: { x: packed[0], y: packed[1], z: 0 },
+          profilePoint: { x: packed[0], y: packed[1], z: packed[2] },
+          tangent: { x: tx, y: ty, z: tz },
+          grade,
+        });
+        setErrorMessage(null);
+
+        if (followCameraRef.current) {
+          const cam = cameraRef.current;
+          const ctrl = controlsRef.current;
+          if (cam && ctrl) {
+            const probePos = new THREE.Vector3(profilePt.x, profilePt.y, profilePt.z);
+            const tangentVec = new THREE.Vector3(ntx, nty, 0).normalize();
+            const up = new THREE.Vector3(0, 0, 1);
+            const alignLen = Math.max(1, info.staEnd - info.staStart);
+            const scale = Math.max(10, alignLen * 0.05);
+            cam.position.copy(probePos)
+              .addScaledVector(tangentVec, -scale)
+              .addScaledVector(up, scale * 0.35);
+            ctrl.target.copy(probePos);
+            cam.up.copy(up);
+            syncControlsUpAxis(ctrl, cam);
+            cam.lookAt(probePos);
+            ctrl.update();
+          }
+        }
+
+        if (logCommit) {
+          appendLog(
+            "debug",
+            `LandXML probe sta=${station.toFixed(2)} pt=(${packed[0].toFixed(2)},${packed[1].toFixed(2)},${packed[2].toFixed(2)}) grade=${grade.toFixed(4)}`,
+          );
+        }
+      } catch (error) {
+        setErrorMessage(error instanceof Error ? error.message : String(error));
+      }
+    },
+    [appendLog, landXmlDatumOffset, landXmlVertExag],
   );
 
   const applyTransformTargetSelection = useCallback(
@@ -4230,6 +5097,12 @@ export function KernelViewer() {
     transformTargetKey,
   ]);
 
+  useEffect(() => {
+    if (activeExample !== "landxmlViewer") return;
+    if (!sessionRef.current) return;
+    void updateLandXmlFile(activeLandXmlFile);
+  }, [activeLandXmlFile]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const toggleInspector = useCallback((): void => {
     setIsInspectorOpen((current) => {
       const next = !current;
@@ -4258,19 +5131,27 @@ export function KernelViewer() {
       setShowAxes(sessionFile.view.showAxes);
       setOrbitEnabled(sessionFile.view.orbitEnabled);
 
+      const savedMode = sessionFile.view.camera.mode ?? "perspective";
+      if (savedMode !== cameraModeRef.current) {
+        toggleCameraMode();
+      }
+
       const camera = cameraRef.current;
       const controls = controlsRef.current;
       if (camera && controls) {
         camera.position.copy(fromPoint3(sessionFile.view.camera.position));
         camera.up.copy(fromPoint3(sessionFile.view.camera.up));
-        camera.fov = sessionFile.view.camera.fov;
+        syncControlsUpAxis(controls, camera);
+        if (camera instanceof THREE.PerspectiveCamera) {
+          camera.fov = sessionFile.view.camera.fov;
+        }
         camera.updateProjectionMatrix();
         controls.target.copy(fromPoint3(sessionFile.view.camera.target));
         controls.update();
       }
       suppressAutoFitRef.current = false;
     },
-    [updateCurveForExample],
+    [updateCurveForExample, toggleCameraMode],
   );
 
   useEffect(() => {
@@ -4395,13 +5276,21 @@ export function KernelViewer() {
     scene.background = new THREE.Color(initialBg);
     scene.fog = new THREE.Fog(initialBg, 34, 138);
 
-    const camera = new THREE.PerspectiveCamera(
-      46,
-      viewport.clientWidth / Math.max(1, viewport.clientHeight),
-      0.01,
-      1200,
+    const aspect = viewport.clientWidth / Math.max(1, viewport.clientHeight);
+    const perspCamera = new THREE.PerspectiveCamera(46, aspect, 0.01, 1200);
+    perspCamera.position.copy(DEFAULT_CAMERA_POSITION);
+
+    const orthoHalf = 10;
+    const orthoCamera = new THREE.OrthographicCamera(
+      -orthoHalf * aspect, orthoHalf * aspect,
+      orthoHalf, -orthoHalf,
+      0.001, 2400,
     );
-    camera.position.copy(DEFAULT_CAMERA_POSITION);
+    orthoCamera.position.copy(DEFAULT_CAMERA_POSITION);
+    orthoCamera.up.copy(perspCamera.up);
+
+    // cameraRef (React ref) is the source of truth for the active camera.
+    // The render loop reads cameraRef.current so toggleCameraMode takes effect immediately.
 
     let renderer: THREE.WebGLRenderer | null = null;
     let renderCanvas: HTMLCanvasElement | null = null;
@@ -4432,7 +5321,8 @@ export function KernelViewer() {
 
     viewport.appendChild(renderCanvas);
 
-    const controls = new OrbitControls(camera, renderCanvas);
+    cameraRef.current = perspCamera;
+    const controls = new OrbitControls(perspCamera, renderCanvas);
     controls.enableDamping = true;
     controls.target.copy(DEFAULT_CAMERA_TARGET);
     controls.update();
@@ -4475,8 +5365,16 @@ export function KernelViewer() {
     const onResize = (): void => {
       const width = viewport.clientWidth;
       const height = Math.max(1, viewport.clientHeight);
-      camera.aspect = width / height;
-      camera.updateProjectionMatrix();
+      const a = width / height;
+
+      perspCamera.aspect = a;
+      perspCamera.updateProjectionMatrix();
+
+      const orthoH = (orthoCamera.top - orthoCamera.bottom) / 2;
+      orthoCamera.left = -orthoH * a;
+      orthoCamera.right = orthoH * a;
+      orthoCamera.updateProjectionMatrix();
+
       if (renderer) {
         renderer.setSize(width, height);
       } else {
@@ -4518,14 +5416,16 @@ export function KernelViewer() {
       frame = window.requestAnimationFrame(animate);
       controls.update();
       if (renderer) {
-        renderer.render(scene, camera);
+        renderer.render(scene, cameraRef.current!);
       }
     };
     animate();
     onResize();
 
     sceneRef.current = scene;
-    cameraRef.current = camera;
+    perspCameraRef.current = perspCamera;
+    orthoCameraRef.current = orthoCamera;
+    // cameraRef.current is already set above (to perspCamera)
     controlsRef.current = controls;
     rendererRef.current = renderer;
     gridRef.current = grid;
@@ -4970,9 +5870,10 @@ export function KernelViewer() {
     }
     intersectionMarkerRefs.current = [];
 
+    const markerRadius = activeExample === "landxmlViewer" ? 2.0 : 0.25;
     for (const hit of intersectionPoints) {
       const marker = new THREE.Mesh(
-        new THREE.SphereGeometry(0.25, 20, 20),
+        new THREE.SphereGeometry(markerRadius, 20, 20),
         new THREE.MeshStandardMaterial({
           color: "#ff8fd9",
           emissive: "#7e2f67",
@@ -4988,7 +5889,7 @@ export function KernelViewer() {
       scene.add(marker);
       intersectionMarkerRefs.current.push(marker);
     }
-  }, [intersectionPoints]);
+  }, [activeExample, intersectionPoints]);
 
   useEffect(() => {
     const scene = sceneRef.current;
@@ -5018,62 +5919,144 @@ export function KernelViewer() {
       return;
     }
 
-    const frame = buildPlaneFrame(intersectionPlane);
-    const referencePoints =
-      sampledPoints.length > 0 ? sampledPoints : (meshVisual?.vertices ?? []);
-    const center = projectedPointOnPlane(
-      centroidOfPoints(referencePoints),
-      frame.origin,
-      frame.normal,
-    );
-    const size = planeVisualSize(referencePoints);
-    const basis = new THREE.Matrix4().makeBasis(frame.xAxis, frame.yAxis, frame.normal);
-    const planeGroup = new THREE.Group();
-    planeGroup.position.copy(center);
-    planeGroup.setRotationFromMatrix(basis);
-    scene.add(planeGroup);
-    planeGroupRef.current = planeGroup;
+    const isLandXml = activeExample === "landxmlViewer";
 
-    const planeMesh = new THREE.Mesh(
-      new THREE.PlaneGeometry(size, size, 1, 1),
-      new THREE.MeshStandardMaterial({
-        color: "#66c5f6",
-        transparent: true,
-        opacity: 0.24,
-        side: THREE.DoubleSide,
-        roughness: 0.62,
-        metalness: 0.06,
-        depthWrite: false,
-      }),
-    );
-    planeMesh.renderOrder = 8;
-    planeGroup.add(planeMesh);
-    planeMeshRef.current = planeMesh;
+    if (isLandXml) {
+      // For LandXML (Z-up world), build the vertical plane directly from
+      // world-space vertices to avoid any Y-up / Z-up coordinate confusion.
+      const o = new THREE.Vector3(
+        intersectionPlane.origin.x,
+        intersectionPlane.origin.y,
+        intersectionPlane.origin.z,
+      );
+      const xDir = new THREE.Vector3(
+        intersectionPlane.x_axis.x,
+        intersectionPlane.x_axis.y,
+        intersectionPlane.x_axis.z,
+      ).normalize();
+      const zUp = new THREE.Vector3(0, 0, 1);
+      const nDir = new THREE.Vector3(
+        intersectionPlane.z_axis.x,
+        intersectionPlane.z_axis.y,
+        intersectionPlane.z_axis.z,
+      ).normalize();
 
-    const planeWire = new THREE.LineSegments(
-      new THREE.EdgesGeometry(new THREE.PlaneGeometry(size, size, 1, 1)),
-      new THREE.LineBasicMaterial({
-        color: "#8fdbff",
-        transparent: true,
-        opacity: 0.7,
-      }),
-    );
-    planeWire.renderOrder = 9;
-    planeGroup.add(planeWire);
-    planeWireRef.current = planeWire;
+      const refPts = overlayCurves.flatMap((c) => c.points);
+      const half = Math.max(10, planeVisualSize(refPts) * 0.125);
 
-    const arrowLength = Math.max(3, size * 0.34);
-    const normalArrow = new THREE.ArrowHelper(
-      new THREE.Vector3(0, 0, 1),
-      new THREE.Vector3(0, 0, 0),
-      arrowLength,
-      0x95e3ff,
-      arrowLength * 0.16,
-      arrowLength * 0.08,
-    );
-    planeGroup.add(normalArrow);
-    planeNormalRef.current = normalArrow;
-  }, [intersectionPlane, meshVisual, sampledPoints]);
+      // Four corners: origin ± half*xDir ± half*zUp
+      const positions = new Float32Array(4 * 3);
+      const c0 = o.clone().addScaledVector(xDir, -half).addScaledVector(zUp, -half);
+      const c1 = o.clone().addScaledVector(xDir, half).addScaledVector(zUp, -half);
+      const c2 = o.clone().addScaledVector(xDir, half).addScaledVector(zUp, half);
+      const c3 = o.clone().addScaledVector(xDir, -half).addScaledVector(zUp, half);
+      positions.set([c0.x, c0.y, c0.z, c1.x, c1.y, c1.z, c2.x, c2.y, c2.z, c3.x, c3.y, c3.z]);
+
+      const quadGeom = new THREE.BufferGeometry();
+      quadGeom.setAttribute("position", new THREE.BufferAttribute(positions, 3));
+      quadGeom.setIndex([0, 1, 2, 0, 2, 3]);
+      quadGeom.computeVertexNormals();
+
+      const planeGroup = new THREE.Group();
+      scene.add(planeGroup);
+      planeGroupRef.current = planeGroup;
+
+      const planeMesh = new THREE.Mesh(
+        quadGeom,
+        new THREE.MeshStandardMaterial({
+          color: "#66c5f6",
+          transparent: true,
+          opacity: 0.24,
+          side: THREE.DoubleSide,
+          roughness: 0.62,
+          metalness: 0.06,
+          depthWrite: false,
+        }),
+      );
+      planeMesh.renderOrder = 8;
+      planeGroup.add(planeMesh);
+      planeMeshRef.current = planeMesh;
+
+      const edgePositions = new Float32Array([
+        c0.x, c0.y, c0.z, c1.x, c1.y, c1.z,
+        c1.x, c1.y, c1.z, c2.x, c2.y, c2.z,
+        c2.x, c2.y, c2.z, c3.x, c3.y, c3.z,
+        c3.x, c3.y, c3.z, c0.x, c0.y, c0.z,
+      ]);
+      const wireGeom = new THREE.BufferGeometry();
+      wireGeom.setAttribute("position", new THREE.BufferAttribute(edgePositions, 3));
+      const planeWire = new THREE.LineSegments(
+        wireGeom,
+        new THREE.LineBasicMaterial({ color: "#8fdbff", transparent: true, opacity: 0.7 }),
+      );
+      planeWire.renderOrder = 9;
+      planeGroup.add(planeWire);
+      planeWireRef.current = planeWire;
+
+      const arrowLen = Math.max(3, half * 0.5);
+      const normalArrow = new THREE.ArrowHelper(nDir, o, arrowLen, 0x95e3ff, arrowLen * 0.16, arrowLen * 0.08);
+      planeGroup.add(normalArrow);
+      planeNormalRef.current = normalArrow;
+    } else {
+      // Non-LandXML: use the existing basis-matrix approach (Y-up world)
+      const frame = buildPlaneFrame(intersectionPlane);
+      const referencePoints = sampledPoints.length > 0
+        ? sampledPoints
+        : (meshVisual?.vertices ?? []);
+      const center = projectedPointOnPlane(
+        centroidOfPoints(referencePoints),
+        frame.origin,
+        frame.normal,
+      );
+      const size = planeVisualSize(referencePoints);
+      const basis = new THREE.Matrix4().makeBasis(frame.xAxis, frame.yAxis, frame.normal);
+      const planeGroup = new THREE.Group();
+      planeGroup.position.copy(center);
+      planeGroup.setRotationFromMatrix(basis);
+      scene.add(planeGroup);
+      planeGroupRef.current = planeGroup;
+
+      const planeMesh = new THREE.Mesh(
+        new THREE.PlaneGeometry(size, size, 1, 1),
+        new THREE.MeshStandardMaterial({
+          color: "#66c5f6",
+          transparent: true,
+          opacity: 0.24,
+          side: THREE.DoubleSide,
+          roughness: 0.62,
+          metalness: 0.06,
+          depthWrite: false,
+        }),
+      );
+      planeMesh.renderOrder = 8;
+      planeGroup.add(planeMesh);
+      planeMeshRef.current = planeMesh;
+
+      const planeWire = new THREE.LineSegments(
+        new THREE.EdgesGeometry(new THREE.PlaneGeometry(size, size, 1, 1)),
+        new THREE.LineBasicMaterial({
+          color: "#8fdbff",
+          transparent: true,
+          opacity: 0.7,
+        }),
+      );
+      planeWire.renderOrder = 9;
+      planeGroup.add(planeWire);
+      planeWireRef.current = planeWire;
+
+      const arrowLength = Math.max(3, size * 0.34);
+      const normalArrow = new THREE.ArrowHelper(
+        new THREE.Vector3(0, 0, 1),
+        new THREE.Vector3(0, 0, 0),
+        arrowLength,
+        0x95e3ff,
+        arrowLength * 0.16,
+        arrowLength * 0.08,
+      );
+      planeGroup.add(normalArrow);
+      planeNormalRef.current = normalArrow;
+    }
+  }, [activeExample, intersectionPlane, meshVisual, overlayCurves, sampledPoints]);
 
   useEffect(() => {
     if (gridRef.current) {
@@ -5089,9 +6072,9 @@ export function KernelViewer() {
 
   useEffect(() => {
     if (controlsRef.current) {
-      controlsRef.current.enabled = orbitEnabled && !isTransformDraggingRef.current;
+      controlsRef.current.enabled = orbitEnabled && !followCamera && !isTransformDraggingRef.current;
     }
-  }, [orbitEnabled]);
+  }, [orbitEnabled, followCamera]);
 
   const canExportIges = useMemo(() => capabilities.igesExport, [capabilities.igesExport]);
   const canImportIges = useMemo(() => capabilities.igesImport, [capabilities.igesImport]);
@@ -5113,6 +6096,30 @@ export function KernelViewer() {
   const showMeshPlaneTargetControls = useMemo(
     () => activeExample === "meshIntersectMeshPlane",
     [activeExample],
+  );
+
+  const onLandXmlAlignmentChange = useCallback(
+    (idx: number) => {
+      setLandXmlProbeAlignIdx(idx);
+      setLandXmlProbeProfileIdx(0);
+      updateLandXmlProbe(landXmlProbeUiState.stationNorm, idx, 0, true);
+    },
+    [landXmlProbeUiState.stationNorm, updateLandXmlProbe],
+  );
+
+  const onLandXmlProfileChange = useCallback(
+    (idx: number) => {
+      setLandXmlProbeProfileIdx(idx);
+      updateLandXmlProbe(landXmlProbeUiState.stationNorm, landXmlProbeAlignIdx, idx, true);
+    },
+    [landXmlProbeAlignIdx, landXmlProbeUiState.stationNorm, updateLandXmlProbe],
+  );
+
+  const onLandXmlStationChange = useCallback(
+    (stationNorm: number, commit: boolean) => {
+      updateLandXmlProbe(stationNorm, landXmlProbeAlignIdx, landXmlProbeProfileIdx, commit);
+    },
+    [landXmlProbeAlignIdx, landXmlProbeProfileIdx, updateLandXmlProbe],
   );
 
   const onSaveSession = useCallback(() => {
@@ -5184,7 +6191,12 @@ export function KernelViewer() {
       if (!next || next === activeExample) {
         return;
       }
+      if (isAsyncExample(next)) {
+        void updateLandXmlFile(activeLandXmlFile);
+        return;
+      }
       try {
+        setLandXmlStats(null);
         updateCurveForExample(next, "Example switched");
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
@@ -5192,14 +6204,19 @@ export function KernelViewer() {
         appendLog("error", `Example switch failed: ${message}`);
       }
     },
-    [activeExample, appendLog, updateCurveForExample],
+    [activeExample, activeLandXmlFile, appendLog, updateCurveForExample, updateLandXmlFile],
   );
 
   const onExampleBrowserSelect = useCallback(
     (key: ExampleKey): void => {
       const next = key;
       if (!next || next === activeExample) return;
+      if (isAsyncExample(next)) {
+        void updateLandXmlFile(activeLandXmlFile);
+        return;
+      }
       try {
+        setLandXmlStats(null);
         updateCurveForExample(next, "Example switched");
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
@@ -5207,7 +6224,7 @@ export function KernelViewer() {
         appendLog("error", `Example switch failed: ${message}`);
       }
     },
-    [activeExample, appendLog, updateCurveForExample],
+    [activeExample, activeLandXmlFile, appendLog, updateCurveForExample, updateLandXmlFile],
   );
 
   return (
@@ -5246,6 +6263,11 @@ export function KernelViewer() {
         orbitEnabled={orbitEnabled}
         showGrid={showGrid}
         showAxes={showAxes}
+        cameraMode={cameraMode}
+        onToggleCameraMode={toggleCameraMode}
+        onApplyViewPreset={applyViewPreset}
+        followCamera={followCamera}
+        onToggleFollowCamera={toggleFollowCamera}
         onZoomExtents={zoomExtents}
         onResetCamera={resetCamera}
         onToggleOrbit={() => setOrbitEnabled((v) => !v)}
@@ -5292,6 +6314,23 @@ export function KernelViewer() {
         surfaceProbeUiState={surfaceProbeUiState}
         onUpdateSurfaceProbe={updateSurfaceProbeForUv}
         onOpenExampleBrowser={() => setIsExampleBrowserOpen(true)}
+        activeLandXmlFile={activeLandXmlFile}
+        onLandXmlFileChange={setActiveLandXmlFile}
+        landXmlStats={landXmlStats}
+        landXmlDatumOffset={landXmlDatumOffset}
+        onLandXmlDatumOffsetChange={setLandXmlDatumOffset}
+        landXmlVertExag={landXmlVertExag}
+        onLandXmlVertExagChange={setLandXmlVertExag}
+        landXmlZRange={landXmlZRange}
+        landXmlAlignments={landXmlAlignments}
+        landXmlProbeState={landXmlProbeUiState}
+        landXmlProbeAlignIdx={landXmlProbeAlignIdx}
+        landXmlProbeProfileIdx={landXmlProbeProfileIdx}
+        onLandXmlAlignmentChange={onLandXmlAlignmentChange}
+        onLandXmlProfileChange={onLandXmlProfileChange}
+        onLandXmlStationChange={onLandXmlStationChange}
+        followCamera={followCamera}
+        onToggleFollowCamera={toggleFollowCamera}
       />
 
       <KernelConsole

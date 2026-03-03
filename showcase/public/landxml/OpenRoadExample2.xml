@@ -1,0 +1,346 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LandXML xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.landxml.org/schema/LandXML-1.2 http://www.landxml.org/schema/landxml-1.2/LandXML-1.2.xsd" version="1.2" date="2024-05-29" time="10:30:36" xmlns="http://www.landxml.org/schema/LandXML-1.2">
+	<Units>
+		<Metric areaUnit="squareMeter" linearUnit="meter" volumeUnit="cubicMeter" temperatureUnit="celsius" pressureUnit="HPA" directionUnit="radians" />
+	</Units>
+	<Application name="OpenRail Designer" version="23.00.00.129" manufacturer="Bentley Systems, Inc." manufacturerURL="http://www.bentley.com" />
+	<CgPoints />
+	<Alignments>
+		<Alignment name="ARTC Euroa East" length="949.79140583524213" state="proposed" staStart="151580.04829820793">
+			<CoordGeom name="ARTC Euroa East" state="proposed">
+				<Line dir="0.8189712281764554" length="24.685680794958142">
+					<Start>5931696.6307507819 371878.7683619954 0</Start>
+					<End>5931714.662248157 371895.62801616511 0</End>
+					<Feature>
+						<Property label="style" value="" />
+					</Feature>
+				</Line>
+				<Spiral spiType="clothoid" length="40" rot="ccw" radiusStart="INF" radiusEnd="6000">
+					<Start>5931714.662248157 371895.62801616464 0</Start>
+					<PI>5931734.140755197 371913.84064075269 0</PI>
+					<End>5931743.910313745 371922.91444281145 0</End>
+					<Feature>
+						<Property label="style" value="" />
+					</Feature>
+				</Spiral>
+				<Curve crvType="arc" rot="ccw" radius="6000" length="50.301018511255791" chord="50.300871206688527">
+					<Start>5931743.9103137441 371922.91444281186 0</Start>
+					<Center>5935827.1168733928 367526.61779776571 0</Center>
+					<End>5931780.9097379195 371956.99112479377 0</End>
+					<Feature>
+						<Property label="style" value="" />
+					</Feature>
+				</Curve>
+				<Spiral spiType="clothoid" length="40" rot="ccw" radiusStart="6000" radiusEnd="INF">
+					<Start>5931780.9097379195 371956.99112479348 0</Start>
+					<PI>5931790.7550223535 371965.9827056803 0</PI>
+					<End>5931810.5054163197 371983.90012402792 0</End>
+					<Feature>
+						<Property label="style" value="" />
+					</Feature>
+				</Spiral>
+				<Line dir="0.83402139789708019" length="40.303357755495789">
+					<Start>5931810.5054163206 371983.90012402803 0</Start>
+					<End>5931840.3556686481 372010.98006277153 0</End>
+					<Feature>
+						<Property label="style" value="" />
+					</Feature>
+				</Line>
+				<Spiral spiType="clothoid" length="40" rot="cw" radiusStart="INF" radiusEnd="7100">
+					<Start>5931840.3556686481 372010.98006277141 0</Start>
+					<PI>5931860.1060593612 372028.89747816807 0</PI>
+					<End>5931869.9559830092 372037.88397068885 0</End>
+					<Feature>
+						<Property label="style" value="" />
+					</Feature>
+				</Spiral>
+				<Curve crvType="arc" rot="cw" radius="7100" length="40.423502708465797" chord="40.423448110845662">
+					<Start>5931869.9559830092 372037.88397068932 0</Start>
+					<Center>5927084.652294796 377282.96439062268 0</Center>
+					<End>5931899.740871965 372065.21372639795 0</End>
+					<Feature>
+						<Property label="style" value="" />
+					</Feature>
+				</Curve>
+				<Spiral spiType="clothoid" length="40" rot="cw" radiusStart="7100" radiusEnd="INF">
+					<Start>5931899.740871965 372065.21372639789 0</Start>
+					<PI>5931909.5394721329 372074.25615306414 0</PI>
+					<End>5931929.0856449893 372092.3961318768 0</End>
+					<Feature>
+						<Property label="style" value="" />
+					</Feature>
+				</Spiral>
+				<Line dir="0.82269414401014951" length="318.70755774052384">
+					<Start>5931929.0856449874 372092.39613187785 0</Start>
+					<End>5932162.6922855256 372309.1966043344 0</End>
+					<Feature>
+						<Property label="style" value="" />
+					</Feature>
+				</Line>
+				<Spiral spiType="clothoid" length="40" rot="cw" radiusStart="INF" radiusEnd="6500">
+					<Start>5932162.6922855256 372309.19660433411 0</Start>
+					<PI>5932182.2384598581 372327.33658451715 0</PI>
+					<End>5932191.9835971864 372336.43660643924 0</End>
+					<Feature>
+						<Property label="style" value="" />
+					</Feature>
+				</Spiral>
+				<Curve crvType="arc" rot="cw" radius="6500" length="53.997976250967916" chord="53.997820978619714">
+					<Start>5932191.9835971864 372336.43660643906 0</Start>
+					<Center>5927755.7269371673 377087.18674156885 0</Center>
+					<End>5932231.2963565942 372373.45378648007 0</End>
+					<Feature>
+						<Property label="style" value="" />
+					</Feature>
+				</Curve>
+				<Spiral spiType="clothoid" length="40" rot="cw" radiusStart="6500" radiusEnd="INF">
+					<Start>5932231.2963565942 372373.45378648018 0</Start>
+					<PI>5932240.9655611087 372382.63444996846 0</PI>
+					<End>5932260.2473744974 372401.05518528318 0</End>
+					<Feature>
+						<Property label="style" value="" />
+					</Feature>
+				</Spiral>
+				<Line dir="0.80823291688734189" length="40.78167392132751">
+					<Start>5932260.2473744974 372401.05518528365 0</Start>
+					<End>5932289.7352833431 372429.22623708739 0</End>
+					<Feature>
+						<Property label="style" value="" />
+					</Feature>
+				</Line>
+				<Spiral spiType="clothoid" length="40.000000000000007" rot="ccw" radiusStart="INF" radiusEnd="6500">
+					<Start>5932289.7352833431 372429.22623708763 0</Start>
+					<PI>5932309.0170968398 372447.64697250549 0</PI>
+					<End>5932318.6863012454 372456.82763589092 0</End>
+					<Feature>
+						<Property label="style" value="" />
+					</Feature>
+				</Spiral>
+				<Curve crvType="arc" rot="ccw" radius="6500" length="56.182600002761433" chord="56.18242511189073">
+					<Start>5932318.6863012472 372456.82763589011 0</Start>
+					<Center>5936794.2557207271 367743.09468085179 0</Center>
+					<End>5932359.5960191209 372495.33555552893 0</End>
+					<Feature>
+						<Property label="style" value="" />
+					</Feature>
+				</Curve>
+				<Spiral spiType="clothoid" length="40.000000000000007" rot="ccw" radiusStart="6500" radiusEnd="INF">
+					<Start>5932359.5960191209 372495.33555552922 0</Start>
+					<PI>5932369.3442143099 372504.43230157113 0</PI>
+					<End>5932388.8964843825 372522.5657114042 0</End>
+					<Feature>
+						<Property label="style" value="" />
+					</Feature>
+				</Spiral>
+				<Line dir="0.82303023995139468" length="4.4080381494859981">
+					<Start>5932388.8964843825 372522.56571140466 0</Start>
+					<End>5932392.1285009924 372525.56318850385 0</End>
+					<Feature>
+						<Property label="style" value="" />
+					</Feature>
+				</Line>
+			</CoordGeom>
+			<Profile>
+				<ProfAlign name="v_Euroa West">
+					<PVI>151603.33556265294 174.70964915758211</PVI>
+					<ParaCurve length="100">151717.3645255272 175.06028233246764</ParaCurve>
+					<ParaCurve length="80.000000000000028">151868.96953851604 174.2265902901899</ParaCurve>
+					<ParaCurve length="40">152505.23178018144 174.99168865309667</ParaCurve>
+					<PVI>152529.83970404338 175.08836533415979</PVI>
+					<Feature code="ProfAlign">
+						<Property label="style" value="" />
+					</Feature>
+				</ProfAlign>
+			</Profile>
+			<Cant name="c_Euroa East130" equilibriumConstant="11.84" gauge="1.45" rotationPoint="insideRail">
+				<CantStation station="151580.04829820793" equilibriumCant="0" appliedCant="0" cantDeficiency="0" rateOfChangeOfAppliedCantOverTime="0" rateOfChangeOfAppliedCantOverLength="0" rateOfChangeOfCantDeficiencyOverTime="0" cantGradient="0" speed="130.00000000000003" curvature="ccw" adverse="false" />
+				<CantStation station="151604.73397900289" equilibriumCant="0" appliedCant="0" cantDeficiency="0" rateOfChangeOfAppliedCantOverTime="18.055555555555557" rateOfChangeOfAppliedCantOverLength="0.5" rateOfChangeOfCantDeficiencyOverTime="12.051481481481495" cantGradient="2000" speed="130.00000000000003" transitionType="clothoid" curvature="ccw" adverse="false" />
+				<CantStation station="151644.73397900289" equilibriumCant="33.349333333333348" appliedCant="20" cantDeficiency="13.349333333333348" rateOfChangeOfAppliedCantOverTime="0" rateOfChangeOfAppliedCantOverLength="0" rateOfChangeOfCantDeficiencyOverTime="0" cantGradient="0" speed="130.00000000000003" curvature="ccw" adverse="false" />
+				<CantStation station="151695.03499751413" equilibriumCant="33.349333333333348" appliedCant="20" cantDeficiency="13.349333333333348" rateOfChangeOfAppliedCantOverTime="18.05555555555555" rateOfChangeOfAppliedCantOverLength="0.49999999999999978" rateOfChangeOfCantDeficiencyOverTime="12.051481481481494" cantGradient="2000.0000000000009" speed="130.00000000000003" transitionType="clothoid" curvature="ccw" adverse="false" />
+				<CantStation station="151735.03499751413" equilibriumCant="0" appliedCant="0" cantDeficiency="0" rateOfChangeOfAppliedCantOverTime="0" rateOfChangeOfAppliedCantOverLength="0" rateOfChangeOfCantDeficiencyOverTime="0" cantGradient="0" speed="130.00000000000003" curvature="ccw" adverse="false" />
+				<CantStation station="151775.33835526963" equilibriumCant="0" appliedCant="0" cantDeficiency="0" rateOfChangeOfAppliedCantOverTime="18.055555555244201" rateOfChangeOfAppliedCantOverLength="0.4999999999913779" rateOfChangeOfCantDeficiencyOverTime="7.3870109544892184" cantGradient="2000.0000000344885" speed="130.00000000000003" transitionType="clothoid" curvature="ccw" adverse="false" />
+				<CantStation station="151815.33835527033" equilibriumCant="28.18253521126762" appliedCant="20" cantDeficiency="8.18253521126762" rateOfChangeOfAppliedCantOverTime="0" rateOfChangeOfAppliedCantOverLength="0" rateOfChangeOfCantDeficiencyOverTime="0" cantGradient="0" speed="130.00000000000003" curvature="cw" adverse="false" />
+				<CantStation station="151855.82643787583" equilibriumCant="28.18253521126762" appliedCant="20" cantDeficiency="8.18253521126762" rateOfChangeOfAppliedCantOverTime="18.084753343589366" rateOfChangeOfAppliedCantOverLength="0.50080855413016701" rateOfChangeOfCantDeficiencyOverTime="7.3989565510504907" cantGradient="1996.7710051136351" speed="130.00000000000003" transitionType="clothoid" curvature="cw" adverse="false" />
+				<CantStation station="151895.7618579781" equilibriumCant="0" appliedCant="0" cantDeficiency="0" rateOfChangeOfAppliedCantOverTime="0" rateOfChangeOfAppliedCantOverLength="0" rateOfChangeOfCantDeficiencyOverTime="0" cantGradient="0" speed="130.00000000000003" curvature="ccw" adverse="false" />
+				<CantStation station="152214.46941571863" equilibriumCant="0" appliedCant="0" cantDeficiency="0" rateOfChangeOfAppliedCantOverTime="18.055555555555557" rateOfChangeOfAppliedCantOverLength="0.5" rateOfChangeOfCantDeficiencyOverTime="9.7355555555555693" cantGradient="2000" speed="130.00000000000003" transitionType="clothoid" curvature="ccw" adverse="false" />
+				<CantStation station="152254.46941571863" equilibriumCant="30.784000000000013" appliedCant="20" cantDeficiency="10.784000000000013" rateOfChangeOfAppliedCantOverTime="0" rateOfChangeOfAppliedCantOverLength="0" rateOfChangeOfCantDeficiencyOverTime="0" cantGradient="0" speed="130.00000000000003" curvature="cw" adverse="false" />
+				<CantStation station="152308.46739196961" equilibriumCant="30.784000000000013" appliedCant="20" cantDeficiency="10.784000000000013" rateOfChangeOfAppliedCantOverTime="18.055555555555557" rateOfChangeOfAppliedCantOverLength="0.5" rateOfChangeOfCantDeficiencyOverTime="9.7355555555555693" cantGradient="2000" speed="130.00000000000003" transitionType="clothoid" curvature="cw" adverse="false" />
+				<CantStation station="152348.46739196961" equilibriumCant="0" appliedCant="0" cantDeficiency="0" rateOfChangeOfAppliedCantOverTime="0" rateOfChangeOfAppliedCantOverLength="0" rateOfChangeOfCantDeficiencyOverTime="0" cantGradient="0" speed="130.00000000000003" curvature="ccw" adverse="false" />
+				<CantStation station="152389.24906589091" equilibriumCant="0" appliedCant="0" cantDeficiency="0" rateOfChangeOfAppliedCantOverTime="18.055555555555557" rateOfChangeOfAppliedCantOverLength="0.5" rateOfChangeOfCantDeficiencyOverTime="9.7355555555555693" cantGradient="2000" speed="130.00000000000003" transitionType="clothoid" curvature="ccw" adverse="false" />
+				<CantStation station="152429.24906589091" equilibriumCant="30.784000000000013" appliedCant="20" cantDeficiency="10.784000000000013" rateOfChangeOfAppliedCantOverTime="0" rateOfChangeOfAppliedCantOverLength="0" rateOfChangeOfCantDeficiencyOverTime="0" cantGradient="0" speed="130.00000000000003" curvature="ccw" adverse="false" />
+				<CantStation station="152485.43166589367" equilibriumCant="30.784000000000013" appliedCant="20" cantDeficiency="10.784000000000013" rateOfChangeOfAppliedCantOverTime="18.055555555555557" rateOfChangeOfAppliedCantOverLength="0.5" rateOfChangeOfCantDeficiencyOverTime="9.7355555555555693" cantGradient="2000" speed="130.00000000000003" transitionType="clothoid" curvature="ccw" adverse="false" />
+				<CantStation station="152525.43166589367" equilibriumCant="0" appliedCant="0" cantDeficiency="0" rateOfChangeOfAppliedCantOverTime="0" rateOfChangeOfAppliedCantOverLength="0" rateOfChangeOfCantDeficiencyOverTime="0" cantGradient="0" speed="130.00000000000003" curvature="ccw" adverse="false" />
+				<CantStation station="152529.83970404317" appliedCant="0" speed="130.00000000000003" curvature="ccw" adverse="false" />
+				<SpeedStation station="151580.04829820793" speed="130.00000000000003" />
+			</Cant>
+		</Alignment>
+		<Alignment name="ARTC Euroa West" length="949.83516748502495" state="proposed" staStart="151580.02456718913">
+			<CoordGeom name="ARTC Euroa West" state="proposed">
+				<Line dir="0.82318990508552392" length="24.736235139765245">
+					<Start>5931699.8515138961 371875.22105532209 0</Start>
+					<End>5931717.9910484664 371892.03886179213 0</End>
+					<Feature>
+						<Property label="style" value="" />
+					</Feature>
+				</Line>
+				<Spiral spiType="clothoid" length="40" rot="ccw" radiusStart="INF" radiusEnd="7300.0000000000018">
+					<Start>5931717.9910484664 371892.03886179166 0</Start>
+					<PI>5931737.5462115742 371910.16914773622 0</PI>
+					<End>5931747.3485955149 371919.20747168898 0</End>
+					<Feature>
+						<Property label="style" value="" />
+					</Feature>
+				</Spiral>
+				<Curve crvType="arc" rot="ccw" radius="7300" length="40.272544554094303" chord="40.272493483597238">
+					<Start>5931747.348595514 371919.20747168886 0</Start>
+					<Center>5936695.827438185 366552.40608318581 0</Center>
+					<End>5931777.0312481932 371946.42536766396 0</End>
+					<Feature>
+						<Property label="style" value="" />
+					</Feature>
+				</Curve>
+				<Spiral spiType="clothoid" length="40" rot="ccw" radiusStart="7300.0000000000018" radiusEnd="INF">
+					<Start>5931777.0312481932 371946.42536766391 0</Start>
+					<PI>5931786.883345169 371955.40947663941 0</PI>
+					<End>5931806.6366870021 371973.32363759761 0</End>
+					<Feature>
+						<Property label="style" value="" />
+					</Feature>
+				</Spiral>
+				<Line dir="0.83418614403023505" length="40.551135187664173">
+					<Start>5931806.6366870021 371973.32363759761 0</Start>
+					<End>5931836.6749413786 372000.56511037389 0</End>
+					<Feature>
+						<Property label="style" value="" />
+					</Feature>
+				</Line>
+				<Spiral spiType="clothoid" length="40" rot="cw" radiusStart="INF" radiusEnd="7300.0000000000018">
+					<Start>5931836.6749413786 372000.56511037383 0</Start>
+					<PI>5931856.4282831801 372018.47927130293 0</PI>
+					<End>5931866.2803801876 372027.46338030737 0</End>
+					<Feature>
+						<Property label="style" value="" />
+					</Feature>
+				</Spiral>
+				<Curve crvType="arc" rot="cw" radius="7300" length="43.891600051249391" chord="43.891533938216391">
+					<Start>5931866.2803801876 372027.46338030754 0</Start>
+					<Center>5926947.4841901222 377421.48266471887 0</Center>
+					<End>5931898.6230756091 372057.13519865932 0</End>
+					<Feature>
+						<Property label="style" value="" />
+					</Feature>
+				</Curve>
+				<Spiral spiType="clothoid" length="40" rot="cw" radiusStart="7300.0000000000018" radiusEnd="INF">
+					<Start>5931898.623075611 372057.13519865839 0</Start>
+					<PI>5931908.4209774733 372066.17838111694 0</PI>
+					<End>5931927.9671499142 372084.31835954398 0</End>
+					<Feature>
+						<Property label="style" value="" />
+					</Feature>
+				</Spiral>
+				<Line dir="0.82269414402484808" length="343.30503049299017">
+					<Start>5931927.9671499133 372084.3183595438 0</Start>
+					<End>5932179.6032749647 372317.85123631044 0</End>
+					<Feature>
+						<Property label="style" value="" />
+					</Feature>
+				</Line>
+				<Spiral spiType="clothoid" length="40" rot="cw" radiusStart="INF" radiusEnd="9000">
+					<Start>5932179.6032749647 372317.85123630986 0</Start>
+					<PI>5932199.1494446797 372335.99121220643 0</PI>
+					<End>5932208.9023520183 372345.0828976889 0</End>
+					<Feature>
+						<Property label="style" value="" />
+					</Feature>
+				</Spiral>
+				<Curve crvType="arc" rot="cw" radius="9000" length="41.031578014024461" chord="41.031542478863621">
+					<Start>5932208.9023520174 372345.08289768902 0</Start>
+					<Center>5926072.0175629063 378928.29222788464 0</Center>
+					<End>5932238.8517445121 372373.12966875796 0</End>
+					<Feature>
+						<Property label="style" value="" />
+					</Feature>
+				</Curve>
+				<Spiral spiType="clothoid" length="40" rot="cw" radiusStart="9000" radiusEnd="INF">
+					<Start>5932238.8517445121 372373.12966875819 0</Start>
+					<PI>5932248.563101124 372382.26572379359 0</PI>
+					<End>5932267.9451573184 372400.58094612334 0</End>
+					<Feature>
+						<Property label="style" value="" />
+					</Feature>
+				</Spiral>
+				<Line dir="0.81369063537753317" length="40.06745131420157">
+					<Start>5932267.9451573184 372400.58094612317 0</Start>
+					<End>5932297.0672596786 372428.10009961552 0</End>
+					<Feature>
+						<Property label="style" value="" />
+					</Feature>
+				</Line>
+				<Spiral spiType="clothoid" length="40" rot="ccw" radiusStart="INF" radiusEnd="9000">
+					<Start>5932297.0672596786 372428.100099615 0</Start>
+					<PI>5932316.4493159754 372446.41532204073 0</PI>
+					<End>5932326.1606724849 372455.55137697962 0</End>
+					<Feature>
+						<Property label="style" value="" />
+					</Feature>
+				</Spiral>
+				<Curve crvType="arc" rot="ccw" radius="9000" length="40.330208408327017" chord="40.330174664446147">
+					<Start>5932326.1606724821 372455.55137698044 0</Start>
+					<Center>5938492.9948540553 365900.38881782262 0</Center>
+					<End>5932355.5970543977 372483.11988089676 0</End>
+					<Feature>
+						<Property label="style" value="" />
+					</Feature>
+				</Curve>
+				<Spiral spiType="clothoid" length="40" rot="ccw" radiusStart="9000" radiusEnd="INF">
+					<Start>5932355.5970543986 372483.11988089618 0</Start>
+					<PI>5932365.3492532093 372492.21232640999 0</PI>
+					<End>5932384.8940092009 372510.35382546857 0</End>
+					<Feature>
+						<Property label="style" value="" />
+					</Feature>
+				</Spiral>
+				<Line dir="0.82261621401697305" length="15.649384322708547">
+					<Start>5932384.8940092018 372510.35382546892 0</Start>
+					<End>5932396.3638836928 372521.00019615761 0</End>
+					<Feature>
+						<Property label="style" value="" />
+					</Feature>
+				</Line>
+			</CoordGeom>
+			<Profile>
+				<ProfAlign name="v_Euroa West">
+					<PVI>151600.91451934798 174.76072076360583</PVI>
+					<ParaCurve length="100">151708.69083920956 175.10774126605867</ParaCurve>
+					<ParaCurve length="80.000000000000028">151868.98601761737 174.22657686571401</ParaCurve>
+					<ParaCurve length="40">152471.94517088516 174.95162240369521</ParaCurve>
+					<PVI>152529.85867524927 175.16378857269041</PVI>
+					<Feature code="ProfAlign">
+						<Property label="style" value="" />
+					</Feature>
+				</ProfAlign>
+			</Profile>
+			<Cant name="c_Euroa Westt130" equilibriumConstant="11.84" gauge="1.45" rotationPoint="insideRail">
+				<CantStation station="151580.02456718913" equilibriumCant="0" appliedCant="0" cantDeficiency="0" rateOfChangeOfAppliedCantOverTime="0" rateOfChangeOfAppliedCantOverLength="0" rateOfChangeOfCantDeficiencyOverTime="0" cantGradient="0" speed="130.00000000000003" curvature="ccw" adverse="false" />
+				<CantStation station="151604.76080232891" equilibriumCant="0" appliedCant="0" cantDeficiency="0" rateOfChangeOfAppliedCantOverTime="13.54166666666667" rateOfChangeOfAppliedCantOverLength="0.375" rateOfChangeOfCantDeficiencyOverTime="11.203843226788441" cantGradient="2666.6666666666665" speed="130.00000000000003" transitionType="clothoid" curvature="ccw" adverse="false" />
+				<CantStation station="151644.76080232891" equilibriumCant="27.410410958904119" appliedCant="15" cantDeficiency="12.410410958904119" rateOfChangeOfAppliedCantOverTime="0" rateOfChangeOfAppliedCantOverLength="0" rateOfChangeOfCantDeficiencyOverTime="0" cantGradient="0" speed="130.00000000000003" curvature="ccw" adverse="false" />
+				<CantStation station="151685.03334688299" equilibriumCant="27.410410958904116" appliedCant="15" cantDeficiency="12.410410958904116" rateOfChangeOfAppliedCantOverTime="13.54166666666667" rateOfChangeOfAppliedCantOverLength="0.375" rateOfChangeOfCantDeficiencyOverTime="11.20384322678844" cantGradient="2666.6666666666665" speed="130.00000000000003" transitionType="clothoid" curvature="ccw" adverse="false" />
+				<CantStation station="151725.03334688299" equilibriumCant="0" appliedCant="0" cantDeficiency="0" rateOfChangeOfAppliedCantOverTime="0" rateOfChangeOfAppliedCantOverLength="0" rateOfChangeOfCantDeficiencyOverTime="0" cantGradient="0" speed="130.00000000000003" curvature="ccw" adverse="false" />
+				<CantStation station="151765.58448207067" equilibriumCant="0" appliedCant="0" cantDeficiency="0" rateOfChangeOfAppliedCantOverTime="13.54166666666667" rateOfChangeOfAppliedCantOverLength="0.375" rateOfChangeOfCantDeficiencyOverTime="11.203843226788441" cantGradient="2666.6666666666665" speed="130.00000000000003" transitionType="clothoid" curvature="ccw" adverse="false" />
+				<CantStation station="151805.58448207067" equilibriumCant="27.410410958904119" appliedCant="15" cantDeficiency="12.410410958904119" rateOfChangeOfAppliedCantOverTime="0" rateOfChangeOfAppliedCantOverLength="0" rateOfChangeOfCantDeficiencyOverTime="0" cantGradient="0" speed="130.00000000000003" curvature="cw" adverse="false" />
+				<CantStation station="151849.4760821219" equilibriumCant="27.410410958904116" appliedCant="15" cantDeficiency="12.410410958904116" rateOfChangeOfAppliedCantOverTime="13.54166666666667" rateOfChangeOfAppliedCantOverLength="0.375" rateOfChangeOfCantDeficiencyOverTime="11.20384322678844" cantGradient="2666.6666666666665" speed="130.00000000000003" transitionType="clothoid" curvature="cw" adverse="false" />
+				<CantStation station="151889.4760821219" equilibriumCant="0" appliedCant="0" cantDeficiency="0" rateOfChangeOfAppliedCantOverTime="0" rateOfChangeOfAppliedCantOverLength="0" rateOfChangeOfCantDeficiencyOverTime="0" cantGradient="0" speed="130.00000000000003" curvature="ccw" adverse="false" />
+				<CantStation station="152232.7811126149" equilibriumCant="0" appliedCant="0" cantDeficiency="0" rateOfChangeOfAppliedCantOverTime="13.54166666666667" rateOfChangeOfAppliedCantOverLength="0.375" rateOfChangeOfCantDeficiencyOverTime="6.529691358024702" cantGradient="2666.6666666666665" speed="130.00000000000003" transitionType="clothoid" curvature="ccw" adverse="false" />
+				<CantStation station="152272.7811126149" equilibriumCant="22.232888888888898" appliedCant="15" cantDeficiency="7.2328888888888994" rateOfChangeOfAppliedCantOverTime="0" rateOfChangeOfAppliedCantOverLength="0" rateOfChangeOfCantDeficiencyOverTime="0" cantGradient="0" speed="130.00000000000003" curvature="cw" adverse="false" />
+				<CantStation station="152313.81269062893" equilibriumCant="22.232888888888898" appliedCant="15" cantDeficiency="7.2328888888888994" rateOfChangeOfAppliedCantOverTime="13.54166666666667" rateOfChangeOfAppliedCantOverLength="0.375" rateOfChangeOfCantDeficiencyOverTime="6.529691358024702" cantGradient="2666.6666666666665" speed="130.00000000000003" transitionType="clothoid" curvature="cw" adverse="false" />
+				<CantStation station="152353.81269062893" equilibriumCant="0" appliedCant="0" cantDeficiency="0" rateOfChangeOfAppliedCantOverTime="0" rateOfChangeOfAppliedCantOverLength="0" rateOfChangeOfCantDeficiencyOverTime="0" cantGradient="0" speed="130.00000000000003" curvature="ccw" adverse="false" />
+				<CantStation station="152393.88014194311" equilibriumCant="0" appliedCant="0" cantDeficiency="0" rateOfChangeOfAppliedCantOverTime="13.54166666666667" rateOfChangeOfAppliedCantOverLength="0.375" rateOfChangeOfCantDeficiencyOverTime="6.529691358024702" cantGradient="2666.6666666666665" speed="130.00000000000003" transitionType="clothoid" curvature="ccw" adverse="false" />
+				<CantStation station="152433.88014194311" equilibriumCant="22.232888888888898" appliedCant="15" cantDeficiency="7.2328888888888994" rateOfChangeOfAppliedCantOverTime="0" rateOfChangeOfAppliedCantOverLength="0" rateOfChangeOfCantDeficiencyOverTime="0" cantGradient="0" speed="130.00000000000003" curvature="ccw" adverse="false" />
+				<CantStation station="152474.21035035144" equilibriumCant="22.232888888888898" appliedCant="15" cantDeficiency="7.2328888888888994" rateOfChangeOfAppliedCantOverTime="13.54166666666667" rateOfChangeOfAppliedCantOverLength="0.375" rateOfChangeOfCantDeficiencyOverTime="6.529691358024702" cantGradient="2666.6666666666665" speed="130.00000000000003" transitionType="clothoid" curvature="ccw" adverse="false" />
+				<CantStation station="152514.21035035144" equilibriumCant="0" appliedCant="0" cantDeficiency="0" rateOfChangeOfAppliedCantOverTime="0" rateOfChangeOfAppliedCantOverLength="0" rateOfChangeOfCantDeficiencyOverTime="0" cantGradient="0" speed="130.00000000000003" curvature="ccw" adverse="false" />
+				<CantStation station="152529.85973467416" appliedCant="0" speed="130.00000000000003" curvature="ccw" adverse="false" />
+				<SpeedStation station="151580.02456718913" speed="130.00000000000003" />
+			</Cant>
+		</Alignment>
+	</Alignments>
+</LandXML>

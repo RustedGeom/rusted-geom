@@ -3,6 +3,9 @@ import type { MeshHandle, RgmPoint3, RgmVec3 } from "@rusted-geom/bindings-web";
 export type LogLevel = "info" | "debug" | "error";
 export type GizmoMode = "translate" | "rotate" | "scale";
 export type KernelStatus = "booting" | "ready" | "computing" | "error";
+export type CameraMode = "perspective" | "orthographic";
+export type SceneUpAxis = "y" | "z";
+export type ViewPresetName = "top" | "bottom" | "front" | "back" | "left" | "right";
 
 export interface LogEntry {
   id: number;
@@ -18,6 +21,9 @@ export interface ProbeUiState {
   z: number;
   probeLength: number;
   totalLength: number;
+  tangent?: { x: number; y: number; z: number };
+  normal?: { x: number; y: number; z: number };
+  binormal?: { x: number; y: number; z: number };
 }
 
 export interface SurfaceProbeUiState {
@@ -78,6 +84,7 @@ export interface CameraSnapshot {
   target: RgmPoint3;
   up: RgmPoint3;
   fov: number;
+  mode?: CameraMode;
 }
 
 export type ExampleKey =
@@ -112,4 +119,51 @@ export type ExampleKey =
   | "brepFaceBridgeRoundtrip"
   | "brepNativeRoundtrip"
   | "bboxCurveNonTrivial"
-  | "bboxBrepSolidLifecycle";
+  | "bboxBrepSolidLifecycle"
+  | "landxmlViewer";
+
+export type LandXmlExampleKey = "landxmlViewer";
+
+export interface LandXmlAlignmentInfo {
+  index: number;
+  name: string;
+  profileCount: number;
+  profileNames: string[];
+  staStart: number;
+  staEnd: number;
+}
+
+export interface LandXmlProbeUiState {
+  station: number;
+  stationNorm: number;
+  alignmentIndex: number;
+  profileIndex: number;
+  alignmentPoint: { x: number; y: number; z: number };
+  profilePoint: { x: number; y: number; z: number };
+  tangent: { x: number; y: number; z: number };
+  grade: number;
+}
+
+export const LANDXML_FILE_LIST: readonly string[] = [
+  "12DExample.xml",
+  "C3DDesignExample.xml",
+  "C3DDesignExample3.xml",
+  "C3DFeatureLineCoordGeom.xml",
+  "C3DFeatureLineLocation.xml",
+  "C3DProfileExample.xml",
+  "C3DProfileExample2.xml",
+  "C3DSpiralDoubleRadius.xml",
+  "CircCurveExample.xml",
+  "FeatureLineCoordinateTest.xml",
+  "ImperialUnitsExample.xml",
+  "OpenRoadBreakingAlignment.xml",
+  "OpenRoadBreaklines.xml",
+  "OpenRoadExample2.xml",
+  "OpenRoadExample3.xml",
+  "OpenRoadExampleEmptyAlignment.xml",
+  "OpenRoadExampleWalls.xml",
+  "OpenRoadProfile.xml",
+  "OpenRoadProfileFirstPVIAtStartOfParaCurve.xml",
+  "OpenRoadSpiralDoubleRadius.xml",
+  "OpenRoadTin.xml",
+] as const;

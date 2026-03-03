@@ -1,0 +1,831 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<LandXML xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.landxml.org/schema/LandXML-1.2 http://www.landxml.org/schema/landxml-1.2/LandXML-1.2.xsd" version="1.2" date="2025-11-06" time="07:57:48" xmlns="http://www.landxml.org/schema/LandXML-1.2">
+	<Units>
+		<Imperial areaUnit="squareFoot" linearUnit="USSurveyFoot" volumeUnit="cubicYard" temperatureUnit="fahrenheit" pressureUnit="inHG" directionUnit="radians" />
+	</Units>
+	<Application name="OpenRoads Designer" version="23.00.01.11" manufacturer="Bentley Systems, Inc." manufacturerURL="http://www.bentley.com" />
+	<CgPoints />
+	<Alignments>
+
+		<Alignment name="PSH_R" length="14795.557474208681" state="proposed" staStart="0">
+			<CoordGeom name="PSH_R" state="proposed">
+				<Line dir="4.6972900572770886" length="518.77842876539069">
+					<Start>654357.31850940164 1753780.1636188554 0</Start>
+					<End>653838.59921441204 1753772.3309208706 0</End>
+					<Feature>
+						<Property label="style" value="Linear\Roadway\Shoulders\Prop Paved Shoulder Edge" />
+					</Feature>
+				</Line>
+				<Curve crvType="arc" rot="ccw" radius="7506.0000002590987" length="427.2282592608359" chord="427.1705913835325">
+					<Start>653838.59921441204 1753772.3309208697 0</Start>
+					<Center>653725.2710037285 1761277.4753379051 0</Center>
+					<End>653411.46674632002 1753778.0378328704 0</End>
+					<Feature>
+						<Property label="style" value="Linear\Roadway\Shoulders\Prop Paved Shoulder Edge" />
+					</Feature>
+				</Curve>
+				<Line dir="4.754208290590161" length="570.69282137366224">
+					<Start>653411.46674632002 1753778.0378328708 0</Start>
+					<End>652841.27288163628 1753801.8968572528 0</End>
+					<Feature>
+						<Property label="style" value="Linear\Roadway\Shoulders\Prop Paved Shoulder Edge" />
+					</Feature>
+				</Line>
+				<Curve crvType="arc" rot="ccw" radius="3518.0000001054027" length="553.05070799849705" chord="552.48138624016121">
+					<Start>652510.66061332868 1753805.0091916267 0</Start>
+					<Center>652750.27406711422 1757314.8395854642 0</Center>
+					<End>651964.11888824019 1753885.8041474042 0</End>
+					<Feature>
+						<Property label="style" value="Linear\Roadway\Shoulders\Prop Paved Shoulder Edge" />
+					</Feature>
+				</Curve>
+				<Line dir="4.9422197373651207" length="37.636762410909512">
+					<Start>651964.11888824019 1753885.8041474042 0</Start>
+					<End>651927.47178582672 1753894.3782811491 0</End>
+					<Feature>
+						<Property label="style" value="Linear\Roadway\Shoulders\Prop Paved Shoulder Edge" />
+					</Feature>
+				</Line>
+				<Line dir="4.9460607457941261" length="3.9077667501281494">
+					<Start>651927.47178582672 1753894.3782811491 0</Start>
+					<End>651923.67022141686 1753895.2831286562 0</End>
+					<Feature>
+						<Property label="style" value="Linear\Roadway\Shoulders\Prop Paved Shoulder Edge" />
+					</Feature>
+				</Line>
+				<Line dir="0.23393092752114908" length="11.999999999464123">
+					<Start>651923.67022141686 1753895.2831286562 0</Start>
+					<End>651926.45185938873 1753906.9562811945 0</End>
+					<Feature>
+						<Property label="style" value="Linear\Roadway\Shoulders\Prop Paved Shoulder Edge" />
+					</Feature>
+				</Line>
+				<Line dir="4.9465656689211608" length="4.0013632010879787">
+					<Start>651926.45185938873 1753906.9562811945 0</Start>
+					<End>651922.5597105393 1753907.8847664127 0</End>
+					<Feature>
+						<Property label="style" value="Linear\Roadway\Shoulders\Prop Paved Shoulder Edge" />
+					</Feature>
+				</Line>
+				<Line dir="4.9479141669491762" length="29.62101179638767">
+					<Start>651922.5597105393 1753907.8847664127 0</Start>
+					<End>651893.7564779704 1753914.7969392564 0</End>
+					<Feature>
+						<Property label="style" value="Linear\Roadway\Shoulders\Prop Paved Shoulder Edge" />
+					</Feature>
+				</Line>
+				<Line dir="4.9484705301543217" length="863.61397821055994">
+					<Start>651893.7564779704 1753914.7969392564 0</Start>
+					<End>651054.09747497702 1754116.7916472391 0</End>
+					<Feature>
+						<Property label="style" value="Linear\Roadway\Shoulders\Prop Paved Shoulder Edge" />
+					</Feature>
+				</Line>
+				<Curve crvType="arc" rot="ccw" radius="7506.000000225702" length="550.35505780308006" chord="550.23178384545918">
+					<Start>651054.09747497702 1754116.7916472391 0</Start>
+					<Center>652809.71088144579 1761414.589778896 0</Center>
+					<End>650524.2045984118 1754265.0095790802 0</End>
+					<Feature>
+						<Property label="style" value="Linear\Roadway\Shoulders\Prop Paved Shoulder Edge" />
+					</Feature>
+				</Curve>
+				<Line dir="5.0217925469120992" length="965.12542556193512">
+					<Start>650524.20459841203 1754265.0095790811 0</Start>
+					<End>649604.90781813907 1754558.8811783313 0</End>
+					<Feature>
+						<Property label="style" value="Linear\Roadway\Shoulders\Prop Paved Shoulder Edge" />
+					</Feature>
+				</Line>
+				<Curve crvType="arc" rot="ccw" radius="7505.9999999491865" length="513.80518610170657" chord="513.70487669744193">
+					<Start>649604.90781813883 1754558.8811783313 0</Start>
+					<Center>651890.41410109354 1761708.4613778824 0</Center>
+					<End>649121.23518451164 1754731.9519263587 0</End>
+					<Feature>
+						<Property label="style" value="Linear\Roadway\Shoulders\Prop Paved Shoulder Edge" />
+					</Feature>
+				</Curve>
+				<Line dir="5.1794062631278868" length="730.34900000031053">
+					<Start>648142.47493858112 1755181.5451593178 0</Start>
+					<End>647490.33525025472 1755510.3665222356 0</End>
+					<Feature>
+						<Property label="style" value="Linear\Roadway\Shoulders\Prop Paved Shoulder Edge" />
+					</Feature>
+				</Line>
+				<Line dir="5.1795214778615994" length="20.953073604521528">
+					<Start>647490.33525025472 1755510.3665222356 0</Start>
+					<End>647471.62702036649 1755519.8022748777 0</End>
+					<Feature>
+						<Property label="style" value="Linear\Roadway\Shoulders\Prop Paved Shoulder Edge" />
+					</Feature>
+				</Line>
+				<Line dir="5.1805335776933692" length="31.559470661442752">
+					<Start>647471.62702036649 1755519.8022748777 0</Start>
+					<End>647443.46312658454 1755534.0428954915 0</End>
+					<Feature>
+						<Property label="style" value="Linear\Roadway\Shoulders\Prop Paved Shoulder Edge" />
+					</Feature>
+				</Line>
+				<Line dir="5.1824284908398814" length="18.462230418692176">
+					<Start>647443.46312658454 1755534.0428954915 0</Start>
+					<End>647427.00311778509 1755542.4048367946 0</End>
+					<Feature>
+						<Property label="style" value="Linear\Roadway\Shoulders\Prop Paved Shoulder Edge" />
+					</Feature>
+				</Line>
+				<Line dir="5.1855763461492188" length="34.076797933071127">
+					<Start>647427.00311778509 1755542.4048367946 0</Start>
+					<End>647396.67066997336 1755557.9345105554 0</End>
+					<Feature>
+						<Property label="style" value="Linear\Roadway\Shoulders\Prop Paved Shoulder Edge" />
+					</Feature>
+				</Line>
+				<Line dir="5.1894723741421043" length="15.968493584933492">
+					<Start>647396.67066997336 1755557.9345105554 0</Start>
+					<End>647382.4852506984 1755565.2670863215 0</End>
+					<Feature>
+						<Property label="style" value="Linear\Roadway\Shoulders\Prop Paved Shoulder Edge" />
+					</Feature>
+				</Line>
+				<Line dir="5.1947560159295287" length="36.596507203181986">
+					<Start>647382.4852506984 1755565.2670863215 0</Start>
+					<End>647350.06442724611 1755582.2433799731 0</End>
+					<Feature>
+						<Property label="style" value="Linear\Roadway\Shoulders\Prop Paved Shoulder Edge" />
+					</Feature>
+				</Line>
+				<Line dir="5.2006531275563326" length="13.472337093245599">
+					<Start>647350.06442724611 1755582.2433799731 0</Start>
+					<End>647338.1663534065 1755588.56316681 0</End>
+					<Feature>
+						<Property label="style" value="Linear\Roadway\Shoulders\Prop Paved Shoulder Edge" />
+					</Feature>
+				</Line>
+				<Line dir="5.2080726625468348" length="39.119051147425026">
+					<Start>647338.1663534065 1755588.56316681 0</Start>
+					<End>647303.75552520284 1755607.1694846889 0</End>
+					<Feature>
+						<Property label="style" value="Linear\Roadway\Shoulders\Prop Paved Shoulder Edge" />
+					</Feature>
+				</Line>
+				<Curve crvType="arc" rot="ccw" radius="3030.0000000711334" length="254.81458333353089" chord="254.73950096810793">
+					<Start>647303.75552520284 1755607.1694846889 0</Start>
+					<Center>648761.03859621135 1758263.7134898547 0</Center>
+					<End>647085.7609631716 1755738.9669971019 0</End>
+					<Feature>
+						<Property label="style" value="Linear\Roadway\Shoulders\Prop Paved Shoulder Edge" />
+					</Feature>
+				</Curve>
+				<Line dir="5.299312303875813" length="6.6539666737074512">
+					<Start>647085.7609631716 1755738.9669971019 0</Start>
+					<End>647080.22054789169 1755742.6519762091 0</End>
+					<Feature>
+						<Property label="style" value="Linear\Roadway\Shoulders\Prop Paved Shoulder Edge" />
+					</Feature>
+				</Line>
+				<Line dir="5.3071767512104575" length="45.932520006343935">
+					<Start>647080.22054789169 1755742.6519762091 0</Start>
+					<End>647042.17613729404 1755768.3894822348 0</End>
+					<Feature>
+						<Property label="style" value="Linear\Roadway\Shoulders\Prop Paved Shoulder Edge" />
+					</Feature>
+				</Line>
+				<Line dir="5.3139249460164866" length="4.1514113591226129">
+					<Start>647042.17613729404 1755768.3894822348 0</Start>
+					<End>647038.75343408796 1755770.7388053364 0</End>
+					<Feature>
+						<Property label="style" value="Linear\Roadway\Shoulders\Prop Paved Shoulder Edge" />
+					</Feature>
+				</Line>
+				<Line dir="5.3196544956676526" length="48.413497005522323">
+					<Start>647038.75343408796 1755770.7388053364 0</Start>
+					<End>646998.99571607111 1755798.3647089486 0</End>
+					<Feature>
+						<Property label="style" value="Linear\Roadway\Shoulders\Prop Paved Shoulder Edge" />
+					</Feature>
+				</Line>
+				<Line dir="5.3244014121361989" length="1.6469435507711037">
+					<Start>646998.99571607111 1755798.3647089486 0</Start>
+					<End>646997.64770347625 1755799.3109040151 0</End>
+					<Feature>
+						<Property label="style" value="Linear\Roadway\Shoulders\Prop Paved Shoulder Edge" />
+					</Feature>
+				</Line>
+				<Line dir="5.3279484695889696" length="50.036935734729262">
+					<Start>646997.64770347625 1755799.3109040151 0</Start>
+					<End>646956.7950214257 1755828.2030016717 0</End>
+					<Feature>
+						<Property label="style" value="Linear\Roadway\Shoulders\Prop Paved Shoulder Edge" />
+					</Feature>
+				</Line>
+				<Line dir="5.3307409961689114" length="0.85510331922433647">
+					<Start>646956.7950214257 1755828.2030016717 0</Start>
+					<End>646956.09825340856 1755828.698699177 0</End>
+					<Feature>
+						<Property label="style" value="Linear\Roadway\Shoulders\Prop Paved Shoulder Edge" />
+					</Feature>
+				</Line>
+				<Line dir="5.3321740162361273" length="49.158281684433767">
+					<Start>646956.09825340856 1755828.698699177 0</Start>
+					<End>646916.08324794914 1755857.2527881353 0</End>
+					<Feature>
+						<Property label="style" value="Linear\Roadway\Shoulders\Prop Paved Shoulder Edge" />
+					</Feature>
+				</Line>
+				<Line dir="5.3329468035201568" length="200.00020041545864">
+					<Start>646916.08324794914 1755857.2527881353 0</Start>
+					<End>646753.3722418606 1755973.5507187443 0</End>
+					<Feature>
+						<Property label="style" value="Linear\Roadway\Shoulders\Prop Paved Shoulder Edge" />
+					</Feature>
+				</Line>
+				<Line dir="5.3336794350752035" length="38.193212192433613">
+					<Start>646753.3722418606 1755973.5507187443 0</Start>
+					<End>646722.31627239392 1755995.7824127432 0</End>
+					<Feature>
+						<Property label="style" value="Linear\Roadway\Shoulders\Prop Paved Shoulder Edge" />
+					</Feature>
+				</Line>
+				<Line dir="5.3354876304759706" length="11.825693171147474">
+					<Start>646722.31627239392 1755995.7824127432 0</Start>
+					<End>646712.71293292858 1756002.6833467444 0</End>
+					<Feature>
+						<Property label="style" value="Linear\Roadway\Shoulders\Prop Paved Shoulder Edge" />
+					</Feature>
+				</Line>
+				<Line dir="5.3382734831413554" length="31.216829459224968">
+					<Start>646712.71293292858 1756002.6833467444 0</Start>
+					<End>646687.4134007683 1756020.9706131874 0</End>
+					<Feature>
+						<Property label="style" value="Linear\Roadway\Shoulders\Prop Paved Shoulder Edge" />
+					</Feature>
+				</Line>
+				<Curve crvType="arc" rot="ccw" radius="5505.9999999571965" length="1368.7615672723991" chord="1365.2397707786049">
+					<Start>646687.41340076819 1756020.9706131874 0</Start>
+					<Center>649924.02031519683 1760475.2283157683 0</Center>
+					<End>645690.9750881542 1756954.23923522 0</End>
+					<Feature>
+						<Property label="style" value="Linear\Roadway\Shoulders\Prop Paved Shoulder Edge" />
+					</Feature>
+				</Curve>
+				<Line dir="5.5894999621948527" length="1.5426658689288466">
+					<Start>645690.9750881542 1756954.2392352207 0</Start>
+					<End>645689.98874591629 1756955.4253831764 0</End>
+					<Feature>
+						<Property label="style" value="Linear\Roadway\Shoulders\Prop Paved Shoulder Edge" />
+					</Feature>
+				</Line>
+				<Line dir="5.5927331118385979" length="41.48454839640015">
+					<Start>645689.98874591629 1756955.4253831764 0</Start>
+					<End>645663.56782317837 1756987.4082316633 0</End>
+					<Feature>
+						<Property label="style" value="Linear\Roadway\Shoulders\Prop Paved Shoulder Edge" />
+					</Feature>
+				</Line>
+				<Line dir="5.5955857492750667" length="8.5531039655075141">
+					<Start>645663.56782317837 1756987.4082316633 0</Start>
+					<End>645658.13930478122 1756994.0178288866 0</End>
+					<Feature>
+						<Property label="style" value="Linear\Roadway\Shoulders\Prop Paved Shoulder Edge" />
+					</Feature>
+				</Line>
+				<Line dir="5.5967593072724258" length="34.466525356187539">
+					<Start>645658.13930478122 1756994.0178288866 0</Start>
+					<End>645636.29522444692 1757020.6782400704 0</End>
+					<Feature>
+						<Property label="style" value="Linear\Roadway\Shoulders\Prop Paved Shoulder Edge" />
+					</Feature>
+				</Line>
+				<Line dir="5.597177466333755" length="240.3300000003652">
+					<Start>645636.29522444692 1757020.6782400704 0</Start>
+					<End>645484.05742140533 1757206.6410326532 0</End>
+					<Feature>
+						<Property label="style" value="Linear\Roadway\Shoulders\Prop Paved Shoulder Edge" />
+					</Feature>
+				</Line>
+				<Line dir="5.5971074025591898" length="25.20973893614547">
+					<Start>645484.05742140533 1757206.6410326532 0</Start>
+					<End>645468.08686539647 1757226.1467312565 0</End>
+					<Feature>
+						<Property label="style" value="Linear\Roadway\Shoulders\Prop Paved Shoulder Edge" />
+					</Feature>
+				</Line>
+				<Line dir="5.5963955786757129" length="43.52757667930733">
+					<Start>645468.08686539647 1757226.1467312565 0</Start>
+					<End>645440.48785729764 1757259.8059749131 0</End>
+					<Feature>
+						<Property label="style" value="Linear\Roadway\Shoulders\Prop Paved Shoulder Edge" />
+					</Feature>
+				</Line>
+				<Line dir="5.5954634462137012" length="6.4624600685350995">
+					<Start>645440.48785729764 1757259.8059749131 0</Start>
+					<End>645436.38562641898 1757264.7994798899 0</End>
+					<Feature>
+						<Property label="style" value="Linear\Roadway\Shoulders\Prop Paved Shoulder Edge" />
+					</Feature>
+				</Line>
+				<Line dir="5.5947771898259173" length="19.609382949188667">
+					<Start>645436.38562641898 1757264.7994798899 0</Start>
+					<End>645423.92761594604 1757279.942989216 0</End>
+					<Feature>
+						<Property label="style" value="Linear\Roadway\Shoulders\Prop Paved Shoulder Edge" />
+					</Feature>
+				</Line>
+				<Line dir="5.5931504339667271" length="30.370732649232089">
+					<Start>645423.92761594604 1757279.942989216 0</Start>
+					<End>645404.59469852934 1757303.3656215575 0</End>
+					<Feature>
+						<Property label="style" value="Linear\Roadway\Shoulders\Prop Paved Shoulder Edge" />
+					</Feature>
+				</Line>
+				<Line dir="5.5914692789718741" length="12.279291541059763">
+					<Start>645404.59469852934 1757303.3656215575 0</Start>
+					<End>645396.76223301271 1757312.8225494246 0</End>
+					<Feature>
+						<Property label="style" value="Linear\Roadway\Shoulders\Prop Paved Shoulder Edge" />
+					</Feature>
+				</Line>
+				<Line dir="5.5890564935004461" length="37.690889409036409">
+					<Start>645396.76223301271 1757312.8225494246 0</Start>
+					<End>645372.65076503647 1757341.7921931308 0</End>
+					<Feature>
+						<Property label="style" value="Linear\Roadway\Shoulders\Prop Paved Shoulder Edge" />
+					</Feature>
+				</Line>
+				<Line dir="5.5861690807616693" length="14.433544844829425">
+					<Start>645372.65076503647 1757341.7921931308 0</Start>
+					<End>645363.3854005225 1757352.8592721135 0</End>
+					<Feature>
+						<Property label="style" value="Linear\Roadway\Shoulders\Prop Paved Shoulder Edge" />
+					</Feature>
+				</Line>
+				<Line dir="5.5842158957990566" length="16.57866176859083">
+					<Start>645363.3854005225 1757352.8592721135 0</Start>
+					<End>645352.71820697538 1757365.5503322689 0</End>
+					<Feature>
+						<Property label="style" value="Linear\Roadway\Shoulders\Prop Paved Shoulder Edge" />
+					</Feature>
+				</Line>
+				<Line dir="5.5817823321616844" length="18.948070597955184">
+					<Start>645352.71820697538 1757365.5503322689 0</Start>
+					<End>645340.49120446527 1757380.0254761025 0</End>
+					<Feature>
+						<Property label="style" value="Linear\Roadway\Shoulders\Prop Paved Shoulder Edge" />
+					</Feature>
+				</Line>
+				<Line dir="5.5782113000081379" length="28.317175882072711">
+					<Start>645340.49120446527 1757380.0254761025 0</Start>
+					<End>645322.14127712219 1757401.5926413413 0</End>
+					<Feature>
+						<Property label="style" value="Linear\Roadway\Shoulders\Prop Paved Shoulder Edge" />
+					</Feature>
+				</Line>
+				<Line dir="5.574057086634971" length="21.6331582553651">
+					<Start>645322.14127712219 1757401.5926413413 0</Start>
+					<End>645308.05436156073 1757418.0106907403 0</End>
+					<Feature>
+						<Property label="style" value="Linear\Roadway\Shoulders\Prop Paved Shoulder Edge" />
+					</Feature>
+				</Line>
+				<Curve crvType="arc" rot="cw" radius="5493.9999997534178" length="305.76607272711323" chord="305.72661223302816">
+					<Start>645308.05436156085 1757418.0106907403 0</Start>
+					<Center>641145.36529081885 1753832.4764630953 0</Center>
+					<End>645102.16093205195 1757644.0121445246 0</End>
+					<Feature>
+						<Property label="style" value="Linear\Roadway\Shoulders\Prop Paved Shoulder Edge" />
+					</Feature>
+				</Curve>
+				<Curve crvType="arc" rot="cw" radius="5482.0000004891135" length="928.33085054782748" chord="927.22202463091241">
+					<Start>644860.13975146669 1757863.9494822081 0</Start>
+					<Center>641145.36529032094 1753832.4764625563 0</Center>
+					<End>644127.56536955258 1758432.3467534224 0</End>
+					<Feature>
+						<Property label="style" value="Linear\Roadway\Shoulders\Prop Paved Shoulder Edge" />
+					</Feature>
+				</Curve>
+				<Line dir="5.2845412745539893" length="34.843835892884073">
+					<Start>644127.56536955247 1758432.3467534224 0</Start>
+					<End>644098.27084731555 1758451.2126980487 0</End>
+					<Feature>
+						<Property label="style" value="Linear\Roadway\Shoulders\Prop Paved Shoulder Edge" />
+					</Feature>
+				</Line>
+				<Line dir="5.2790777351078626" length="33.700697394867468">
+					<Start>644098.27084731555 1758451.2126980487 0</Start>
+					<End>644069.83813474048 1758469.3046260974 0</End>
+					<Feature>
+						<Property label="style" value="Linear\Roadway\Shoulders\Prop Paved Shoulder Edge" />
+					</Feature>
+				</Line>
+				<Line dir="5.2755465367391627" length="16.563418566997512">
+					<Start>644069.83813474048 1758469.3046260974 0</Start>
+					<End>644055.83254461503 1758478.1471528779 0</End>
+					<Feature>
+						<Property label="style" value="Linear\Roadway\Shoulders\Prop Paved Shoulder Edge" />
+					</Feature>
+				</Line>
+				<Line dir="5.2716362012665758" length="49.509621616054297">
+					<Start>644055.83254461503 1758478.1471528779 0</Start>
+					<End>644013.86547933531 1758504.4143960597 0</End>
+					<Feature>
+						<Property label="style" value="Linear\Roadway\Shoulders\Prop Paved Shoulder Edge" />
+					</Feature>
+				</Line>
+				<Line dir="5.2689518759540972" length="2.5362711614412063">
+					<Start>644013.86547933531 1758504.4143960597 0</Start>
+					<End>644011.71199275507 1758505.7542344653 0</End>
+					<Feature>
+						<Property label="style" value="Linear\Roadway\Shoulders\Prop Paved Shoulder Edge" />
+					</Feature>
+				</Line>
+				<Line dir="5.2670962566297339" length="42.62151274441355">
+					<Start>644011.71199275507 1758505.7542344653 0</Start>
+					<End>643975.4813775426 1758528.2027504507 0</End>
+					<Feature>
+						<Property label="style" value="Linear\Roadway\Shoulders\Prop Paved Shoulder Edge" />
+					</Feature>
+				</Line>
+				<Line dir="5.2654105483690223" length="4.7737431167919233">
+					<Start>643975.4813775426 1758528.2027504507 0</Start>
+					<End>643971.41920237965 1758530.7102105783 0</End>
+					<Feature>
+						<Property label="style" value="Linear\Roadway\Shoulders\Prop Paved Shoulder Edge" />
+					</Feature>
+				</Line>
+				<Line dir="5.264681988736065" length="21.270348890124065">
+					<Start>643971.41920237965 1758530.7102105783 0</Start>
+					<End>643953.31124907767 1758541.8695012869 0</End>
+					<Feature>
+						<Property label="style" value="Linear\Roadway\Shoulders\Prop Paved Shoulder Edge" />
+					</Feature>
+				</Line>
+				<Line dir="5.2635864957317571" length="28.690946955884815">
+					<Start>643953.31124907767 1758541.8695012869 0</Start>
+					<End>643928.86948917957 1758556.895172996 0</End>
+					<Feature>
+						<Property label="style" value="Linear\Roadway\Shoulders\Prop Paved Shoulder Edge" />
+					</Feature>
+				</Line>
+				<Line dir="5.2627623338785323" length="40.030926263537204">
+					<Start>643928.86948917957 1758556.895172996 0</Start>
+					<End>643894.74995719688 1758577.8315670216 0</End>
+					<Feature>
+						<Property label="style" value="Linear\Roadway\Shoulders\Prop Paved Shoulder Edge" />
+					</Feature>
+				</Line>
+				<Line dir="0.55019670909014839" length="11.999999999450894">
+					<Start>643894.74995719688 1758577.8315670216 0</Start>
+					<End>643901.02421621431 1758588.06062728 0</End>
+					<Feature>
+						<Property label="style" value="Linear\Roadway\Shoulders\Prop Paved Shoulder Edge" />
+					</Feature>
+				</Line>
+				<Line dir="5.262585689483176" length="1084.9251353061422">
+					<Start>643901.02421621431 1758588.06062728 0</Start>
+					<End>642976.2105007706 1759155.3190700964 0</End>
+					<Feature>
+						<Property label="style" value="Linear\Roadway\Shoulders\Prop Paved Shoulder Edge" />
+					</Feature>
+				</Line>
+				<Curve crvType="arc" rot="ccw" radius="7505.9999961458489" length="182.94546029430921" chord="182.94093201376643">
+					<Start>642976.21050073823 1759155.3190701162 0</Start>
+					<Center>646900.75951434521 1765553.5962586987 0</Center>
+					<End>642821.44490222528 1759252.8639014654 0</End>
+					<Feature>
+						<Property label="style" value="Linear\Roadway\Shoulders\Prop Paved Shoulder Edge" />
+					</Feature>
+				</Curve>
+				<Line dir="5.286958918951365" length="661.78392030065766">
+					<Start>642821.4449021956 1759252.8639014838 0</Start>
+					<End>642265.92620218499 1759612.5261473577 0</End>
+					<Feature>
+						<Property label="style" value="Linear\Roadway\Shoulders\Prop Paved Shoulder Edge" />
+					</Feature>
+				</Line>
+				<Curve crvType="arc" rot="cw" radius="7493.9999999523661" length="621.41118906152133" chord="621.23317215080431">
+					<Start>642265.92620218464 1759612.5261473572 0</Start>
+					<Center>638193.13327403925 1753321.8669002089 0</Center>
+					<End>641730.90092472406 1759928.2453369212 0</End>
+					<Feature>
+						<Property label="style" value="Linear\Roadway\Shoulders\Prop Paved Shoulder Edge" />
+					</Feature>
+				</Curve>
+				<Line dir="5.2040377568157972" length="150.00000150655902">
+					<Start>641730.90092472394 1759928.2453369207 0</Start>
+					<End>641598.66756797663 1759999.0573402485 0</End>
+					<Feature>
+						<Property label="style" value="Linear\Roadway\Shoulders\Prop Paved Shoulder Edge" />
+					</Feature>
+				</Line>
+				<Curve crvType="arc" rot="ccw" radius="7506.0000001844073" length="500.71153793026645" chord="500.61870324325736">
+					<Start>641598.66756797675 1759999.0573402485 0</Start>
+					<Center>645142.10017897864 1766616.0144455994 0</Center>
+					<End>641165.47093664994 1760249.9751846599 0</End>
+					<Feature>
+						<Property label="style" value="Linear\Roadway\Shoulders\Prop Paved Shoulder Edge" />
+					</Feature>
+				</Curve>
+				<Curve crvType="arc" rot="ccw" radius="7503.9999528789613" length="121.71066280620038" chord="121.70932870870955">
+					<Start>641166.52097671281 1760251.6774016265 0</Start>
+					<Center>645142.10015377065 1766616.0144055688 0</Center>
+					<End>641063.82244914444 1760316.9933501384 0</End>
+					<Feature>
+						<Property label="style" value="Linear\Roadway\Shoulders\Prop Paved Shoulder Edge" />
+					</Feature>
+				</Curve>
+				<Line dir="5.2869668667854128" length="1247.9593178984153">
+					<Start>641063.82244914444 1760316.9933501384 0</Start>
+					<End>640016.25820752338 1760995.2349138947 0</End>
+					<Feature>
+						<Property label="style" value="Linear\Roadway\Shoulders\Prop Paved Shoulder Edge" />
+					</Feature>
+				</Line>
+			</CoordGeom>
+			<Profile>
+				<ProfAlign name="ProfileByTemplate">
+					<PVI>0 582.71420872904241</PVI>
+					<PVI>41.957999999870317 583.34880240177677</PVI>
+					<PVI>91.957999999937186 584.04743258580936</PVI>
+					<PVI>141.95800000000406 584.68343124363662</PVI>
+					<PVI>191.95799999998124 585.256798375259</PVI>
+					<PVI>241.95799999995265 585.76753398067626</PVI>
+					<PVI>291.95800000002521 586.21563805988865</PVI>
+					<PVI>341.95799999999667 586.60111061289592</PVI>
+					<PVI>391.95799999987833 586.92395163969809</PVI>
+					<PVI>431.28199999999379 587.13386003907362</PVI>
+					<PVI>441.95799999984973 587.19880251172697</PVI>
+					<PVI>491.95800000001788 587.46495191470513</PVI>
+					<PVI>518.77842880702974 587.58190807829624</PVI>
+					<PVI>541.97654365590097 587.66846979147795</PVI>
+					<PVI>561.50125472825334 587.73089239360183</PVI>
+					<PVI>592.01654365600621 587.809356142046</PVI>
+					<PVI>606.35200285657197 587.8381758145149</PVI>
+					<PVI>642.056543656038 587.83868388068549</PVI>
+					<PVI>646.94690657077047 587.83627067345606</PVI>
+					<PVI>692.09654365607639 587.78573575025757</PVI>
+					<PVI>732.39255841326099 587.69757273388234</PVI>
+					<PVI>742.13654365602815 587.67015609362466</PVI>
+					<PVI>775.11538433449789 587.55974284272361</PVI>
+					<PVI>792.17654365608007 587.49194491078663</PVI>
+					<PVI>817.8382102557415 587.37625900398336</PVI>
+					<PVI>842.21654365596851 587.25110220174383</PVI>
+					<PVI>860.56103617701501 587.14712121766206</PVI>
+					<PVI>892.256543655977 586.94762796649547</PVI>
+					<PVI>903.28386209825203 586.87232948375947</PVI>
+					<PVI>942.29654365609542 586.58152220504246</PVI>
+					<PVI>946.00668802623238 586.5518838022756</PVI>
+					<PVI>992.29950939996047 586.15278491738422</PVI>
+					<PVI>1042.2995093999216 585.66141610352133</PVI>
+					<PVI>1092.29950940001 585.10741576345333</PVI>
+					<PVI>1142.2995093999548 584.49078389717988</PVI>
+					<PVI>1192.2995093999316 583.81152050470166</PVI>
+					<PVI>1242.2995094000039 583.06962558601856</PVI>
+					<PVI>1292.299509399965 582.26509914113001</PVI>
+					<PVI>1342.2995093999421 581.39794117003692</PVI>
+					<PVI>1392.2995093999982 580.46815167273826</PVI>
+					<PVI>1442.2995093999755 579.47573064923495</PVI>
+					<PVI>1492.2995093999361 578.42067809952641</PVI>
+					<PVI>1516.6995094000063 577.88307270178234</PVI>
+					<PVI>1522.5164788592706 569.54523216521522</PVI>
+					<PVI>2069.7502173985031 553.21249472784723</PVI>
+					<PVI>2111.2932180159155 551.79204525748889</PVI>
+					<PVI>2111.2947465595407 551.64679998736756</PVI>
+					<PVI>2123.2947465590046 551.45519763134973</PVI>
+					<PVI>2156.9171215564802 550.39853279890065</PVI>
+					<PVI>2758.7528026873556 532.34376786515429</PVI>
+					<PVI>2777.3061215559292 531.79076351354865</PVI>
+					<PVI>2827.3061215558969 530.33615836150307</PVI>
+					<PVI>2877.3061215559569 528.93363818074715</PVI>
+					<PVI>2927.3061215559251 527.58320297128159</PVI>
+					<PVI>2977.3061215558923 526.28485273310616</PVI>
+					<PVI>3020.5310998071541 525.20440633344026</PVI>
+					<PVI>3027.3115415725006 525.03858746622097</PVI>
+					<PVI>3062.8661042481476 524.18473867481714</PVI>
+					<PVI>3077.3515415725496 523.84440717062557</PVI>
+					<PVI>3090.7912847724529 523.53254729796492</PVI>
+					<PVI>3105.2011086889038 523.22078094503718</PVI>
+					<PVI>3128.3212847723671 522.72958457488176</PVI>
+					<PVI>3147.53611312985 522.30524365185443</PVI>
+					<PVI>3177.4315415724077 521.66030149331596</PVI>
+					<PVI>3189.8711175706271 521.39741628750448</PVI>
+					<PVI>3227.4715415723472 520.62237611159117</PVI>
+					<PVI>3232.206122011447 520.52686902124549</PVI>
+					<PVI>3277.5115415723567 519.63653570115673</PVI>
+					<PVI>3316.8761308931535 518.89761478300079</PVI>
+					<PVI>3327.5515415723585 518.7027802620122</PVI>
+					<PVI>3359.2111353339669 518.13890781101497</PVI>
+					<PVI>3377.5915415724508 517.82110979415779</PVI>
+					<PVI>3401.5461397750173 517.4174809371201</PVI>
+					<PVI>3427.6315415724634 516.99152429759363</PVI>
+					<PVI>3443.8811442156002 516.73333416131663</PVI>
+					<PVI>3462.5884847726284 516.44289431904053</PVI>
+					<PVI>3486.2161486566606 516.05362048970096</PVI>
+					<PVI>3497.1160847725696 515.87795447719043</PVI>
+					<PVI>3528.551153097424 515.42888090397173</PVI>
+					<PVI>3559.183380048823 515.01105028144423</PVI>
+					<PVI>4606.2311844339538 501.05236626446356</PVI>
+					<PVI>4643.7611844341027 500.60040495547628</PVI>
+					<PVI>4677.8594412340699 500.14640727915571</PVI>
+					<PVI>4703.7790266087222 499.82300613895825</PVI>
+					<PVI>4727.8994412339998 499.55386424466553</PVI>
+					<PVI>4745.7208874778416 499.37470776070467</PVI>
+					<PVI>4777.9394412341826 499.09331010805505</PVI>
+					<PVI>4787.6627483470602 499.01913467046194</PVI>
+					<PVI>4827.9794412340407 498.76474486932449</PVI>
+					<PVI>4829.6046092161205 498.75628686822984</PVI>
+					<PVI>4871.546470085178 498.58616435400887</PVI>
+					<PVI>4878.019441234027 498.56816852847362</PVI>
+					<PVI>4913.4883309543429 498.50876712779882</PVI>
+					<PVI>4928.0594412339651 498.50358108550267</PVI>
+					<PVI>4955.430191823576 498.52409518959951</PVI>
+					<PVI>4978.0994412339915 498.57098254041148</PVI>
+					<PVI>4997.3720526927082 498.63214853941139</PVI>
+					<PVI>5028.1394412339705 498.77037289320003</PVI>
+					<PVI>5039.3139135617912 498.83292717723373</PVI>
+					<PVI>5049.8167692339039 498.89772225542453</PVI>
+					<PVI>5051.1167692341296 525.24383403870775</PVI>
+					<PVI>5501.1167692340096 538.25065538950389</PVI>
+					<PVI>5551.1167692339959 539.65516130742571</PVI>
+					<PVI>5601.1167692342406 540.98345771273466</PVI>
+					<PVI>5651.1167692341405 542.23554460543016</PVI>
+					<PVI>5701.1167692339559 543.41142198551267</PVI>
+					<PVI>5751.1167692340287 544.51108985298231</PVI>
+					<PVI>5780.1657692341296 545.11497499520169</PVI>
+					<PVI>5801.1188428386513 545.56088660784428</PVI>
+					<PVI>5832.6783135001788 546.20710631367513</PVI>
+					<PVI>5851.1405439187865 546.57099259295796</PVI>
+					<PVI>5885.2173418518578 547.21522684158435</PVI>
+					<PVI>5901.185835436876 547.50488906545877</PVI>
+					<PVI>5937.7823426400582 548.13932638183758</PVI>
+					<PVI>5951.2546797332188 548.36257602534613</PVI>
+					<PVI>5990.373730880644 548.9794121098189</PVI>
+					<PVI>6001.3464590551575 549.13028650118906</PVI>
+					<PVI>6015.8543302831504 549.32415673933053</PVI>
+					<PVI>6041.3354026470106 549.64919358121381</PVI>
+					<PVI>6051.445665404226 549.77269729297984</PVI>
+					<PVI>6066.8164750107035 549.95451605348671</PVI>
+					<PVI>6092.2975473743672 550.24012415614914</PVI>
+					<PVI>6245.1883142141751 551.86053555395176</PVI>
+					<PVI>6455.3960267128432 553.82544672534198</PVI>
+					<PVI>6647.2260267129041 555.86150401114344</PVI>
+					<PVI>6733.2729087862963 556.88229620518655</PVI>
+					<PVI>7581.352194113505 565.87388431110833</PVI>
+					<PVI>7603.0317026047196 566.0948757701974</PVI>
+					<PVI>7607.7517486890029 566.14064059436998</PVI>
+					<PVI>7645.7728882361771 566.47864950921121</PVI>
+					<PVI>7653.0862480593923 566.5374146688207</PVI>
+					<PVI>7683.7940277832013 566.76214920119446</PVI>
+					<PVI>7703.1407935137195 566.88548076992811</PVI>
+					<PVI>7721.8151673301609 566.99113967031997</PVI>
+					<PVI>7753.1953389685996 567.1390740735194</PVI>
+					<PVI>7759.8363068775543 567.1656209165875</PVI>
+					<PVI>7797.8574464244493 567.28559293999717</PVI>
+					<PVI>7803.2498844229276 567.29819457959456</PVI>
+					<PVI>7835.8785859714735 567.3510557405491</PVI>
+					<PVI>7853.3044298774748 567.36284228815373</PVI>
+					<PVI>7873.8997255187314 567.36200931824305</PVI>
+					<PVI>7903.3589753321912 567.33301719919677</PVI>
+					<PVI>7911.9208650658165 567.31845367307903</PVI>
+					<PVI>7949.9420046127716 567.22038880505715</PVI>
+					<PVI>7953.413520786502 567.2087193127237</PVI>
+					<PVI>7987.9631441598103 567.06781471417742</PVI>
+					<PVI>8003.4680662411174 566.98994862873451</PVI>
+					<PVI>8025.9842837068918 566.86073140043982</PVI>
+					<PVI>8053.5226116957865 566.67670514722943</PVI>
+					<PVI>8064.0054232539605 566.59913886384436</PVI>
+					<PVI>8102.0344760586968 566.28296564118318</PVI>
+					<PVI>8145.0616903243181 565.80536855260675</PVI>
+					<PVI>8153.614794289886 565.70207388467975</PVI>
+					<PVI>8188.0813196460122 565.25771091408239</PVI>
+					<PVI>8203.6223196461196 565.06213791759365</PVI>
+					<PVI>8253.6223196461742 564.3710032460242</PVI>
+					<PVI>8303.6223196465253 563.58539577693819</PVI>
+					<PVI>8353.6223196462233 562.70531551033628</PVI>
+					<PVI>8403.6223196460414 561.73076244621836</PVI>
+					<PVI>8428.4113196463768 561.21256906301994</PVI>
+					<PVI>8453.6210585825229 560.62983321003219</PVI>
+					<PVI>8497.1486352618904 559.56698379453098</PVI>
+					<PVI>8503.6110953303651 559.40306182359541</PVI>
+					<PVI>8523.2204782796143 558.89597269982744</PVI>
+					<PVI>8553.5912109288456 558.0818176396433</PVI>
+					<PVI>8565.8705024698447 557.74271105288528</PVI>
+					<PVI>8603.5613918788804 556.66610065817451</PVI>
+					<PVI>8617.9949367237095 556.23954073007474</PVI>
+					<PVI>8634.5735984920084 555.73982567843575</PVI>
+					<PVI>8653.5216690899633 555.15591087918972</PVI>
+					<PVI>8681.8388449723261 554.25785383120751</PVI>
+					<PVI>8703.4720032276928 553.56037643323248</PVI>
+					<PVI>9009.238075954805 544.08530555152447</PVI>
+					<PVI>9025.5146323183453 532.98416711241748</PVI>
+					<PVI>9653.0478094234204 513.49561890282916</PVI>
+					<PVI>9673.3873595909463 512.87521051447118</PVI>
+					<PVI>9677.5384010114249 512.75135834665457</PVI>
+					<PVI>9714.6844038845684 511.68478095508834</PVI>
+					<PVI>9723.2237232273364 511.45020196445427</PVI>
+					<PVI>9751.8304067580575 510.69326711500639</PVI>
+					<PVI>9773.0600868636429 510.16030656608837</PVI>
+					<PVI>9788.9764096315375 509.77681682640815</PVI>
+					<PVI>9822.8964505002041 509.00552431937297</PVI>
+					<PVI>9826.1224125052559 508.93543008929413</PVI>
+					<PVI>9863.2684153786577 508.16910690366427</PVI>
+					<PVI>9872.7328141365851 507.98585522430869</PVI>
+					<PVI>9900.4144182522032 507.47784726951846</PVI>
+					<PVI>9922.5691777729262 507.1012992808952</PVI>
+					<PVI>9937.568926502634 506.86151869121011</PVI>
+					<PVI>9972.4127623955992 506.48454319459188</PVI>
+					<PVI>10006.113459790386 506.18285334567742</PVI>
+					<PVI>10022.676878357177 506.05723024454591</PVI>
+					<PVI>10072.186499973515 505.7706334296679</PVI>
+					<PVI>10074.722771134957 505.75953620235384</PVI>
+					<PVI>10117.344283879289 505.62525495783615</PVI>
+					<PVI>10122.118026996164 505.61634827468225</PVI>
+					<PVI>10143.388375886205 505.59166736136979</PVI>
+					<PVI>10172.079322842173 505.59717627134768</PVI>
+					<PVI>10212.110249105628 505.67927921824383</PVI>
+					<PVI>10224.110249105079 505.43926841975133</PVI>
+					<PVI>10234.069782405459 505.43533980513058</PVI>
+					<PVI>10284.069782405419 505.49657592327304</PVI>
+					<PVI>10334.069782405497 505.69292519306634</PVI>
+					<PVI>10384.069782405457 506.02438761451054</PVI>
+					<PVI>10434.069782405615 506.49096318760581</PVI>
+					<PVI>10484.069782405491 507.09265191235158</PVI>
+					<PVI>10534.069782405371 507.82945378874837</PVI>
+					<PVI>10584.069782405331 508.70136881679622</PVI>
+					<PVI>10634.06978240569 509.70839699649457</PVI>
+					<PVI>10684.06978240553 510.85053832784394</PVI>
+					<PVI>10713.663447870462 511.59019224668481</PVI>
+					<PVI>11346.528753085309 527.91313900803084</PVI>
+					<PVI>11384.129809884726 528.93022116780128</PVI>
+					<PVI>11417.08515308556 529.77957057132426</PVI>
+					<PVI>11454.615153085826 530.69882140284369</PVI>
+					<PVI>12041.265021709121 545.82971961061924</PVI>
+					<PVI>12266.175021503492 551.34522459974221</PVI>
+					<PVI>12650.893716255498 561.27584290750769</PVI>
+					<PVI>12683.791660702575 562.09645388299373</PVI>
+					<PVI>12692.321128859432 562.30205962365778</PVI>
+					<PVI>12718.972493503328 562.92551549236691</PVI>
+					<PVI>12733.751660702686 563.27777960568346</PVI>
+					<PVI>12775.175954067543 564.21799518573403</PVI>
+					<PVI>12783.718494735072 564.40309744099238</PVI>
+					<PVI>12833.718494734934 565.42733986891017</PVI>
+					<PVI>12883.718494735058 566.3505068894367</PVI>
+					<PVI>12925.175955573824 567.03930271779927</PVI>
+					<PVI>12933.725328764462 567.17259850257199</PVI>
+					<PVI>12966.673682165218 567.65871040183606</PVI>
+					<PVI>12981.472495966909 567.86278728087223</PVI>
+					<PVI>13008.171408756805 568.17445883946903</PVI>
+					<PVI>13033.805328764387 568.44662302665859</PVI>
+					<PVI>13049.669135348146 568.60176798144437</PVI>
+					<PVI>13083.845328764408 568.90148841760686</PVI>
+					<PVI>13091.166861939431 568.95956516756098</PVI>
+					<PVI>13133.885328764385 569.25527840116399</PVI>
+					<PVI>13174.162315122554 569.46662367221779</PVI>
+					<PVI>13183.925328764515 569.50799297732988</PVI>
+					<PVI>13215.660041713996 569.6158849907581</PVI>
+					<PVI>13233.965328764421 569.65963214610451</PVI>
+					<PVI>13257.157768305642 569.6956343534398</PVI>
+					<PVI>13284.005328764488 569.71019590748779</PVI>
+					<PVI>13298.655494897057 569.70587176026231</PVI>
+					<PVI>13334.045328764523 569.65968426148027</PVI>
+					<PVI>13340.15322148853 569.64659721122621</PVI>
+					<PVI>13381.65094807991 569.51781070633137</PVI>
+					<PVI>13384.085328764408 569.50809720808127</PVI>
+					<PVI>13423.148674671578 569.3195122455777</PVI>
+					<PVI>13425.887493504091 569.30397943381263</PVI>
+					<PVI>13434.111877502697 569.19242034730712</PVI>
+					<PVI>13440.044039638426 569.15069683686181</PVI>
+					<PVI>13464.62481755461 568.96266359950039</PVI>
+					<PVI>13477.564039638479 568.85388011379314</PVI>
+					<PVI>13484.138544169595 568.7960158124381</PVI>
+					<PVI>13506.111486931366 568.58995814012371</PVI>
+					<PVI>13534.165210836094 568.29853587017806</PVI>
+					<PVI>13547.598156310292 568.14774072488774</PVI>
+					<PVI>13584.172371256938 567.69998052052676</PVI>
+					<PVI>13634.172371256756 567.00034976348422</PVI>
+					<PVI>13684.172371256911 566.19964359905032</PVI>
+					<PVI>13734.172371256807 565.29786202722539</PVI>
+					<PVI>13784.172371256835 564.32868611469053</PVI>
+					<PVI>13834.172371256653 563.2674203947704</PVI>
+					<PVI>13884.172371256598 562.10507926745947</PVI>
+					<PVI>13934.172371256704 560.84166273275673</PVI>
+					<PVI>13984.172371256731 559.47717079066331</PVI>
+					<PVI>14034.172371256675 558.01160344117807</PVI>
+					<PVI>14084.17237125678 556.44496068430192</PVI>
+					<PVI>14116.212183427473 555.38792573716967</PVI>
+					<PVI>14366.233310747668 546.97746902593451</PVI>
+					<PVI>14384.172371256649 546.39859305740561</PVI>
+					<PVI>14434.172371256758 545.04455852142428</PVI>
+					<PVI>14442.172371256205 544.86334749359014</PVI>
+					<PVI>14484.172371256782 544.07236124743724</PVI>
+					<PVI>14521.673371259201 543.59378409716885</PVI>
+					<PVI>14534.172371256807 543.48200123544473</PVI>
+					<PVI>14566.23331074769 543.30437031417046</PVI>
+					<PVI>14795.557474208532 542.5952992946485</PVI>
+					<Feature code="ProfAlign">
+						<Property label="style" value="Linear\Roadway\Shoulders\Prop Paved Shoulder Edge" />
+					</Feature>
+				</ProfAlign>
+			</Profile>
+		</Alignment>
+
+	</Alignments>
+</LandXML>

@@ -1,4 +1,5 @@
 import type { RgmPoint3, RgmToleranceContext } from "@rusted-geom/bindings-web";
+import type { CameraMode } from "./viewer-types";
 
 export interface CurvePreset {
   name: string;
@@ -14,6 +15,7 @@ export interface SavedCamera {
   target: RgmPoint3;
   up: RgmPoint3;
   fov: number;
+  mode?: CameraMode;
 }
 
 export interface ViewerSessionFile {
@@ -125,6 +127,9 @@ export function parseViewerSession(value: unknown): ViewerSessionFile {
         target: parsePoint(camera.target, "view.camera.target"),
         up: parsePoint(camera.up, "view.camera.up"),
         fov: asNumber(camera.fov, "view.camera.fov"),
+        mode: typeof camera.mode === "string" && (camera.mode === "perspective" || camera.mode === "orthographic")
+          ? (camera.mode as CameraMode)
+          : undefined,
       },
       showGrid: asBoolean(view.showGrid, "view.showGrid"),
       showAxes: asBoolean(view.showAxes, "view.showAxes"),

@@ -1,0 +1,79 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<LandXML xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.landxml.org/schema/LandXML-1.2 http://www.landxml.org/schema/landxml-1.2/LandXML-1.2.xsd" version="1.2" date="2025-12-11" time="11:49:17" xmlns="http://www.landxml.org/schema/LandXML-1.2">
+	<Units>
+		<Imperial areaUnit="squareFoot" linearUnit="foot" volumeUnit="cubicYard" temperatureUnit="fahrenheit" pressureUnit="inHG" directionUnit="radians" />
+	</Units>
+	<Application name="OpenRoads Designer" version="23.00.01.11" manufacturer="Bentley Systems, Inc." manufacturerURL="http://www.bentley.com" />
+	<CgPoints />
+	<Alignments>
+		<Alignment name="I-24 Ramp E5" length="3777.4481222207505" state="proposed" staStart="50000.1000002">
+			<CoordGeom name="I-24 Ramp E5" state="proposed">
+				<Curve crvType="arc" rot="ccw" radius="5742.011484022968" length="512.37877343178366" chord="512.20879617833282">
+					<Start>639302.95186597994 1761619.9578476271 0</Start>
+					<Center>636251.39227422362 1756755.938939295 0</Center>
+					<End>639724.26757503278 1761328.6660279897 0</End>
+					<Feature>
+						<Property label="style" value="Alignment\Prop HA Ramp" />
+					</Feature>
+				</Curve>
+				<Curve crvType="arc" rot="cw" radius="3228.0064560129122" length="280.76958437522717" chord="280.68108726772761">
+					<Start>639724.26757503813 1761328.6660279857 0</Start>
+					<Center>641676.62589462195 1763899.3318312385 0</Center>
+					<End>639954.96085962362 1761168.7833172351 0</End>
+					<Feature>
+						<Property label="style" value="Alignment\Prop HA Ramp" />
+					</Feature>
+				</Curve>
+				<Line dir="2.1333551277407485" length="1216.7631313229103">
+					<Start>639954.96085962385 1761168.7833172351 0</Start>
+					<End>640984.21244427958 1760519.8197641519 0</End>
+					<Feature>
+						<Property label="style" value="Alignment\Prop HA Ramp" />
+					</Feature>
+				</Line>
+				<Curve crvType="arc" rot="ccw" radius="20000.04000008" length="111.78618067079496" chord="111.7860351613398">
+					<Start>640984.21244428772 1760519.819764147 0</Start>
+					<Center>630317.14283463522 1743601.9231470251 0</Center>
+					<End>641078.60449468868 1760459.9343863144 0</End>
+					<Feature>
+						<Property label="style" value="Alignment\Prop HA Ramp" />
+					</Feature>
+				</Curve>
+				<Line dir="2.138944425597415" length="700.29697558848579">
+					<Start>641078.60449470929 1760459.9343863027 0</Start>
+					<End>641668.88402841322 1760083.1241872518 0</End>
+					<Feature>
+						<Property label="style" value="Alignment\Prop HA Ramp" />
+					</Feature>
+				</Line>
+				<Curve crvType="arc" rot="ccw" radius="6976.0139520279035" length="591.32222725034399" chord="591.14521322279541">
+					<Start>641668.88402841298 1760083.1241872516 0</Start>
+					<Center>637915.28620139137 1754203.0498669841 0</Center>
+					<End>642153.23526651703 1759744.2192724696 0</End>
+					<Feature>
+						<Property label="style" value="Alignment\Prop HA Ramp" />
+					</Feature>
+				</Curve>
+				<Curve crvType="arc" rot="cw" radius="6016.012032024064" length="364.13124958120471" chord="364.07566871224543">
+					<Start>642153.23526651831 1759744.2192724694 0</Start>
+					<Center>645807.98033185489 1764522.8424294943 0</Center>
+					<End>642448.98706152453 1759531.89412488 0</End>
+					<Feature>
+						<Property label="style" value="Alignment\Prop HA Ramp" />
+					</Feature>
+				</Curve>
+			</CoordGeom>
+			<Profile>
+				<ProfAlign name="I-24 Ramp E5 VA">
+					<PVI>50000.099996466044 506.3088836592853</PVI>
+					<ParaCurve length="139.56300603445317">50069.881499483272 507.31321914623248</ParaCurve>
+					<ParaCurve length="2550.0051000101994">52426.452079284791 572.89486386428109</ParaCurve>
+					<PVI>53777.548122420332 542.96108592217183</PVI>
+					<Feature code="ProfAlign">
+						<Property label="style" value="Alignment\Prop HA Ramp" />
+					</Feature>
+				</ProfAlign>
+			</Profile>
+		</Alignment>
+	</Alignments>
+</LandXML>

@@ -6,7 +6,7 @@ import { beforeAll, describe, expect, it } from "vitest";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const repoRoot = path.resolve(__dirname, "../../..");
-const pkgDir = path.join(repoRoot, "crates/kernel-ffi/pkg");
+const pkgDir = path.join(repoRoot, "crates/kernel/pkg");
 const wasmPath = path.join(pkgDir, "rusted_geom_bg.wasm");
 
 const pkgAvailable = existsSync(wasmPath);
@@ -270,7 +270,7 @@ describe.skipIf(!pkgAvailable)("kernel wasm-bindgen API", () => {
     const diff = session.mesh_boolean(box_, torus, 2);
     expect(session.mesh_triangle_count(diff)).toBeGreaterThan(0);
 
-    // B-rep from surface for serialisation test
+    // Build a proper B-rep with loops so it passes load-time validation (B3).
     const uCount = 3, vCount = 3;
     const rawPts = flatPoints([
       { x: -1, y: -1, z: 0 }, { x: -1, y: 0, z: 0 }, { x: -1, y: 1, z: 0 },
@@ -282,7 +282,14 @@ describe.skipIf(!pkgAvailable)("kernel wasm-bindgen API", () => {
       rawPts, new Array(uCount * vCount).fill(1),
       clampedUniformKnots(uCount, 2), clampedUniformKnots(vCount, 2),
     );
-    const brep = session.brep_create_from_surface(surface);
+    const brep = session.brep_create_empty();
+    const faceId = session.brep_add_face_from_surface(brep, surface);
+    session.brep_add_loop_uv(brep, faceId,
+      [0.05, 0.05, 0.95, 0.05, 0.95, 0.95, 0.05, 0.95],
+      true,
+    );
+    session.brep_finalize_shell(brep);
+
     const bytes = session.brep_save_native(brep);
     expect(bytes.length).toBeGreaterThan(0);
     const brep2 = session.brep_load_native(bytes);

@@ -16,13 +16,13 @@ The geometry kernel's intersection algorithms — surface-surface, surface-curve
 
 | File | Role |
 |---|---|
-| `crates/kernel-ffi/src/kernel_impl/surface_face_intersections_a.rs` | LM refinement loops (SSI, surface-curve, point projection) |
-| `crates/kernel-ffi/src/kernel_impl/surface_face_intersections_b.rs` | Seed generation, marching, surface-curve candidates |
-| `crates/kernel-ffi/src/kernel_impl/surface_face_intersections_c.rs` | Surface-plane grid, BranchSpatialDeduper |
-| `crates/kernel-ffi/src/math/intersections.rs` | Curve-plane (384 samples), curve-curve (160×160 grid) |
-| `crates/kernel-ffi/src/math/nurbs_surface_eval.rs` | NURBS evaluation hotspot, `validate_surface` |
-| `crates/kernel-ffi/src/math/basis.rs` | `find_span`, `ders_basis_funs` — heap-allocates inside LM inner loop |
-| `crates/kernel-ffi/Cargo.toml` | Add `criterion` dev-dep + `rayon` dep |
+| `crates/kernel/src/kernel_impl/surface_face_intersections_a.rs` | LM refinement loops (SSI, surface-curve, point projection) |
+| `crates/kernel/src/kernel_impl/surface_face_intersections_b.rs` | Seed generation, marching, surface-curve candidates |
+| `crates/kernel/src/kernel_impl/surface_face_intersections_c.rs` | Surface-plane grid, BranchSpatialDeduper |
+| `crates/kernel/src/math/intersections.rs` | Curve-plane (384 samples), curve-curve (160×160 grid) |
+| `crates/kernel/src/math/nurbs_surface_eval.rs` | NURBS evaluation hotspot, `validate_surface` |
+| `crates/kernel/src/math/basis.rs` | `find_span`, `ders_basis_funs` — heap-allocates inside LM inner loop |
+| `crates/kernel/Cargo.toml` | Add `criterion` dev-dep + `rayon` dep |
 | `Cargo.toml` (workspace) | Add `rayon.workspace = true` |
 
 ---
@@ -33,7 +33,7 @@ The geometry kernel's intersection algorithms — surface-surface, surface-curve
 
 ### 0.1 — Add criterion
 
-In `crates/kernel-ffi/Cargo.toml`:
+In `crates/kernel/Cargo.toml`:
 ```toml
 [dev-dependencies]
 criterion = { version = "0.5", features = ["html_reports"] }
@@ -43,7 +43,7 @@ name = "intersection_bench"
 harness = false
 ```
 
-### 0.2 — Create `crates/kernel-ffi/benches/intersection_bench.rs`
+### 0.2 — Create `crates/kernel/benches/intersection_bench.rs`
 
 Six benchmark groups, each calling FFI directly through the session handle (following the pattern in `tests/kernel_ffi.rs`):
 
@@ -184,7 +184,7 @@ Extend `project_surface_surface_curve_point` return type to include the final ev
 ### 3.1 — Add rayon dependency
 
 `Cargo.toml` workspace: `rayon = "1.10"`
-`crates/kernel-ffi/Cargo.toml`: `rayon.workspace = true`
+`crates/kernel/Cargo.toml`: `rayon.workspace = true`
 
 Verify `SurfaceData` and `SurfaceProjectionSeed` are `Send + Sync` (both are plain data structs — auto-derived).
 
@@ -213,7 +213,7 @@ Both directions are fully independent (read-only surface data, no shared mutable
 
 ### Run full test suite after every phase
 ```bash
-cargo test --package kernel-ffi -- --nocapture
+cargo test --package kernel -- --nocapture
 ```
 
 Key regression tests per phase:

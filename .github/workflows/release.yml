@@ -29,10 +29,10 @@ jobs:
         run: ./scripts/check_modularity.sh
 
       - name: Check generated bindings are up to date
-        run: ./scripts/check_bindings.sh
+        run: bash ./scripts/check_bindings.sh
 
       - name: Check ABI compatibility
-        run: ./scripts/check_abi_compat.sh
+        run: bash ./scripts/check_abi_compat.sh
 
       - name: Setup Node
         uses: actions/setup-node@v4
@@ -44,8 +44,17 @@ jobs:
           npm --prefix ./bindings/web ci --include=dev
           npm --prefix ./bindings/web run typecheck
 
+      - name: Install wasm-pack
+        run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
+
       - name: Build WASM for tests
-        run: cargo build -p kernel-ffi --target wasm32-unknown-unknown
+        run: wasm-pack build --target web --release --out-dir pkg crates/kernel
+
+      - name: Run benchmark smoke
+        run: |
+          cargo bench -p kernel --bench bounds_bench -- --noplot --sample-size 10 --warm-up-time 0.1 --measurement-time 0.2
+          cargo bench -p kernel --bench curve_bench -- --noplot --sample-size 10 --warm-up-time 0.1 --measurement-time 0.2
+          python3 ./scripts/check_benchmark_thresholds.py
 
       - name: Web runtime tests
         run: npm --prefix ./bindings/web run test
@@ -62,6 +71,12 @@ jobs:
 
       - name: Add wasm32 target
         run: rustup target add wasm32-unknown-unknown
+
+      - name: Install wasm-pack
+        run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
+
+      - name: Build WASM package
+        run: wasm-pack build --target web --release --out-dir pkg crates/kernel
 
       - name: Setup Node
         uses: actions/setup-node@v4

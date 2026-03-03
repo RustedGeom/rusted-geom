@@ -33,6 +33,7 @@ export const EXAMPLE_OPTIONS: Record<string, ExampleKey> = {
   "BREP (face bridge roundtrip)": "brepFaceBridgeRoundtrip",
   "BREP (native save/load roundtrip)": "brepNativeRoundtrip",
   "Bounds (BREP solid lifecycle)": "bboxBrepSolidLifecycle",
+  "LandXML File Viewer": "landxmlViewer",
 };
 
 export const EXAMPLE_SUMMARIES: Record<ExampleKey, string> = {
@@ -82,6 +83,7 @@ export const EXAMPLE_SUMMARIES: Record<ExampleKey, string> = {
     "Serializes a finalized BREP to native bytes, reloads it, and verifies topology/area/tessellation continuity.",
   bboxBrepSolidLifecycle:
     "Tracks BREP bounds across shell/solid lifecycle steps and compares Fast/Optimal bounds extents and compute times.",
+  landxmlViewer: "Parses and visualizes LandXML 1.2 files with TIN terrain surfaces and horizontal/vertical alignments.",
 };
 
 export interface ExampleCategoryItem {
@@ -164,6 +166,13 @@ export const EXAMPLE_CATEGORIES: ExampleCategory[] = [
       { key: "bboxBrepSolidLifecycle", label: "Bounds: Solid Lifecycle" },
     ],
   },
+  {
+    label: "LandXML",
+    key: "landxml",
+    items: [
+      { key: "landxmlViewer", label: "LandXML File Viewer" },
+    ],
+  },
 ];
 
 export function parseExampleSelection(value: unknown): ExampleKey | null {
@@ -177,6 +186,7 @@ export function parseExampleSelection(value: unknown): ExampleKey | null {
     "trimEditWorkflow", "trimValidationFailures", "trimMultiLoopSurgery",
     "brepShellAssembly", "brepSolidAssembly", "brepSolidRoundtripAudit", "brepSolidFaceSurgery",
     "brepFaceBridgeRoundtrip", "brepNativeRoundtrip", "bboxBrepSolidLifecycle",
+    "landxmlViewer",
   ];
   if (validKeys.includes(raw as ExampleKey)) {
     return raw as ExampleKey;
