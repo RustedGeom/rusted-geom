@@ -42,7 +42,7 @@
 ### Existing architecture to preserve
 
 - Kernel object/session model:
-  - `crates/kernel-ffi/src/lib.rs`
+  - `crates/kernel/src/lib.rs`
 - Generated ABI + bindings:
   - `tools/abi-gen/src/main.rs`
   - `bindings/web/src/generated/native.ts`

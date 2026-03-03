@@ -1,0 +1,51 @@
+name: benchmarks-full
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 5 * * 1"
+
+jobs:
+  full-benchmarks:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Build benchmark targets
+        run: cargo bench -p kernel --no-run
+
+      - name: Run bounds benchmark
+        run: cargo bench -p kernel --bench bounds_bench -- --noplot
+
+      - name: Run curve benchmark
+        run: cargo bench -p kernel --bench curve_bench -- --noplot
+
+      - name: Run surface benchmark
+        run: cargo bench -p kernel --bench surface_bench -- --noplot
+
+      - name: Run mesh benchmark
+        run: cargo bench -p kernel --bench mesh_bench -- --noplot
+
+      - name: Run face benchmark
+        run: cargo bench -p kernel --bench face_bench -- --noplot
+
+      - name: Run intersection benchmark
+        run: cargo bench -p kernel --bench intersection_bench -- --noplot
+
+      - name: Run brep benchmark
+        run: cargo bench -p kernel --bench brep_bench -- --noplot
+
+      - name: Run landxml benchmark
+        run: cargo bench -p kernel --bench landxml_bench -- --noplot
+
+      - name: Upload benchmark artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: criterion-full-${{ github.run_id }}
+          path: target/criterion

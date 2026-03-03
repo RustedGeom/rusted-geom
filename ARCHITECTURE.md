@@ -5,7 +5,7 @@
 ```
 rusted-geom/
   crates/
-    kernel-ffi/          — Rust NURBS geometry kernel + wasm-bindgen API
+    kernel/              — Rust NURBS geometry kernel + wasm-bindgen API
   bindings/
     web/                 — Thin TypeScript wrapper around wasm-pack output
   showcase/              — Next.js + Three.js demo app + developer test lab
@@ -17,7 +17,7 @@ rusted-geom/
 
 ---
 
-## Rust Kernel (`crates/kernel-ffi`)
+## Rust Kernel (`crates/kernel`)
 
 ### Source layout
 
@@ -163,7 +163,7 @@ modified. The `BoundsMode::Fast` path (control-point hull) is ~10× faster than
 ### Build pipeline
 
 ```
-cargo → wasm-pack build → crates/kernel-ffi/pkg/
+cargo → wasm-pack build → crates/kernel/pkg/
                                ├── rusted_geom_bg.wasm
                                ├── rusted_geom.js
                                └── rusted_geom.d.ts

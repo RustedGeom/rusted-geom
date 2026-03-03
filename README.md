@@ -9,7 +9,7 @@ APIs and package shape are expected to evolve quickly.
 
 ## Workspace Layout
 
-- `crates/kernel-ffi`: NURBS geometry kernel + `wasm-bindgen` public API.
+- `crates/kernel`: NURBS geometry kernel + `wasm-bindgen` public API.
 - `bindings/web`: Thin TypeScript wrapper around the wasm-pack output.
 - `showcase`: Next.js full-page Three.js kernel viewer.
 
@@ -45,7 +45,7 @@ Open [http://localhost:3000](http://localhost:3000).
 | Build kernel WASM for showcase | `./scripts/build_kernel_wasm.sh` |
 | Stage WASM into web bindings | `./scripts/stage_web_wasm.sh` |
 | Build + pack `@rusted-geom/bindings-web` | `./scripts/pack_web.sh` |
-| Run all Rust unit tests | `cargo test -p kernel-ffi` |
+| Run all Rust unit tests | `cargo test -p kernel` |
 | TypeScript typecheck | `npm --prefix ./bindings/web run typecheck` |
 | Web runtime tests | `npm --prefix ./bindings/web run test` |
 | E2E tests | `npx --prefix showcase playwright test` |
@@ -143,14 +143,14 @@ result.free();
 ## High-Level Architecture
 
 ```
-crates/kernel-ffi (Rust)
+crates/kernel (Rust)
   ├── kernel_impl/*.rs    — NURBS math + kernel operations (include! flat module)
   ├── math/*.rs           — basis functions, surface evaluation
   ├── elements/brep/      — B-rep data structures
   ├── session/            — session store + object registry
   └── wasm/               — #[wasm_bindgen] public API
          ↓  wasm-pack build
-crates/kernel-ffi/pkg/
+crates/kernel/pkg/
   ├── rusted_geom_bg.wasm
   ├── rusted_geom.js      — ESM glue (auto-generated)
   └── rusted_geom.d.ts    — TypeScript declarations (auto-generated)
@@ -168,3 +168,8 @@ showcase/                 — Next.js + Three.js viewer + developer test lab
 
 - [Architecture Overview](ARCHITECTURE.md)
 - [Kernel Module Map](docs/architecture/kernel-module-map.md)
+- [ABI Stability](docs/architecture/abi-stability.md)
+- [.NET Binding Readiness](docs/architecture/dotnet-binding-readiness.md)
+- [Kernel C ABI Reference](docs/reference/kernel-c-abi.md)
+- [Kernel WASM API Reference](docs/reference/kernel-wasm-api.md)
+- [LandXML Support Matrix](docs/reference/landxml-support-matrix.md)

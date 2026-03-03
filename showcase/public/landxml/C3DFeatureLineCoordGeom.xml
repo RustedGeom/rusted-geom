@@ -1,0 +1,35 @@
+<?xml version="1.0"?>
+<LandXML xmlns="http://www.landxml.org/schema/LandXML-1.2" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.landxml.org/schema/LandXML-1.2 http://www.landxml.org/schema/LandXML-1.2/LandXML-1.2.xsd" date="2025-07-29" time="11:23:38" version="1.2" language="English" readOnly="false">
+	<Units>
+		<Metric areaUnit="squareMeter" linearUnit="meter" volumeUnit="cubicMeter" temperatureUnit="celsius" pressureUnit="milliBars" diameterUnit="millimeter" angularUnit="decimal degrees" directionUnit="decimal degrees"></Metric>
+	</Units>
+	<Project name="D:\_temp\boxGirderDyn\T4 Bridge\CE7021-ACM-C1_RD-XX-RD_PV-M3_N_Export.dwg"></Project>
+	<Application name="Autodesk Civil 3D" desc="Civil 3D" manufacturer="Autodesk, Inc." version="2023" manufacturerURL="www.autodesk.com/civil" timeStamp="2025-07-29T11:23:38"></Application>
+
+	<PlanFeatures name="Site -Site 1- FeatureLines">
+		<PlanFeature>
+			<CoordGeom>
+				<Curve radius="249.999999999331">
+					<Start>826570.323561684694 837098.707533473149 7.833815454505</Start>
+					<Center>826566.75504334725 837073.356066135108 7.374242196791</Center>
+					<End>826560.612510453444 837048.502484723926 6.914668939076</End>
+				</Curve>
+				<Line>
+					<Start>826560.612510453444 837048.502484723926 6.914668939076</Start>
+					<End>826545.004196868278 836996.861858778168 24.408576313872</End>
+				</Line>
+				<Line>
+					<Start>826545.004196868278 836996.861858778168 24.408576313872</Start>
+					<End>826539.320404248312 836980.586462294217 19.966182793025</End>
+				</Line>
+			</CoordGeom>
+			<Feature code="FeatureLine" source="Autodesk Civil 3D">
+				<Property label="site" value="Site 1"></Property>
+				<Property label="layer" value="C-TOPO-FEAT"></Property>
+			</Feature>
+		</PlanFeature>
+		<Feature code="FeatureLines" source="Autodesk Civil 3D">
+			<Property label="site" value="Site 1"></Property>
+		</Feature>
+	</PlanFeatures>
+</LandXML>

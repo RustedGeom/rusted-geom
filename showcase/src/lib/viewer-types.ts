@@ -112,4 +112,31 @@ export type ExampleKey =
   | "brepFaceBridgeRoundtrip"
   | "brepNativeRoundtrip"
   | "bboxCurveNonTrivial"
-  | "bboxBrepSolidLifecycle";
+  | "bboxBrepSolidLifecycle"
+  | "landxmlViewer";
+
+export type LandXmlExampleKey = "landxmlViewer";
+
+export const LANDXML_FILE_LIST: readonly string[] = [
+  "12DExample.xml",
+  "C3DDesignExample.xml",
+  "C3DDesignExample3.xml",
+  "C3DFeatureLineCoordGeom.xml",
+  "C3DFeatureLineLocation.xml",
+  "C3DProfileExample.xml",
+  "C3DProfileExample2.xml",
+  "C3DSpiralDoubleRadius.xml",
+  "CircCurveExample.xml",
+  "FeatureLineCoordinateTest.xml",
+  "ImperialUnitsExample.xml",
+  "OpenRoadBreakingAlignment.xml",
+  "OpenRoadBreaklines.xml",
+  "OpenRoadExample2.xml",
+  "OpenRoadExample3.xml",
+  "OpenRoadExampleEmptyAlignment.xml",
+  "OpenRoadExampleWalls.xml",
+  "OpenRoadProfile.xml",
+  "OpenRoadProfileFirstPVIAtStartOfParaCurve.xml",
+  "OpenRoadSpiralDoubleRadius.xml",
+  "OpenRoadTin.xml",
+] as const;

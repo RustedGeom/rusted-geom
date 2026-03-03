@@ -6,7 +6,7 @@ import { beforeAll, describe, expect, it } from "vitest";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const repoRoot = path.resolve(__dirname, "../../..");
-const pkgDir = path.join(repoRoot, "crates/kernel-ffi/pkg");
+const pkgDir = path.join(repoRoot, "crates/kernel/pkg");
 const wasmPath = path.join(pkgDir, "rusted_geom_bg.wasm");
 
 const pkgAvailable = existsSync(wasmPath);

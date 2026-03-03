@@ -1,0 +1,344 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LandXML xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.landxml.org/schema/LandXML-1.2 http://www.landxml.org/schema/landxml-1.2/LandXML-1.2.xsd" version="1.2" date="2024-07-02" time="16:04:00" xmlns="http://www.landxml.org/schema/LandXML-1.2">
+	<Units>
+		<Metric areaUnit="squareMeter" linearUnit="meter" volumeUnit="cubicMeter" temperatureUnit="celsius" pressureUnit="HPA" directionUnit="radians" />
+	</Units>
+	<Application name="OpenRoads Designer" version="10.12.02.4" manufacturer="Bentley Systems, Inc." manufacturerURL="http://www.bentley.com" />
+	<CgPoints />
+	<Alignments>
+		<Alignment name="MC24" length="98.017690792001559" state="proposed" staStart="0">
+			<CoordGeom name="MC24" state="proposed">
+				<Curve crvType="arc" rot="cw" radius="15.600000000000001" length="98.017690792001559" chord="3.8207718239258172E-15">
+					<Start>5880430.8456058623 326647.18914899026 0</Start>
+					<Center>5880430.8456058623 326631.58914899029 0</Center>
+					<End>5880430.8456058623 326647.18914899026 0</End>
+					<Feature>
+						<Property label="style" value="Alignment\Road\Alignment\Forward Left\Road_Urban_Fwd-L_CH20m, Tick 10m" />
+					</Feature>
+				</Curve>
+			</CoordGeom>
+			<Profile>
+				<ProfAlign name="MC24">
+					<PVI>0 227.01629383343575</PVI>
+					<ParaCurve length="20.765025844682491">17.0684403275786 227.48761841829153</ParaCurve>
+					<ParaCurve length="7.7705247267609394">43.234548718320944 226.98904788388552</ParaCurve>
+					<ParaCurve length="16.310221725475685">69.648037447917801 226.7589115332492</ParaCurve>
+					<ParaCurve length="20.173902204786486">87.890099413048958 226.73677231137668</ParaCurve>
+					<PVI>98.017690792001574 227.01629383343575</PVI>
+					<Feature code="ProfAlign">
+						<Property label="style" value="Alignment\Road\Alignment\Forward Left\Road_Urban_Fwd-L_CH20m, Tick 10m" />
+					</Feature>
+				</ProfAlign>
+			</Profile>
+		</Alignment>
+		<Alignment name="MC20" length="312.62694833641751" state="proposed" staStart="0">
+			<CoordGeom name="MC20" state="proposed">
+				<Line dir="5.3456089787242469" length="63.65581674916281">
+					<Start>5880607.2727013174 326498.73947354447 0</Start>
+					<End>5880555.9580747215 326536.40739229933 0</End>
+					<Feature>
+						<Property label="style" value="Alignment\Road\Alignment\Forward Left\Road_Urban_Fwd-L_CH20m, Tick 10m" />
+					</Feature>
+				</Line>
+				<Line dir="5.4367766974352261" length="25.876561516321807">
+					<Start>5880555.9580747215 326536.40739229933 0</Start>
+					<End>5880536.5789804449 326553.55519510107 0</End>
+					<Feature>
+						<Property label="style" value="Alignment\Road\Alignment\Forward Left\Road_Urban_Fwd-L_CH20m, Tick 10m" />
+					</Feature>
+				</Line>
+				<Curve crvType="arc" rot="cw" radius="200" length="18.941786744431788" chord="18.934708217297743">
+					<Start>5880536.5789804431 326553.55519510253 0</Start>
+					<Center>5880404.0435754554 326403.77413346688 0</Center>
+					<End>5880521.820610581 326565.41747541784 0</End>
+					<Feature>
+						<Property label="style" value="Alignment\Road\Alignment\Forward Left\Road_Urban_Fwd-L_CH20m, Tick 10m" />
+					</Feature>
+				</Curve>
+				<Line dir="5.3420677637126657" length="107.21985190212918">
+					<Start>5880521.8206105735 326565.41747542296 0</Start>
+					<End>5880435.1637346502 326628.55765674304 0</End>
+					<Feature>
+						<Property label="style" value="Alignment\Road\Alignment\Forward Left\Road_Urban_Fwd-L_CH20m, Tick 10m" />
+					</Feature>
+				</Line>
+				<Curve crvType="arc" rot="cw" radius="150.00000020460516" length="15.187665012131836" chord="15.181178315107294">
+					<Start>5880435.1637346521 326628.55765674292 0</Start>
+					<Center>5880346.8309581848 326507.32515011629 0</Center>
+					<End>5880422.457374936 326636.86527961586 0</End>
+					<Feature>
+						<Property label="style" value="Alignment\Road\Alignment\Forward Left\Road_Urban_Fwd-L_CH20m, Tick 10m" />
+					</Feature>
+				</Curve>
+				<Curve crvType="arc" rot="ccw" radius="124.99999985867262" length="11.379049305578876" chord="11.375120670556425">
+					<Start>5880422.457374936 326636.86527961615 0</Start>
+					<Center>5880485.479388739 326744.81538726273 0</Center>
+					<End>5880412.9049332039 326643.04138091288 0</End>
+					<Feature>
+						<Property label="style" value="Alignment\Road\Alignment\Forward Left\Road_Urban_Fwd-L_CH20m, Tick 10m" />
+					</Feature>
+				</Curve>
+				<Line dir="5.3318490583420015" length="13.220855557898377">
+					<Start>5880412.904933203 326643.04138091306 0</Start>
+					<End>5880402.140617691 326650.71735207248 0</End>
+					<Feature>
+						<Property label="style" value="Alignment\Road\Alignment\Forward Left\Road_Urban_Fwd-L_CH20m, Tick 10m" />
+					</Feature>
+				</Line>
+				<Curve crvType="arc" rot="cw" radius="500" length="16.329345832907016" chord="16.328620145945564">
+					<Start>5880402.140617691 326650.71735207282 0</Start>
+					<Center>5880111.8427952109 326243.62132622232 0</Center>
+					<End>5880388.6929567661 326659.97933088517 0</End>
+					<Feature>
+						<Property label="style" value="Alignment\Road\Alignment\Forward Left\Road_Urban_Fwd-L_CH20m, Tick 10m" />
+					</Feature>
+				</Curve>
+				<Line dir="5.2991903666680384" length="40.816015715855833">
+					<Start>5880388.6929567261 326659.97933091089 0</Start>
+					<End>5880354.7048070021 326682.57917200011 0</End>
+					<Feature>
+						<Property label="style" value="Alignment\Road\Alignment\Forward Left\Road_Urban_Fwd-L_CH20m, Tick 10m" />
+					</Feature>
+				</Line>
+			</CoordGeom>
+			<Profile>
+				<ProfAlign name="MC20">
+					<PVI>-0.0078169922581891871 217.32006535295659</PVI>
+					<ParaCurve length="13.176828814800146">15.373003553007571 217.77116000286048</ParaCurve>
+					<ParaCurve length="21.919542617795425">32.92118926930533 218.22118239459382</ParaCurve>
+					<PVI>63.65581674916281 219.75791376858666</PVI>
+					<ParaCurve length="9.217670140990748">99.895496765034849 221.54360344887181</ParaCurve>
+					<ParaCurve length="39.001565836122865">163.10045364722379 226.59999999998888</ParaCurve>
+					<ParaCurve length="28.936607635647647">226.78811158633346 226.91824651247111</ParaCurve>
+					<ParaCurve length="71.3705329324969">276.94168187040577 229.1038955871675</ParaCurve>
+					<PVI>312.62694833665421 229.59783000000007</PVI>
+					<Feature code="ProfAlign">
+						<Property label="style" value="Alignment\Road\Alignment\Forward Left\Road_Urban_Fwd-L_CH20m, Tick 10m" />
+					</Feature>
+				</ProfAlign>
+			</Profile>
+		</Alignment>
+		<Alignment name="MC23" length="145.27451835880848" state="proposed" staStart="0">
+			<CoordGeom name="MC23" state="proposed">
+				<Curve crvType="arc" rot="cw" radius="220.00000006605825" length="17.615713783476139" chord="17.611008245023143">
+					<Start>5880379.9674045006 326564.78249149944 0</Start>
+					<Center>5880202.4251104137 326694.70067282714 0</Center>
+					<End>5880389.790179803 326579.39962859137 0</End>
+					<Feature>
+						<Property label="style" value="Alignment\Road\Alignment\Forward Left\Road_Urban_Fwd-L_CH20m, Tick 10m" />
+					</Feature>
+				</Curve>
+				<Curve crvType="arc" rot="ccw" radius="219.99999972496076" length="21.598407793046274" chord="21.589735053888532">
+					<Start>5880389.790179804 326579.39962859068 0</Start>
+					<Center>5880577.1552489027 326464.09858453361 0</Center>
+					<End>5880401.9938472249 326597.2093776394 0</End>
+					<Feature>
+						<Property label="style" value="Alignment\Road\Alignment\Forward Left\Road_Urban_Fwd-L_CH20m, Tick 10m" />
+					</Feature>
+				</Curve>
+				<Line dir="0.6498274849804625" length="23.566595700664831">
+					<Start>5880401.9938472258 326597.20937763934 0</Start>
+					<End>5880416.2527938094 326615.97282282525 0</End>
+					<Feature>
+						<Property label="style" value="Alignment\Road\Alignment\Forward Left\Road_Urban_Fwd-L_CH20m, Tick 10m" />
+					</Feature>
+				</Line>
+				<Curve crvType="arc" rot="ccw" radius="100.00000000717978" length="17.465853678747035" chord="17.443661874949594">
+					<Start>5880416.2527938075 326615.97282282577 0</Start>
+					<Center>5880495.871612858 326555.46791678929 0</Center>
+					<End>5880427.9781710971 326628.88780896674 0</End>
+					<Feature>
+						<Property label="style" value="Alignment\Road\Alignment\Forward Left\Road_Urban_Fwd-L_CH20m, Tick 10m" />
+					</Feature>
+				</Curve>
+				<Curve crvType="arc" rot="cw" radius="212.5000000148911" length="40.210373138084265" chord="40.150409107560328">
+					<Start>5880427.9781710971 326628.88780896639 0</Start>
+					<Center>5880283.7046073554 326784.90507984225 0</Center>
+					<End>5880454.7494711708 326658.81025612348 0</End>
+					<Feature>
+						<Property label="style" value="Alignment\Road\Alignment\Forward Left\Road_Urban_Fwd-L_CH20m, Tick 10m" />
+					</Feature>
+				</Curve>
+				<Line dir="0.63526073641458691" length="24.817574264789926">
+					<Start>5880454.7494711708 326658.81025612348 0</Start>
+					<End>5880469.4759071795 326678.78634370014 0</End>
+					<Feature>
+						<Property label="style" value="Alignment\Road\Alignment\Forward Left\Road_Urban_Fwd-L_CH20m, Tick 10m" />
+					</Feature>
+				</Line>
+			</CoordGeom>
+			<Profile>
+				<ProfAlign name="MC23">
+					<PVI>0 225.48679900003592</PVI>
+					<ParaCurve length="12.295568850333666">6.147784425166833 225.74415552680176</ParaCurve>
+					<ParaCurve length="15.2433375586902">19.917237629678766 226.13128297979281</ParaCurve>
+					<ParaCurve length="19.091584366094629">37.085504056557753 226.61009697433991</ParaCurve>
+					<ParaCurve length="14.799114570691295">54.030853524950729 226.80210641285316</ParaCurve>
+					<PVI>75.885532303983894 227.26538396701577</PVI>
+					<PVI>92.486624736537649 226.9305059710276</PVI>
+					<ParaCurve length="5.0798664162520026">102.32953547390895 226.73740348772148</ParaCurve>
+					<ParaCurve length="26.958663566036392">130.53310618989457 225.34132673727353</ParaCurve>
+					<PVI>145.27451835880848 224.81033122049394</PVI>
+					<Feature code="ProfAlign">
+						<Property label="style" value="Alignment\Road\Alignment\Forward Left\Road_Urban_Fwd-L_CH20m, Tick 10m" />
+					</Feature>
+				</ProfAlign>
+			</Profile>
+		</Alignment>
+		<Alignment name="MC22" length="183.94479625024766" state="proposed" staStart="0">
+			<CoordGeom name="MC22" state="proposed">
+				<Line dir="0.63737161950444665" length="183.94479625024766">
+					<Start>5880486.6504029995 326466.54763100063 0</Start>
+					<End>5880596.1132230004 326614.37719199905 0</End>
+					<Feature>
+						<Property label="style" value="Alignment\Road\Alignment\Forward Right\Road_Urban_Fwd-R_CH20m, Tick 10m" />
+					</Feature>
+				</Line>
+			</CoordGeom>
+			<Profile>
+				<ProfAlign name="MC22">
+					<PVI>0 220.04554899999999</PVI>
+					<ParaCurve length="6.6454363675084798">3.3227181837542399 220.04279386278006</ParaCurve>
+					<ParaCurve length="10.362602194208545">11.82673746461275 220.05458012500657</ParaCurve>
+					<ParaCurve length="7.0776140458878558">20.54684558466095 220.05961340820576</ParaCurve>
+					<ParaCurve length="2.5366985734339309">33.942480617177836 220.11474999259488</ParaCurve>
+					<ParaCurve length="12.310170096105196">41.365914951947403 220.12083549483128</ParaCurve>
+					<ParaCurve length="35.195000000003148">99.624999999999432 220.5500000000001</ParaCurve>
+					<PVI>163.29347502691607 219.66218859608836</PVI>
+					<PVI>183.94479625024763 219.49832699994241</PVI>
+					<Feature code="ProfAlign">
+						<Property label="style" value="Alignment\Road\Alignment\Forward Left\Road_Urban_Fwd-L_CH20m, Tick 10m" />
+					</Feature>
+				</ProfAlign>
+			</Profile>
+		</Alignment>
+		<Alignment name="MC21" length="194.38968649173498" state="proposed" staStart="0">
+			<CoordGeom name="MC21" state="proposed">
+				<Line dir="0.63352817832255925" length="194.38968649173498">
+					<Start>5880501.577403605 326462.37299230898 0</Start>
+					<End>5880616.6545332335 326619.04016963346 0</End>
+					<Feature>
+						<Property label="style" value="Alignment\Road\Alignment\Forward Left\Road_Urban_Fwd-L_CH20m, Tick 10m" />
+					</Feature>
+				</Line>
+			</CoordGeom>
+			<Profile>
+				<ProfAlign name="MC21">
+					<PVI>0 218.768</PVI>
+					<ParaCurve length="15">30.000000000001329 219.12800000000007</ParaCurve>
+					<ParaCurve length="14.310999999999993">53.234999999999992 219.23600000000002</ParaCurve>
+					<ParaCurve length="48.929999999999993">96.770999999999674 220.03100000000001</ParaCurve>
+					<ParaCurve length="18.506">158.55599999999902 218.25900000000004</ParaCurve>
+					<PVI>194.36800000000002 217.77600000000001</PVI>
+					<Feature code="ProfAlign">
+						<Property label="style" value="Alignment\Road\Alignment\Forward Left\Road_Urban_Fwd-L_CH20m, Tick 10m" />
+					</Feature>
+				</ProfAlign>
+			</Profile>
+		</Alignment>
+		<Alignment name="MC25" length="43.922205899854902" state="proposed" staStart="0">
+			<CoordGeom name="MC25" state="proposed">
+				<Line dir="5.3784630063808949" length="6.6052123719907145">
+					<Start>5880565.4513275847 326572.96829591389 0</Start>
+					<End>5880560.2579556191 326577.04968270106 0</End>
+					<Feature>
+						<Property label="style" value="Alignment\Road\Alignment\Forward Right\Road_Urban_Fwd-R_CH20m, Tick 10m" />
+					</Feature>
+				</Line>
+				<Curve crvType="arc" rot="ccw" radius="11.999999998427638" length="19.830905883018204" chord="17.65010355267566">
+					<Start>5880560.2579556191 326577.04968270153 0</Start>
+					<Center>5880567.672802968 326586.48472582601 0</Center>
+					<End>5880558.8749965997 326594.64552254428 0</End>
+					<Feature>
+						<Property label="style" value="Alignment\Road\Alignment\Forward Right\Road_Urban_Fwd-R_CH20m, Tick 10m" />
+					</Feature>
+				</Curve>
+				<Curve crvType="arc" rot="cw" radius="100.00000031461548" length="13.136569348991975" chord="13.127125675545992">
+					<Start>5880558.8749965988 326594.64552254567 0</Start>
+					<Center>5880485.5599432914 326662.652162085 0</Center>
+					<End>5880567.1513755238 326604.83487877634 0</End>
+					<Feature>
+						<Property label="style" value="Alignment\Road\Alignment\Forward Right\Road_Urban_Fwd-R_CH20m, Tick 10m" />
+					</Feature>
+				</Curve>
+				<Line dir="0.6164874967599363" length="4.3495182958540139">
+					<Start>5880567.1513755228 326604.83487877628 0</Start>
+					<End>5880569.6661488311 326608.38371303753 0</End>
+					<Feature>
+						<Property label="style" value="Alignment\Road\Alignment\Forward Right\Road_Urban_Fwd-R_CH20m, Tick 10m" />
+					</Feature>
+				</Line>
+			</CoordGeom>
+			<Profile>
+				<ProfAlign name="MC25">
+					<PVI>2.9103830456733704E-10 220.09270308870128</PVI>
+					<PVI>1.7148528841226871 220.12251482908806</PVI>
+					<ParaCurve length="6.397160267337938">11.069116125789355 220.27866692533189</ParaCurve>
+					<ParaCurve length="14.036991026885222">21.286191772900942 220.01348694048889</ParaCurve>
+					<ParaCurve length="5.5428142369892157">41.150798780774345 219.8464583957745</ParaCurve>
+					<PVI>43.922205899268953 219.83274817434832</PVI>
+					<Feature code="ProfAlign">
+						<Property label="style" value="Alignment\Road\Alignment\Forward Right\Road_Urban_Fwd-R_CH20m, Tick 10m" />
+					</Feature>
+				</ProfAlign>
+			</Profile>
+		</Alignment>
+		<Alignment name="MC27" length="12.438671366027041" state="proposed" staStart="0">
+			<CoordGeom name="MC27" state="proposed">
+				<Line dir="1.886035313027157" length="12.438671366027041">
+					<Start>5880510.4574066726 326624.24218125601 0</Start>
+					<End>5880522.2831290457 326620.38564969169 0</End>
+					<Feature>
+						<Property label="style" value="Alignment\Road\Alignment\Forward Right\Road_Urban_Fwd-R_CH20m, Tick 10m" />
+					</Feature>
+				</Line>
+			</CoordGeom>
+			<Profile>
+				<ProfAlign name="MC27">
+					<PVI>0 222.57193703237829</PVI>
+					<ParaCurve length="2.704715507855342">8.4111481276873299 222.3196025885477</ParaCurve>
+					<PVI>12.438671365051379 222.24235010966018</PVI>
+					<Feature code="ProfAlign">
+						<Property label="style" value="Alignment\Road\Alignment\Forward Right\Road_Urban_Fwd-R_CH20m, Tick 10m" />
+					</Feature>
+				</ProfAlign>
+			</Profile>
+		</Alignment>
+		<Alignment name="MC26" length="27.000035733776365" state="proposed" staStart="0">
+			<CoordGeom name="MC26" state="proposed">
+				<Line dir="0.35281108466406919" length="1.6845784070523615">
+					<Start>5880518.3070192467 326608.89812860399 0</Start>
+					<End>5880518.8891035933 326610.47894555196 0</End>
+					<Feature>
+						<Property label="style" value="Alignment\Road\Alignment\Forward Right\Road_Urban_Fwd-R_CH20m, Tick 10m" />
+					</Feature>
+				</Line>
+				<Curve crvType="arc" rot="cw" radius="220" length="8.2658615109204092" chord="8.2653753275418911">
+					<Start>5880518.8891035914 326610.47894555231 0</Start>
+					<Center>5880312.4399842378 326686.4971086327 0</Center>
+					<End>5880521.5988924038 326618.28749688395 0</End>
+					<Feature>
+						<Property label="style" value="Alignment\Road\Alignment\Forward Right\Road_Urban_Fwd-R_CH20m, Tick 10m" />
+					</Feature>
+				</Curve>
+				<Line dir="0.31523898629024572" length="17.049595815803592">
+					<Start>5880521.5988924056 326618.2874968836 0</Start>
+					<End>5880526.8850119999 326634.49692800001 0</End>
+					<Feature>
+						<Property label="style" value="Alignment\Road\Alignment\Forward Right\Road_Urban_Fwd-R_CH20m, Tick 10m" />
+					</Feature>
+				</Line>
+			</CoordGeom>
+			<Profile>
+				<ProfAlign name="MC26">
+					<PVI>0 222.18156339038686</PVI>
+					<ParaCurve length="7.8200000000068552">16.932870969439939 222.26622774523415</ParaCurve>
+					<PVI>27.000026261085296 222.20079123583841</PVI>
+					<Feature code="ProfAlign">
+						<Property label="style" value="Alignment\Road\Alignment\Forward Right\Road_Urban_Fwd-R_CH20m, Tick 10m" />
+					</Feature>
+				</ProfAlign>
+			</Profile>
+		</Alignment>
+	</Alignments>
+</LandXML>

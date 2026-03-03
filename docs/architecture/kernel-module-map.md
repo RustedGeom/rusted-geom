@@ -6,7 +6,7 @@ This document tracks the current split of the kernel FFI surface by domain and t
 
 ```mermaid
 flowchart LR
-  subgraph Rust["crates/kernel-ffi (Rust)"]
+  subgraph Rust["crates/kernel (Rust)"]
     MATH["math/*.rs\nNURBS basis & evaluation"]
     IMPL["kernel_impl/*.rs\nKernel operations (include!)"]
     WASM_API["wasm/*.rs\n#[wasm_bindgen] public API"]
@@ -15,7 +15,7 @@ flowchart LR
   end
 
   WASM_API --> WASMPACK["wasm-pack build"]
-  WASMPACK --> PKG["crates/kernel-ffi/pkg/\nrusted_geom_bg.wasm\nrusted_geom.js\nrusted_geom.d.ts"]
+  WASMPACK --> PKG["crates/kernel/pkg/\nrusted_geom_bg.wasm\nrusted_geom.js\nrusted_geom.d.ts"]
   PKG --> WEBPKG["bindings/web\n@rusted-geom/bindings-web"]
   WEBPKG --> SHOWCASE["showcase\nNext.js + Three.js viewer"]
 ```
@@ -43,7 +43,7 @@ These are included via `include!` in `kernel_impl.rs`.
 ## CI
 
 - `.github/workflows/ci.yml`
-  - Rust: `cargo test -p kernel-ffi`
+  - Rust: `cargo test -p kernel`
   - WASM: `wasm-pack build --target web --release`
   - TypeScript: `npm run typecheck` in `bindings/web`
   - Web runtime: `npm run test` in `bindings/web`

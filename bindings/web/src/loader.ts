@@ -1,6 +1,6 @@
 // Thin wrapper around the wasm-pack init() function.
 // Call `loadKernel(url)` once before constructing a `KernelSession`.
-import init from "../../../crates/kernel-ffi/pkg/rusted_geom.js";
+import init from "../../../crates/kernel/pkg/rusted_geom.js";
 
 export async function loadKernel(
   urlOrBuffer: string | URL | ArrayBuffer | Uint8Array,

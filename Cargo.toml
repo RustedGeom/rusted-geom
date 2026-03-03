@@ -1,6 +1,6 @@
 [workspace]
 members = [
-  "crates/kernel-ffi",
+  "crates/kernel",
 ]
 resolver = "2"
 

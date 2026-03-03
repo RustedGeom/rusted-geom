@@ -56,6 +56,7 @@ import type {
   TransformTarget,
   ViewerPerformance,
 } from "@/lib/viewer-types";
+import { LANDXML_FILE_LIST, type LandXmlExampleKey } from "@/lib/viewer-types";
 import { ViewerToolbar } from "./viewer/toolbar/ViewerToolbar";
 import { InspectorPanel } from "./viewer/inspector/InspectorPanel";
 import { KernelConsole } from "./viewer/console/KernelConsole";
@@ -1064,6 +1065,335 @@ function fitViewToPoints(
   controls.update();
 }
 
+function fitViewToLargeScene(
+  camera: THREE.PerspectiveCamera,
+  controls: OrbitControls,
+  fog: THREE.Fog | null,
+  points: THREE.Vector3[],
+): void {
+  if (points.length === 0) return;
+  const bounds = new THREE.Box3();
+  for (const p of points) bounds.expandByPoint(p);
+  const sphere = bounds.getBoundingSphere(new THREE.Sphere());
+  const r = Math.max(0.1, sphere.radius);
+
+  const distance = Math.max(4, r * 2.8);
+  camera.position.set(
+    sphere.center.x + distance,
+    sphere.center.y + distance * 0.55,
+    sphere.center.z + distance,
+  );
+  controls.target.copy(sphere.center);
+
+  camera.near = Math.max(0.001, r / 1000);
+  camera.far = Math.max(1200, r * 20);
+  camera.updateProjectionMatrix();
+
+  if (fog) {
+    fog.near = r > 5000 ? 1e9 : Math.max(34, r * 0.5);
+    fog.far = r > 5000 ? 1e9 : Math.max(138, r * 3.5);
+  }
+
+  controls.update();
+}
+
+function isAsyncExample(key: ExampleKey): key is LandXmlExampleKey {
+  return key === "landxmlViewer";
+}
+
+interface LandXmlStats {
+  surfCount: number;
+  alignCount: number;
+  vertCount: number;
+  featureLineCount: number;
+  breaklineCount: number;
+  unit: string;
+  warnCount: number;
+  parseMs: number;
+}
+
+const HORIZ_COLORS: Record<number, string> = { 0: "#2d7bff", 1: "#ff3b30", 2: "#20d66b" };
+const HORIZ_LABELS: Record<number, string> = { 0: "Line", 1: "Arc", 2: "Spiral" };
+const RESULTANT_3D_COLOR = "#ffef00";
+const PLAN_LINEAR_COLORS: Record<number, string> = { 0: "#9ec4ff", 1: "#ffb454" };
+const PLAN_LINEAR_LABELS: Record<number, string> = { 0: "FeatureLine", 1: "Breakline" };
+interface LandXmlCurveData {
+  horizCurves: OverlayCurveVisual[];
+  raw3dCurves: OverlayCurveVisual[];
+}
+
+function applyDatumAndExaggeration(
+  data: LandXmlCurveData,
+  datumOffset: number,
+  vertExag: number,
+): OverlayCurveVisual[] {
+  const transformed3d = data.raw3dCurves.map((c) => ({
+    ...c,
+    points: c.points.map((p) => ({
+      x: p.x,
+      y: p.y,
+      z: (p.z - datumOffset) * vertExag,
+    })),
+  }));
+  return [...data.horizCurves, ...transformed3d];
+}
+
+async function buildLandXmlExample(
+  session: KernelSession,
+  filename: string,
+  signal: AbortSignal,
+): Promise<{
+  built: BuiltExample;
+  stats: LandXmlStats;
+  curveData: LandXmlCurveData;
+  zRange: { min: number; max: number };
+  defaultDatum: number;
+}> {
+  const t0 = performance.now();
+  const response = await fetch("/landxml/" + filename, { signal });
+  if (!response.ok) throw new Error(`Failed to fetch ${filename}: ${response.status}`);
+  const xmlText = await response.text();
+  if (signal.aborted) throw new DOMException("Aborted", "AbortError");
+
+  const doc = session.landxml_parse(xmlText, 1, 0, 0);
+  const parseMs = performance.now() - t0;
+
+  const surfCount = session.landxml_surface_count(doc);
+  const alignCount = session.landxml_alignment_count(doc);
+  const warnCount = session.landxml_warning_count(doc);
+  const unit = session.landxml_linear_unit(doc);
+
+  let centroidX = 0;
+  let centroidY = 0;
+  let centroidZ = 0;
+  let totalVertCount = 0;
+
+  if (surfCount > 0) {
+    const rawVerts = session.landxml_surface_copy_vertices(doc, 0);
+    const nv = rawVerts.length / 3;
+    for (let i = 0; i < rawVerts.length; i += 3) {
+      centroidX += rawVerts[i];
+      centroidY += rawVerts[i + 1];
+      centroidZ += rawVerts[i + 2];
+    }
+    if (nv > 0) {
+      centroidX /= nv;
+      centroidY /= nv;
+      centroidZ /= nv;
+    }
+    totalVertCount += nv;
+  } else if (alignCount > 0) {
+    let ptCount = 0;
+    for (let a = 0; a < alignCount; a++) {
+      const packed = session.landxml_sample_horiz_2d_segments(doc, a);
+      const segCount = packed[0];
+      let idx = 1;
+      for (let s = 0; s < segCount; s++) {
+        idx++; // skip seg type
+        const n = packed[idx++];
+        for (let j = 0; j < n; j++) {
+          centroidX += packed[idx];
+          centroidY += packed[idx + 1];
+          idx += 3;
+          ptCount++;
+        }
+      }
+    }
+    if (ptCount > 0) {
+      centroidX /= ptCount;
+      centroidY /= ptCount;
+    }
+  }
+
+  let meshVisual: MeshVisual | null = null;
+  const overlayMeshes: MeshVisual[] = [];
+
+  for (let si = 0; si < surfCount; si++) {
+    const rawV = session.landxml_surface_copy_vertices(doc, si);
+    const rawI = session.landxml_surface_copy_indices(doc, si);
+    const name = session.landxml_surface_name(doc, si);
+
+    const verts: RgmPoint3[] = [];
+    for (let i = 0; i < rawV.length; i += 3) {
+      verts.push({
+        x: rawV[i] - centroidX,
+        y: rawV[i + 1] - centroidY,
+        z: rawV[i + 2] - centroidZ,
+      });
+    }
+    totalVertCount += verts.length;
+
+    const mv: MeshVisual = {
+      vertices: verts,
+      indices: Array.from(rawI),
+      color: si === 0 ? "#8cb4d0" : "#a0c8a0",
+      opacity: 0.85,
+      wireframe: false,
+      name,
+    };
+    if (si === 0) {
+      meshVisual = mv;
+    } else {
+      overlayMeshes.push(mv);
+    }
+  }
+
+  const horizCurves: OverlayCurveVisual[] = [];
+  const raw3dCurves: OverlayCurveVisual[] = [];
+  const debugLogs: string[] = [];
+  let zMin = Infinity;
+  let zMax = -Infinity;
+
+  if (alignCount > 0) {
+    for (let a = 0; a < alignCount; a++) {
+      const aName = session.landxml_alignment_name(doc, a);
+
+      const packed2d = session.landxml_sample_horiz_2d_segments(doc, a);
+      const segCount = packed2d[0];
+      let idx = 1;
+      for (let s = 0; s < segCount; s++) {
+        const segType = packed2d[idx++];
+        const nPts = packed2d[idx++];
+        const pts: RgmPoint3[] = [];
+        for (let j = 0; j < nPts; j++) {
+          pts.push({
+            x: packed2d[idx] - centroidX,
+            y: packed2d[idx + 1] - centroidY,
+            z: 0,
+          });
+          idx += 3;
+        }
+        if (pts.length >= 2) {
+          horizCurves.push({
+            points: pts,
+            color: HORIZ_COLORS[segType] ?? "#cccccc",
+            width: 3,
+            opacity: 1.0,
+            name: `${aName} — ${HORIZ_LABELS[segType] ?? "?"} #${s + 1}`,
+          });
+        }
+      }
+
+      const profCount = session.landxml_alignment_profile_count(doc, a);
+      if (profCount === 0) {
+        debugLogs.push(`${aName}: no profiles found`);
+      }
+      for (let p = 0; p < profCount; p++) {
+        try {
+          const profName = session.landxml_alignment_profile_name(doc, a, p);
+          const packed3d = session.landxml_sample_alignment_3d(doc, a, p, 500);
+          const nPts3d = packed3d[0];
+          const pts3d: RgmPoint3[] = [];
+          for (let j = 0; j < nPts3d; j++) {
+            const z = packed3d[1 + j * 3 + 2] - centroidZ;
+            pts3d.push({
+              x: packed3d[1 + j * 3] - centroidX,
+              y: packed3d[1 + j * 3 + 1] - centroidY,
+              z,
+            });
+            if (z < zMin) zMin = z;
+            if (z > zMax) zMax = z;
+          }
+          if (pts3d.length >= 2) {
+            raw3dCurves.push({
+              points: pts3d,
+              color: RESULTANT_3D_COLOR,
+              width: 2,
+              opacity: 1.0,
+              name: `${aName} — 3D [${profName}]`,
+            });
+            debugLogs.push(`${aName} / ${profName}: ${nPts3d} pts, Z range [${zMin.toFixed(1)}, ${zMax.toFixed(1)}]`);
+          } else {
+            debugLogs.push(`${aName} / ${profName}: 3D sampling returned ${nPts3d} pts — skipped`);
+          }
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : String(err);
+          debugLogs.push(`${aName} profile ${p}: 3D eval failed — ${msg}`);
+        }
+      }
+    }
+  }
+
+  const planLinearCount = session.landxml_plan_linear_count(doc);
+  let featureLineCount = 0;
+  let breaklineCount = 0;
+  for (let i = 0; i < planLinearCount; i++) {
+    const name = session.landxml_plan_linear_name(doc, i);
+    const kind = session.landxml_plan_linear_kind(doc, i);
+    const rawPts = session.landxml_plan_linear_copy_points(doc, i);
+    const pts: RgmPoint3[] = [];
+    for (let j = 0; j < rawPts.length; j += 3) {
+      pts.push({
+        x: rawPts[j] - centroidX,
+        y: rawPts[j + 1] - centroidY,
+        z: rawPts[j + 2] - centroidZ,
+      });
+    }
+    if (pts.length >= 2) {
+      horizCurves.push({
+        points: pts,
+        color: PLAN_LINEAR_COLORS[kind] ?? "#cccccc",
+        width: kind === 1 ? 2 : 1.5,
+        opacity: kind === 1 ? 0.88 : 0.74,
+        name: `${PLAN_LINEAR_LABELS[kind] ?? "?"}: ${name}`,
+      });
+    }
+    if (kind === 1) breaklineCount++;
+    else featureLineCount++;
+  }
+
+  const curveData: LandXmlCurveData = { horizCurves, raw3dCurves };
+  const defaultDatum = isFinite(zMax) ? zMax : 0;
+  const overlayCurves = applyDatumAndExaggeration(curveData, defaultDatum, 1);
+
+  const logs = [
+    `LandXML parsed in ${parseMs.toFixed(1)}ms`,
+    `Surfaces: ${surfCount}, Alignments: ${alignCount}, Vertices: ${totalVertCount}`,
+    `FeatureLines: ${featureLineCount}, Breaklines: ${breaklineCount}`,
+    `Units: ${unit}, Warnings: ${warnCount}`,
+    ...debugLogs,
+  ];
+
+  const built: BuiltExample = {
+    kind: "mesh",
+    curveHandle: null,
+    ownedHandles: [],
+    name: filename,
+    degreeLabel: `LandXML 1.2`,
+    renderDegree: 0,
+    renderSamples: 0,
+    meshVisual,
+    overlayMeshes,
+    overlayCurves,
+    segmentOverlays: [],
+    intersectionPoints: [],
+    planeVisual: null,
+    interactiveMeshHandle: null,
+    transformTargets: [],
+    defaultTransformTargetKey: null,
+    intersectionMs: 0,
+    boundsMs: 0,
+    logs,
+  };
+
+  return {
+    built,
+    stats: {
+      surfCount,
+      alignCount,
+      vertCount: totalVertCount,
+      featureLineCount,
+      breaklineCount,
+      unit,
+      warnCount,
+      parseMs,
+    },
+    curveData,
+    zRange: { min: isFinite(zMin) ? zMin : 0, max: isFinite(zMax) ? zMax : 0 },
+    defaultDatum,
+  };
+}
+
 export function KernelViewer() {
   const viewportRef = useRef<HTMLDivElement | null>(null);
   const sessionFileInputRef = useRef<HTMLInputElement | null>(null);
@@ -1192,6 +1522,13 @@ export function KernelViewer() {
   const [kernelStatus, setKernelStatus] = useState<KernelStatus>("booting");
   const [isExampleBrowserOpen, setIsExampleBrowserOpen] = useState(false);
   const [consoleFilter, setConsoleFilter] = useState<LogLevel | "all">("all");
+  const [activeLandXmlFile, setActiveLandXmlFile] = useState<string>("12DExample.xml");
+  const [landXmlStats, setLandXmlStats] = useState<LandXmlStats | null>(null);
+  const [landXmlDatumOffset, setLandXmlDatumOffset] = useState(0);
+  const [landXmlVertExag, setLandXmlVertExag] = useState(1);
+  const [landXmlZRange, setLandXmlZRange] = useState<{ min: number; max: number }>({ min: 0, max: 0 });
+  const landXmlCurveDataRef = useRef<LandXmlCurveData | null>(null);
+  const pendingAsyncExampleRef = useRef<AbortController | null>(null);
 
   const { isDarkMode, toggleDarkMode } = useTheme();
   const isDarkModeRef = useRef(isDarkMode);
@@ -3485,6 +3822,10 @@ export function KernelViewer() {
         setPreset(nurbsPresetOverride);
       }
 
+      if (cameraRef.current) cameraRef.current.up.set(0, 1, 0);
+      if (gridRef.current) gridRef.current.rotation.x = 0;
+      landXmlCurveDataRef.current = null;
+
       setActiveExample(example);
       setActiveCurveName(built.name);
       setActiveDegreeLabel(built.degreeLabel);
@@ -3571,6 +3912,110 @@ export function KernelViewer() {
     [appendLog, buildExampleCurve, releaseOwnedCurveHandles],
   );
 
+  const updateLandXmlFile = useCallback(
+    async (filename: string): Promise<void> => {
+      const session = sessionRef.current;
+      if (!session) return;
+
+      if (pendingAsyncExampleRef.current) {
+        pendingAsyncExampleRef.current.abort();
+      }
+      const controller = new AbortController();
+      pendingAsyncExampleRef.current = controller;
+
+      setKernelStatus("computing");
+      appendLog("info", `Loading LandXML: ${filename}`);
+      releaseOwnedCurveHandles();
+
+      try {
+        const { built, stats, curveData, zRange, defaultDatum } = await buildLandXmlExample(session, filename, controller.signal);
+        if (controller.signal.aborted) return;
+
+        for (const line of built.logs) {
+          appendLog("debug", line);
+        }
+
+        landXmlCurveDataRef.current = curveData;
+        setLandXmlZRange(zRange);
+        setLandXmlDatumOffset(defaultDatum);
+        setLandXmlVertExag(1);
+
+        setActiveExample("landxmlViewer");
+        setActiveCurveName(built.name);
+        setActiveDegreeLabel(built.degreeLabel);
+        setActiveRenderDegree(built.renderDegree);
+        setSampledPoints([]);
+        setMeshVisual(built.meshVisual);
+        setOverlayMeshes(built.overlayMeshes);
+        setOverlayCurves(built.overlayCurves);
+        setSegmentOverlays([]);
+        setIntersectionPoints([]);
+        setIntersectionPlane(null);
+        setLandXmlStats(stats);
+        setPerfStats({ loadMs: stats.parseMs, intersectionMs: 0, boundsMs: 0 });
+
+        totalLengthRef.current = 0;
+        probePointRef.current = null;
+        if (probeRef.current) probeRef.current.visible = false;
+
+        setKernelStatus("ready");
+        setStatusMessage(
+          `Loaded ${filename} — Surfaces: ${stats.surfCount} · Alignments: ${stats.alignCount} · Features: ${stats.featureLineCount + stats.breaklineCount} · Vertices: ${stats.vertCount.toLocaleString()} · ${stats.parseMs.toFixed(1)}ms`,
+        );
+
+        window.requestAnimationFrame(() => {
+          const camera = cameraRef.current;
+          const controls = controlsRef.current;
+          const scene = sceneRef.current;
+          if (!camera || !controls) return;
+
+          camera.up.set(0, 0, 1);
+
+          const grid = gridRef.current;
+          if (grid) {
+            grid.rotation.x = Math.PI / 2;
+          }
+
+          const fog = scene?.fog instanceof THREE.Fog ? scene.fog : null;
+          const allPts: THREE.Vector3[] = [];
+          if (built.meshVisual) {
+            for (const v of built.meshVisual.vertices) {
+              allPts.push(new THREE.Vector3(v.x, v.y, v.z));
+            }
+          }
+          for (const m of built.overlayMeshes) {
+            for (const v of m.vertices) {
+              allPts.push(new THREE.Vector3(v.x, v.y, v.z));
+            }
+          }
+          for (const c of built.overlayCurves) {
+            for (const v of c.points) {
+              allPts.push(new THREE.Vector3(v.x, v.y, v.z));
+            }
+          }
+          fitViewToLargeScene(camera, controls, fog, allPts);
+        });
+      } catch (err) {
+        if (err instanceof DOMException && err.name === "AbortError") return;
+        const msg = err instanceof Error ? err.message : String(err);
+        setErrorMessage(msg);
+        setKernelStatus("error");
+        appendLog("error", `LandXML load failed: ${msg}`);
+      } finally {
+        if (pendingAsyncExampleRef.current === controller) {
+          pendingAsyncExampleRef.current = null;
+        }
+      }
+    },
+    [appendLog, releaseOwnedCurveHandles],
+  );
+
+  useEffect(() => {
+    const data = landXmlCurveDataRef.current;
+    if (!data || activeExample !== "landxmlViewer") return;
+    setOverlayCurves(applyDatumAndExaggeration(data, landXmlDatumOffset, landXmlVertExag));
+  }, [landXmlDatumOffset, landXmlVertExag, activeExample]);
+
   const loadDefaultPreset = useCallback(async (): Promise<CurvePreset> => {
     const response = await fetch("/showcases/default.json");
     if (!response.ok) {
@@ -3623,6 +4068,7 @@ export function KernelViewer() {
     camera.position.copy(DEFAULT_CAMERA_POSITION);
     controls.target.copy(DEFAULT_CAMERA_TARGET);
     camera.up.set(0, 1, 0);
+    if (gridRef.current) gridRef.current.rotation.x = 0;
     controls.update();
   }, []);
 
@@ -4229,6 +4675,12 @@ export function KernelViewer() {
     recomputeMeshPlaneIntersection,
     transformTargetKey,
   ]);
+
+  useEffect(() => {
+    if (activeExample !== "landxmlViewer") return;
+    if (!sessionRef.current) return;
+    void updateLandXmlFile(activeLandXmlFile);
+  }, [activeLandXmlFile]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const toggleInspector = useCallback((): void => {
     setIsInspectorOpen((current) => {
@@ -5184,7 +5636,12 @@ export function KernelViewer() {
       if (!next || next === activeExample) {
         return;
       }
+      if (isAsyncExample(next)) {
+        void updateLandXmlFile(activeLandXmlFile);
+        return;
+      }
       try {
+        setLandXmlStats(null);
         updateCurveForExample(next, "Example switched");
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
@@ -5192,14 +5649,19 @@ export function KernelViewer() {
         appendLog("error", `Example switch failed: ${message}`);
       }
     },
-    [activeExample, appendLog, updateCurveForExample],
+    [activeExample, activeLandXmlFile, appendLog, updateCurveForExample, updateLandXmlFile],
   );
 
   const onExampleBrowserSelect = useCallback(
     (key: ExampleKey): void => {
       const next = key;
       if (!next || next === activeExample) return;
+      if (isAsyncExample(next)) {
+        void updateLandXmlFile(activeLandXmlFile);
+        return;
+      }
       try {
+        setLandXmlStats(null);
         updateCurveForExample(next, "Example switched");
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
@@ -5207,7 +5669,7 @@ export function KernelViewer() {
         appendLog("error", `Example switch failed: ${message}`);
       }
     },
-    [activeExample, appendLog, updateCurveForExample],
+    [activeExample, activeLandXmlFile, appendLog, updateCurveForExample, updateLandXmlFile],
   );
 
   return (
@@ -5292,6 +5754,14 @@ export function KernelViewer() {
         surfaceProbeUiState={surfaceProbeUiState}
         onUpdateSurfaceProbe={updateSurfaceProbeForUv}
         onOpenExampleBrowser={() => setIsExampleBrowserOpen(true)}
+        activeLandXmlFile={activeLandXmlFile}
+        onLandXmlFileChange={setActiveLandXmlFile}
+        landXmlStats={landXmlStats}
+        landXmlDatumOffset={landXmlDatumOffset}
+        onLandXmlDatumOffsetChange={setLandXmlDatumOffset}
+        landXmlVertExag={landXmlVertExag}
+        onLandXmlVertExagChange={setLandXmlVertExag}
+        landXmlZRange={landXmlZRange}
       />
 
       <KernelConsole
