@@ -5160,7 +5160,7 @@ export function KernelViewer() {
     (async () => {
       try {
         appendLog("info", "Loading kernel WASM runtime");
-        await loadKernel("/wasm/rusted_geom.wasm");
+        await loadKernel(`${process.env.NEXT_PUBLIC_BASE_PATH ?? ""}/wasm/rusted_geom.wasm`);
         const session = new KernelSession();
         appendLog("info", "Kernel session created");
         const loadedPreset = await loadDefaultPreset();
