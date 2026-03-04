@@ -1,0 +1,7 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "installCommand": "curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh && rustup target add wasm32-unknown-unknown && pnpm install",
+  "buildCommand": "pnpm --filter showcase build",
+  "outputDirectory": "showcase/out",
+  "framework": null
+}
