@@ -7,11 +7,9 @@ function fmtVec(v: { x: number; y: number; z: number }): string {
 interface ProbeSectionProps {
   probeUiState: ProbeUiState;
   onUpdateProbe: (tNorm: number, commit: boolean) => void;
-  followCamera?: boolean;
-  onToggleFollowCamera?: () => void;
 }
 
-export function ProbeSection({ probeUiState, onUpdateProbe, followCamera = false, onToggleFollowCamera }: ProbeSectionProps) {
+export function ProbeSection({ probeUiState, onUpdateProbe }: ProbeSectionProps) {
   return (
     <section className="inspector-section" aria-label="Probe controls">
       <h2>Probe</h2>
@@ -66,12 +64,6 @@ export function ProbeSection({ probeUiState, onUpdateProbe, followCamera = false
         </div>
       ) : null}
 
-      {onToggleFollowCamera ? (
-        <label className="inspector-field inspector-toggle">
-          <span>Follow camera</span>
-          <input type="checkbox" checked={followCamera} onChange={onToggleFollowCamera} />
-        </label>
-      ) : null}
     </section>
   );
 }

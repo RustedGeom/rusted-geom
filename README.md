@@ -37,11 +37,12 @@
 - **Intersections** — surface–surface and curve–surface intersection with branch tracking
 - **Bounding Volumes** — axis-aligned (AABB) and oriented (OBB) bounding boxes
 - **LandXML** — parsing, sampling, and surface reconstruction from survey data
+- **CAD Export** — IGES 5.3 and ACIS SAT file generation for curves, surfaces, and B-rep
 - **Benchmarked** — Criterion-based benchmarks with regression detection
 
 ### Project Status
 
-> **Alpha** (`0.1.0-alpha.3`) — APIs and package layout are evolving. Contributions and feedback welcome.
+> **Alpha** (`0.1.0-alpha.4`) — APIs and package layout are evolving. Contributions and feedback welcome.
 
 ---
 
@@ -128,8 +129,8 @@ session.free();
 ### Mesh boolean
 
 ```ts
-const box   = session.create_mesh_box(0, 0, 0, 8, 8, 8);
-const torus = session.create_mesh_torus(2, 0, 0, 2.5, 0.8, 64, 48);
+const box   = session.create_box_mesh(0, 0, 0, 8, 8, 8);
+const torus = session.create_torus_mesh(2, 0, 0, 2.5, 0.8, 64, 48);
 const result = session.mesh_boolean(box, torus, 2); // 0=union, 1=intersect, 2=difference
 
 console.log("triangles:", session.mesh_triangle_count(result));
@@ -161,7 +162,8 @@ for (let i = 0; i < branchCount; i++) {
 | Run Rust unit tests | `cargo test -p kernel` |
 | TypeScript type check | `npm --prefix ./bindings/web run typecheck` |
 | Web runtime tests | `npm --prefix ./bindings/web run test` |
-| E2E tests (Playwright) | `npx --prefix showcase playwright test` |
+| Showcase unit tests | `pnpm --dir showcase test:unit` |
+| E2E tests (Playwright) | `pnpm --dir showcase test:e2e` |
 | Full benchmarks | `cargo bench -p kernel` |
 
 ---
@@ -200,6 +202,10 @@ For a deeper dive, see:
 | [Kernel WASM API Reference](docs/reference/kernel-wasm-api.md) | Full WASM/TypeScript API |
 | [LandXML Support Matrix](docs/reference/landxml-support-matrix.md) | Supported LandXML elements |
 | [NURBS Fit-Point RFC](docs/algorithms/nurbs-fit-point-interpolation-rfc.md) | Fit-point interpolation algorithm |
+| [Cox–de Boor Evaluation](docs/algorithms/cox-de-boor-evaluation.md) | B-spline basis function algorithm |
+| [Surface Tessellation](docs/algorithms/surface-tessellation.md) | Adaptive surface tessellation strategy |
+| [Bounding Volumes](docs/algorithms/bounding-volumes.md) | AABB and OBB computation via PCA |
+| [LandXML Alignment Evaluation](docs/algorithms/landxml-alignment-evaluation.md) | Horizontal and vertical alignment sampling |
 
 ---
 

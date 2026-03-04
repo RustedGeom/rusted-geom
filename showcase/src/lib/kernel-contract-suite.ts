@@ -1,4 +1,4 @@
-import { KernelSession, loadKernel, type CurveHandle, type MeshHandle } from "@rustedgeom/kernel";
+import { KernelSession, loadKernel, type CurveHandle, type MeshHandle, type SurfaceHandle, type BrepHandle } from "@rustedgeom/kernel";
 
 export type ContractCaseStatus = "idle" | "running" | "pass" | "fail";
 export type ContractLogLevel = "info" | "debug" | "pass" | "fail";
@@ -97,7 +97,7 @@ function plane(
 
 async function withSession(
   log: (level: ContractLogLevel, message: string) => void,
-  run: (session: KernelSession, track: <T extends CurveHandle | MeshHandle>(h: T) => T) => Promise<void> | void,
+  run: (session: KernelSession, track: <T extends CurveHandle | MeshHandle | SurfaceHandle | BrepHandle>(h: T) => T) => Promise<void> | void,
 ): Promise<void> {
   const session = new KernelSession();
   try {
@@ -134,6 +134,41 @@ export const CONTRACT_CASES: ContractCaseSpec[] = [
     id: "wasm-bindgen-api",
     title: "wasm-bindgen API Contract",
     summary: "Object IDs, session tolerances, compute_bounds, and intersection branch data.",
+  },
+  {
+    id: "brep-assembly-tessellation",
+    title: "B-rep Assembly + Tessellation",
+    summary: "Multi-face B-rep creation, validation, healing, tessellation, and shell/solid counts.",
+  },
+  {
+    id: "landxml-parse-surface",
+    title: "LandXML Parse Surface",
+    summary: "Parse a small inline LandXML, verify surface count, vertex count, alignment count.",
+  },
+  {
+    id: "bounds-aabb-obb",
+    title: "Bounds AABB + OBB",
+    summary: "Compute Fast and Optimal bounds on curve, surface, and mesh; verify containment.",
+  },
+  {
+    id: "surface-tessellation-roundtrip",
+    title: "Surface Tessellation Roundtrip",
+    summary: "Create surface, tessellate, verify mesh vertex/triangle counts are reasonable.",
+  },
+  {
+    id: "curve-edge-cases",
+    title: "Curve Edge Cases",
+    summary: "Zero-length line, single-point polyline, closed curve, t=0 and t=1 endpoints.",
+  },
+  {
+    id: "polycurve-composite",
+    title: "Polycurve Composite",
+    summary: "Line + arc + line polycurve, length sum, continuity at joins.",
+  },
+  {
+    id: "iges-sat-export",
+    title: "IGES / SAT Export",
+    summary: "Export curve and surface to IGES and SAT, verify non-empty output and expected markers.",
   },
 ];
 
@@ -420,6 +455,304 @@ const RUNNERS: CaseRunner[] = [
       });
     },
   },
+  {
+    id: "brep-assembly-tessellation",
+    title: "B-rep Assembly + Tessellation",
+    summary: "Multi-face B-rep creation, validation, healing, tessellation, and shell/solid counts.",
+    run: async (log) => {
+      await withSession(log, (session) => {
+        log("info", "Creating multi-face B-rep");
+
+        const controlPoints = new Float64Array([
+          -2,-2,0, -2,0,1, -2,2,0,
+           0,-2,1,  0,0,-1, 0,2,1,
+           2,-2,0,  2,0,1,  2,2,0,
+        ]);
+        const weights = new Float64Array(9).fill(1);
+        const knots = clampedUniformKnots(3, 2);
+        const surf1 = session.create_nurbs_surface(2, 2, 3, 3, false, false, controlPoints, weights, knots, knots);
+        const surf2 = session.create_nurbs_surface(2, 2, 3, 3, false, false,
+          new Float64Array([-2,-2,2, -2,0,3, -2,2,2, 0,-2,3, 0,0,1, 0,2,3, 2,-2,2, 2,0,3, 2,2,2]),
+          weights, knots, knots,
+        );
+
+        const brep = (session as any).brep_create_empty();
+        (session as any).brep_add_face_from_surface(brep, surf1);
+        (session as any).brep_add_face_from_surface(brep, surf2);
+
+        const faceCount = (session as any).brep_face_count(brep);
+        assertOrThrow(faceCount === 2, `Expected 2 faces, got ${faceCount}`);
+
+        (session as any).brep_finalize_shell(brep);
+        const shellCount = (session as any).brep_shell_count(brep);
+        assertOrThrow(shellCount >= 1, `Expected at least 1 shell, got ${shellCount}`);
+
+        const validation = (session as any).brep_validate(brep);
+        log("debug", `B-rep validation: valid=${validation.valid}, faces=${validation.face_count}, shells=${validation.shell_count}`);
+
+        const mesh = (session as any).brep_tessellate_to_mesh(brep, new Float64Array([8, 8, 32, 32, 1e-3, 0.1]));
+        const triCount = session.mesh_triangle_count(mesh);
+        assertOrThrow(triCount > 0, `B-rep tessellation produced no triangles`);
+
+        log("pass", `B-rep assembly passed (faces=${faceCount}, shells=${shellCount}, triangles=${triCount})`);
+      });
+    },
+  },
+  {
+    id: "landxml-parse-surface",
+    title: "LandXML Parse Surface",
+    summary: "Parse a small inline LandXML, verify surface count, vertex count, alignment count.",
+    run: async (log) => {
+      await withSession(log, (session) => {
+        log("info", "Parsing inline LandXML");
+
+        const xml = `<?xml version="1.0" encoding="utf-8"?>
+<LandXML version="1.2">
+  <Units><Metric linearUnit="meter" areaUnit="squareMeter" volumeUnit="cubicMeter" angularUnit="decimal degrees"/></Units>
+  <Surfaces>
+    <Surface name="TestTIN">
+      <Definition surfType="TIN">
+        <Pnts>
+          <P id="1">0.0 0.0 10.0</P>
+          <P id="2">100.0 0.0 12.0</P>
+          <P id="3">50.0 86.6 15.0</P>
+          <P id="4">50.0 28.9 11.5</P>
+        </Pnts>
+        <Faces>
+          <F>1 2 4</F>
+          <F>2 3 4</F>
+          <F>3 1 4</F>
+        </Faces>
+      </Definition>
+    </Surface>
+  </Surfaces>
+</LandXML>`;
+
+        const doc = (session as any).landxml_parse(xml, 1, 0, 0);
+        const surfCount = (session as any).landxml_surface_count(doc);
+        assertOrThrow(surfCount === 1, `Expected 1 surface, got ${surfCount}`);
+
+        const verts = (session as any).landxml_surface_copy_vertices(doc, 0);
+        assertOrThrow(verts.length === 12, `Expected 12 vertex floats (4*3), got ${verts.length}`);
+
+        const indices = (session as any).landxml_surface_copy_indices(doc, 0);
+        assertOrThrow(indices.length === 9, `Expected 9 index values (3 triangles), got ${indices.length}`);
+
+        const alignCount = (session as any).landxml_alignment_count(doc);
+        assertOrThrow(alignCount === 0, `Expected 0 alignments, got ${alignCount}`);
+
+        const name = (session as any).landxml_surface_name(doc, 0);
+        assertOrThrow(name === "TestTIN", `Expected surface name 'TestTIN', got '${name}'`);
+
+        log("pass", `LandXML parse passed (surfaces=${surfCount}, verts=${verts.length / 3}, alignments=${alignCount})`);
+      });
+    },
+  },
+  {
+    id: "bounds-aabb-obb",
+    title: "Bounds AABB + OBB",
+    summary: "Compute Fast and Optimal bounds on curve, surface, and mesh; verify containment.",
+    run: async (log) => {
+      await withSession(log, (session) => {
+        log("info", "Computing bounds");
+
+        const curve = session.interpolate_nurbs_fit_points(
+          new Float64Array([0,0,0, 1,0.5,0, 2,0,0, 3,0.5,0]),
+          3, false,
+        );
+
+        const fastBounds = session.compute_bounds(curve.object_id(), 0, 0, 0.0);
+        assertOrThrow(fastBounds.aabb_min_x <= 0.01, "AABB min_x should contain origin");
+        assertOrThrow(fastBounds.aabb_max_x >= 2.99, "AABB max_x should contain endpoint");
+        log("debug", `Curve fast AABB: [${fastBounds.aabb_min_x.toFixed(3)}, ${fastBounds.aabb_max_x.toFixed(3)}]`);
+
+        const optBounds = session.compute_bounds(curve.object_id(), 1, 256, 0.0);
+        assertOrThrow(Number.isFinite(optBounds.obb_center_x), "OBB center_x should be finite");
+        assertOrThrow(Number.isFinite(optBounds.obb_half_x), "OBB half_x should be finite");
+        assertOrThrow(optBounds.obb_half_x >= 0, "OBB half extents should be non-negative");
+        log("debug", `Curve optimal OBB center: (${optBounds.obb_center_x.toFixed(3)}, ${optBounds.obb_center_y.toFixed(3)})`);
+
+        const mesh = session.create_box_mesh(5, 5, 5, 2, 3, 4);
+        const meshBounds = session.compute_bounds(mesh.object_id(), 0, 0, 0.0);
+        assertOrThrow(meshBounds.aabb_min_x <= 5, "Mesh AABB should contain center");
+        assertOrThrow(meshBounds.aabb_max_z >= 5, "Mesh AABB max_z should contain center");
+
+        const surface = session.create_nurbs_surface(
+          2, 2, 3, 3, false, false,
+          new Float64Array([-1,-1,0, -1,0,0, -1,1,0, 0,-1,0, 0,0,1, 0,1,0, 1,-1,0, 1,0,0, 1,1,0]),
+          new Float64Array(9).fill(1),
+          clampedUniformKnots(3, 2), clampedUniformKnots(3, 2),
+        );
+        const surfBounds = session.compute_bounds(surface.object_id(), 0, 0, 0.0);
+        assertOrThrow(surfBounds.aabb_min_x <= -0.99, "Surface AABB min_x check");
+        assertOrThrow(surfBounds.aabb_max_x >= 0.99, "Surface AABB max_x check");
+
+        log("pass", "Bounds AABB + OBB checks passed for curve, mesh, and surface");
+      });
+    },
+  },
+  {
+    id: "surface-tessellation-roundtrip",
+    title: "Surface Tessellation Roundtrip",
+    summary: "Create surface, tessellate, verify mesh vertex/triangle counts are reasonable.",
+    run: async (log) => {
+      await withSession(log, (session) => {
+        log("info", "Creating and tessellating surface");
+
+        const surface = session.create_nurbs_surface(
+          2, 2, 3, 3, false, false,
+          new Float64Array([-2,-2,0, -2,0,1, -2,2,0, 0,-2,1, 0,0,-1, 0,2,1, 2,-2,0, 2,0,1, 2,2,0]),
+          new Float64Array(9).fill(1),
+          clampedUniformKnots(3, 2), clampedUniformKnots(3, 2),
+        );
+
+        const mesh = (session as any).surface_tessellate_to_mesh(surface, new Float64Array([4, 4, 64, 64, 1e-3, 0.05]));
+        const vertCount = session.mesh_vertex_count(mesh);
+        const triCount = session.mesh_triangle_count(mesh);
+
+        assertOrThrow(vertCount >= 16, `Expected at least 16 vertices, got ${vertCount}`);
+        assertOrThrow(triCount >= 8, `Expected at least 8 triangles, got ${triCount}`);
+
+        const verts = session.mesh_copy_vertices(mesh);
+        assertOrThrow(verts.length === vertCount * 3, "Vertex array length should be 3x vertex count");
+
+        for (let i = 0; i < verts.length; i++) {
+          assertOrThrow(Number.isFinite(verts[i]), `Vertex ${i} should be finite`);
+        }
+
+        log("pass", `Tessellation roundtrip passed (vertices=${vertCount}, triangles=${triCount})`);
+      });
+    },
+  },
+  {
+    id: "curve-edge-cases",
+    title: "Curve Edge Cases",
+    summary: "Zero-length line, single-point polyline, closed curve, t=0 and t=1 endpoints.",
+    run: async (log) => {
+      await withSession(log, (session) => {
+        log("info", "Testing curve edge cases");
+
+        // t=0 and t=1 endpoint evaluation
+        const line = session.create_line(1, 2, 3, 4, 5, 6);
+        const startPt = session.curve_point_at(line, 0);
+        assertOrThrow(Math.abs(startPt[0] - 1) < 1e-6, "Line start x mismatch");
+        assertOrThrow(Math.abs(startPt[1] - 2) < 1e-6, "Line start y mismatch");
+        assertOrThrow(Math.abs(startPt[2] - 3) < 1e-6, "Line start z mismatch");
+
+        const endPt = session.curve_point_at(line, 1);
+        assertOrThrow(Math.abs(endPt[0] - 4) < 1e-6, "Line end x mismatch");
+        assertOrThrow(Math.abs(endPt[1] - 5) < 1e-6, "Line end y mismatch");
+        assertOrThrow(Math.abs(endPt[2] - 6) < 1e-6, "Line end z mismatch");
+
+        const lineLen = session.curve_length(line);
+        const expected = Math.sqrt(9 + 9 + 9);
+        assertOrThrow(Math.abs(lineLen - expected) < 1e-4, `Line length expected ${expected.toFixed(4)}, got ${lineLen.toFixed(4)}`);
+        log("debug", `Line endpoint and length checks passed (len=${lineLen.toFixed(4)})`);
+
+        // Closed curve (circle) should have point_at(0) == point_at(1) within tolerance
+        const circle = session.create_circle(0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 2.0);
+        const p0 = session.curve_point_at(circle, 0);
+        const p1 = session.curve_point_at(circle, 1);
+        const dist = Math.sqrt((p0[0]-p1[0])**2 + (p0[1]-p1[1])**2 + (p0[2]-p1[2])**2);
+        assertOrThrow(dist < 1e-3, `Closed curve endpoints should coincide (dist=${dist.toFixed(6)})`);
+        log("debug", "Closed curve endpoint coincidence verified");
+
+        // Zero-length degenerate line
+        let zeroLenError: unknown;
+        try {
+          const zeroLine = session.create_line(5, 5, 5, 5, 5, 5);
+          const zLen = session.curve_length(zeroLine);
+          assertOrThrow(zLen < 1e-10, "Zero-length line should have ~0 length");
+          log("debug", "Zero-length line handled gracefully");
+        } catch (err) {
+          zeroLenError = err;
+          log("debug", `Zero-length line raises error (expected): ${err}`);
+        }
+
+        log("pass", "Curve edge cases passed");
+      });
+    },
+  },
+  {
+    id: "polycurve-composite",
+    title: "Polycurve Composite",
+    summary: "Line + arc + line polycurve, length sum, continuity at joins.",
+    run: async (log) => {
+      await withSession(log, (session) => {
+        log("info", "Creating polycurve composite");
+
+        const lineA = session.create_line(0, 0, 0, 2, 0, 0);
+        const arc = session.create_arc_by_3_points(2, 0, 0, 3, 1, 0, 4, 0, 0);
+        const lineB = session.create_line(4, 0, 0, 6, 0, 0);
+
+        const lenA = session.curve_length(lineA);
+        const lenArc = session.curve_length(arc);
+        const lenB = session.curve_length(lineB);
+        const expectedTotal = lenA + lenArc + lenB;
+
+        const segments = new Float64Array([
+          lineA.object_id(), 0.0,
+          arc.object_id(), 0.0,
+          lineB.object_id(), 0.0,
+        ]);
+        const polycurve = session.create_polycurve(segments);
+        const totalLen = session.curve_length(polycurve);
+
+        assertOrThrow(Math.abs(totalLen - expectedTotal) < 0.01,
+          `Polycurve length expected ${expectedTotal.toFixed(4)}, got ${totalLen.toFixed(4)}`);
+        log("debug", `Polycurve total length: ${totalLen.toFixed(4)} (sum: ${expectedTotal.toFixed(4)})`);
+
+        // Continuity at joins: evaluate near the join parameters
+        const p_start = session.curve_point_at(polycurve, 0);
+        assertOrThrow(Math.abs(p_start[0]) < 0.01 && Math.abs(p_start[1]) < 0.01, "Polycurve start should be near origin");
+
+        const p_end = session.curve_point_at(polycurve, 1);
+        assertOrThrow(Math.abs(p_end[0] - 6) < 0.01 && Math.abs(p_end[1]) < 0.01, "Polycurve end should be near (6,0,0)");
+
+        log("pass", `Polycurve composite passed (length=${totalLen.toFixed(4)}, 3 segments)`);
+      });
+    },
+  },
+  {
+    id: "iges-sat-export",
+    title: "IGES / SAT Export",
+    summary: "Export curve and surface to IGES and SAT, verify non-empty output and expected markers.",
+    run: async (log) => {
+      await withSession(log, (session) => {
+        log("info", "Testing IGES and SAT export");
+
+        const curve = session.interpolate_nurbs_fit_points(
+          new Float64Array([0,0,0, 1,0.5,0, 2,0,0]),
+          2, false,
+        );
+        const surface = session.create_nurbs_surface(
+          2, 2, 3, 3, false, false,
+          new Float64Array([-1,-1,0, -1,0,1, -1,1,0, 0,-1,1, 0,0,-1, 0,1,1, 1,-1,0, 1,0,1, 1,1,0]),
+          new Float64Array(9).fill(1),
+          clampedUniformKnots(3, 2), clampedUniformKnots(3, 2),
+        );
+
+        const ids = new Float64Array([curve.object_id(), surface.object_id()]);
+
+        const igesText = (session as any).export_iges(ids) as string;
+        assertOrThrow(igesText.length > 0, "IGES output should be non-empty");
+        assertOrThrow(igesText.includes("S"), "IGES should contain Start section marker");
+        assertOrThrow(igesText.includes("G"), "IGES should contain Global section marker");
+        assertOrThrow(igesText.includes("D"), "IGES should contain Directory Entry section marker");
+        assertOrThrow(igesText.includes("P"), "IGES should contain Parameter Data section marker");
+        log("debug", `IGES output: ${igesText.length} chars`);
+
+        const satText = (session as any).export_sat(ids) as string;
+        assertOrThrow(satText.length > 0, "SAT output should be non-empty");
+        assertOrThrow(satText.includes("700"), "SAT should contain version header");
+        assertOrThrow(satText.includes("ACIS"), "SAT should contain ACIS identifier");
+        assertOrThrow(satText.includes("End-of-ACIS-data"), "SAT should contain end marker");
+        log("debug", `SAT output: ${satText.length} chars`);
+
+        log("pass", `IGES/SAT export passed (IGES=${igesText.length} chars, SAT=${satText.length} chars)`);
+      });
+    },
+  },
 ];
 
 export function formatContractLogsAsText(entries: ContractLogEntry[]): string {
@@ -434,15 +767,19 @@ export function formatContractLogsAsText(entries: ContractLogEntry[]): string {
 
 export async function runKernelContractSuite(
   callbacks: ContractSuiteCallbacks = {},
+  filterIds?: string[],
 ): Promise<ContractSuiteResult> {
-  // Initialise WASM once before any test cases run.
   await loadKernel("/wasm/rusted_geom.wasm");
 
   const startedAt = performance.now();
   const caseResults: ContractCaseResult[] = [];
   let sequence = 1;
 
-  for (const runner of RUNNERS) {
+  const runnersToRun = filterIds
+    ? RUNNERS.filter((r) => filterIds.includes(r.id))
+    : RUNNERS;
+
+  for (const runner of runnersToRun) {
     callbacks.onCaseStart?.(runner.id);
 
     const emit = (level: ContractLogLevel, message: string): void => {

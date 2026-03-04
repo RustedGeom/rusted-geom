@@ -12,6 +12,7 @@ mod curve;
 mod error;
 mod face;
 mod intersection;
+mod io;
 mod landxml;
 mod mesh;
 mod surface;

@@ -32,6 +32,24 @@ npm run test
 
 ```bash
 pnpm --dir showcase dev         # local dev server at http://localhost:3000
+pnpm --dir showcase test:unit   # run Vitest unit tests
+pnpm --dir showcase test:e2e    # run Playwright E2E tests (requires dev server)
+```
+
+### Runtime Contract Lab
+
+The showcase includes a test lab at [/tests](http://localhost:3000/tests) that runs
+kernel contract cases against the live WASM module in the browser. Open it from the
+viewer's overflow menu ("Open Test Lab") or navigate directly. Run these tests after
+any kernel API change to verify the WASM bridge is intact.
+
+### Benchmark regression checks
+
+For changes that affect hot paths use the threshold check script after a bench run:
+
+```bash
+cargo bench -p kernel
+python3 scripts/check_benchmark_thresholds.py
 ```
 
 ## Pull Request Guidelines

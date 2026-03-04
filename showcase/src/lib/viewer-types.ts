@@ -5,7 +5,7 @@ export type GizmoMode = "translate" | "rotate" | "scale";
 export type KernelStatus = "booting" | "ready" | "computing" | "error";
 export type CameraMode = "perspective" | "orthographic";
 export type SceneUpAxis = "y" | "z";
-export type ViewPresetName = "top" | "bottom" | "front" | "back" | "left" | "right";
+export type ViewPresetName = "top";
 
 export interface LogEntry {
   id: number;

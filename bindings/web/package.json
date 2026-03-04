@@ -1,9 +1,10 @@
 {
   "name": "@rustedgeom/kernel",
-  "version": "0.1.0-alpha.4",
+  "version": "0.1.0",
   "type": "module",
   "publishConfig": {
-    "registry": "https://npm.pkg.github.com"
+    "registry": "https://npm.pkg.github.com",
+    "access": "public"
   },
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",

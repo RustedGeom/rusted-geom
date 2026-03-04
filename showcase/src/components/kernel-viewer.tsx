@@ -114,7 +114,7 @@ function meshToBuffers(session: KernelSession, mesh: MeshHandle): { vertices: Rg
   };
 }
 
-const DEFAULT_CAMERA_POSITION = new THREE.Vector3(10, 8, 11);
+const DEFAULT_CAMERA_POSITION = new THREE.Vector3(10, -11, 8);
 const DEFAULT_CAMERA_TARGET = new THREE.Vector3(0, 0, 0);
 const MIN_RENDER_SAMPLES = 2048;
 const MAX_RENDER_SAMPLES = 12000;
@@ -128,6 +128,7 @@ interface BuiltExample {
   kind: "curve" | "mesh";
   curveHandle: CurveHandle | null;
   ownedHandles: AnyHandle[];
+  exportHandles?: AnyHandle[];
   name: string;
   degreeLabel: string;
   renderDegree: number;
@@ -701,6 +702,17 @@ function isBrepExample(example: ExampleKey): boolean {
   return example.startsWith("brep");
 }
 
+function isMeshOnlyExample(example: ExampleKey): boolean {
+  return (
+    example === "meshLarge" ||
+    example === "meshTransform" ||
+    example === "meshIntersectMeshMesh" ||
+    example === "meshIntersectMeshPlane" ||
+    example === "meshBoolean" ||
+    example === "bboxMeshBooleanAssembly"
+  );
+}
+
 function createWideLine(
   points: RgmPoint3[],
   color: string,
@@ -1084,6 +1096,16 @@ function syncControlsUpAxis(
   c._quatInverse.copy(c._quat).invert();
 }
 
+function downloadTextFile(text: string, filename: string, mimeType: string): void {
+  const blob = new Blob([text], { type: mimeType });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
 function zoomToFit(
   camera: THREE.PerspectiveCamera | THREE.OrthographicCamera,
   controls: OrbitControls,
@@ -1108,8 +1130,8 @@ function zoomToFit(
     const fitW = maxDim / (2 * Math.tan(fovRad / 2) * aspect);
     const distance = Math.max(fitH, fitW) * 1.15;
     camera.position.copy(center).addScaledVector(dir, distance);
-    camera.near = Math.max(0.001, distance - sphere.radius);
-    camera.far = distance + sphere.radius * 2;
+    camera.near = Math.max(0.01, distance * 0.001);
+    camera.far = Math.max(distance * 10, sphere.radius * 20);
   } else {
     const aspect = (camera.right - camera.left) / (camera.top - camera.bottom) || 1;
     const halfH = maxDim * 0.575;
@@ -1119,7 +1141,7 @@ function zoomToFit(
     camera.top = halfH;
     camera.bottom = -halfH;
     camera.near = 0.001;
-    camera.far = sphere.radius * 4;
+    camera.far = Math.max(sphere.radius * 20, 10000);
     camera.position.copy(center).addScaledVector(dir, sphere.radius * 2);
   }
   camera.updateProjectionMatrix();
@@ -1127,8 +1149,8 @@ function zoomToFit(
 
   if (fog) {
     const r = sphere.radius;
-    fog.near = r > 5000 ? 1e9 : Math.max(34, r * 0.5);
-    fog.far = r > 5000 ? 1e9 : Math.max(138, r * 3.5);
+    fog.near = r > 500 ? 1e9 : Math.max(34, r * 0.5);
+    fog.far = r > 500 ? 1e9 : Math.max(138, r * 3.5);
   }
   controls.update();
 }
@@ -1191,16 +1213,22 @@ function applyDatumAndExaggeration(
   data: LandXmlCurveData,
   datumOffset: number,
   vertExag: number,
+  scaleFactor = 1,
 ): OverlayCurveVisual[] {
+  const s = scaleFactor;
   const transformed3d = data.raw3dCurves.map((c) => ({
     ...c,
     points: c.points.map((p) => ({
-      x: p.x,
-      y: p.y,
-      z: (p.z - datumOffset) * vertExag,
+      x: p.x * s,
+      y: p.y * s,
+      z: (p.z - datumOffset) * vertExag * s,
     })),
   }));
-  return [...data.horizCurves, ...transformed3d];
+  const scaledHoriz = data.horizCurves.map((c) => ({
+    ...c,
+    points: c.points.map((p) => ({ x: p.x * s, y: p.y * s, z: p.z * s })),
+  }));
+  return [...scaledHoriz, ...transformed3d];
 }
 
 async function buildLandXmlExample(
@@ -1429,7 +1457,7 @@ async function buildLandXmlExample(
 
   const curveData: LandXmlCurveData = { horizCurves, raw3dCurves };
   const defaultDatum = 0;
-  const overlayCurves = applyDatumAndExaggeration(curveData, defaultDatum, 1);
+  const overlayCurves = applyDatumAndExaggeration(curveData, defaultDatum, 1, 1);
 
   const context: LandXmlContext = {
     docHandle: doc,
@@ -1504,6 +1532,7 @@ export function KernelViewer() {
   const cameraRef = useRef<THREE.PerspectiveCamera | THREE.OrthographicCamera | null>(null);
   const controlsRef = useRef<OrbitControls | null>(null);
   const activeHandlesRef = useRef<Array<{ objectId: number }>>([]);
+  const exportHandlesRef = useRef<Array<{ objectId: number }>>([]);
   const meshToHandleMap = useRef(new WeakMap<THREE.Object3D, { objectId: number }>());
   const lineRef = useRef<Line2 | null>(null);
   const overlayLineRefs = useRef<Line2[]>([]);
@@ -1590,14 +1619,13 @@ export function KernelViewer() {
   const [logs, setLogs] = useState<LogEntry[]>([]);
   const [, setStatusMessage] = useState("Booting kernel runtime...");
   const [, setErrorMessage] = useState<string | null>(null);
-  const [capabilities, setCapabilities] = useState({ igesImport: false, igesExport: false });
+  const [capabilities, setCapabilities] = useState({ igesImport: false, igesExport: true });
   const [showGrid, setShowGrid] = useState(true);
   const [showAxes, setShowAxes] = useState(false);
   const [orbitEnabled, setOrbitEnabled] = useState(true);
   const [cameraMode, setCameraMode] = useState<CameraMode>("perspective");
   const cameraModeRef = useRef<CameraMode>("perspective");
-  const [sceneUpAxis, setSceneUpAxis] = useState<SceneUpAxis>("y");
-  const [followCamera, setFollowCamera] = useState(false);
+  const [sceneUpAxis, setSceneUpAxis] = useState<SceneUpAxis>("z");
   const followCameraRef = useRef(false);
   const [probeUiState, setProbeUiState] = useState<ProbeUiState>({
     tNorm: 0.35,
@@ -1629,9 +1657,11 @@ export function KernelViewer() {
   const [landXmlStats, setLandXmlStats] = useState<LandXmlStats | null>(null);
   const [landXmlDatumOffset, setLandXmlDatumOffset] = useState(0);
   const [landXmlVertExag, setLandXmlVertExag] = useState(1);
+  const [landXmlScaleFactor, setLandXmlScaleFactor] = useState(1);
   const [landXmlZRange, setLandXmlZRange] = useState<{ min: number; max: number }>({ min: 0, max: 0 });
   const landXmlCurveDataRef = useRef<LandXmlCurveData | null>(null);
   const landXmlContextRef = useRef<LandXmlContext | null>(null);
+  const landXmlRawMeshRef = useRef<{ meshVisual: MeshVisual | null; overlayMeshes: MeshVisual[] } | null>(null);
   const [landXmlAlignments, setLandXmlAlignments] = useState<LandXmlAlignmentInfo[]>([]);
   const [landXmlProbeAlignIdx, setLandXmlProbeAlignIdx] = useState(0);
   const [landXmlProbeProfileIdx, setLandXmlProbeProfileIdx] = useState(0);
@@ -2393,6 +2423,7 @@ export function KernelViewer() {
             kind: "mesh",
             curveHandle: null,
             ownedHandles: built,
+            exportHandles: [moved],
             name: "Bounds Mesh: Boolean Assembly",
             degreeLabel: "boolean difference + transform, with Fast cache and Optimal OBB",
             renderDegree: 0,
@@ -2519,6 +2550,7 @@ export function KernelViewer() {
             kind: "mesh",
             curveHandle: null,
             ownedHandles: built,
+            exportHandles: [surface, scaled],
             name: "Surface Transform Chain",
             degreeLabel: "translate -> rotate -> scale (kernel surface ops)",
             renderDegree: 0,
@@ -2606,6 +2638,7 @@ export function KernelViewer() {
             kind: "mesh",
             curveHandle: null,
             ownedHandles: built,
+            exportHandles: [scaled],
             name: "Bounds Surface: Warped Rational",
             degreeLabel: "transformed warped surface, Fast vs Optimal bounds",
             renderDegree: 0,
@@ -2694,6 +2727,7 @@ export function KernelViewer() {
             kind: "mesh",
             curveHandle: null,
             ownedHandles: built,
+            exportHandles: [surface],
             name: "Surface UV Differential Evaluation",
             degreeLabel: "D0/D1 and D2 (if available) at normalized UV samples",
             renderDegree: 0,
@@ -2757,6 +2791,7 @@ export function KernelViewer() {
             kind: "mesh",
             curveHandle: null,
             ownedHandles: built,
+            exportHandles: [surfaceA, surfaceB],
             name: "Surface vs Surface",
             degreeLabel: "surface-surface intersection branches",
             renderDegree: 0,
@@ -2836,6 +2871,7 @@ export function KernelViewer() {
             kind: "mesh",
             curveHandle: null,
             ownedHandles: built,
+            exportHandles: [surface],
             name: "Surface vs Plane",
             degreeLabel: "surface-plane section branches",
             renderDegree: 0,
@@ -2908,6 +2944,7 @@ export function KernelViewer() {
             kind: "mesh",
             curveHandle: null,
             ownedHandles: built,
+            exportHandles: [surface, curveHandle],
             name: "Surface vs Curve",
             degreeLabel: "surface-curve intersection points",
             renderDegree: 0,
@@ -2968,6 +3005,7 @@ export function KernelViewer() {
             kind: "mesh",
             curveHandle: null,
             ownedHandles: built,
+            exportHandles: [face],
             name: "Trim Edit Workflow",
             degreeLabel: "add loop -> split edge -> reverse loop -> heal",
             renderDegree: 0,
@@ -3016,6 +3054,7 @@ export function KernelViewer() {
             kind: "mesh",
             curveHandle: null,
             ownedHandles: built,
+            exportHandles: [face],
             name: "Trim Validation Failure + Heal",
             degreeLabel: "intentionally invalid topology diagnostics",
             renderDegree: 0,
@@ -3107,6 +3146,7 @@ export function KernelViewer() {
             kind: "mesh",
             curveHandle: null,
             ownedHandles: built,
+            exportHandles: [face],
             name: "Trim Multi-Loop Surgery",
             degreeLabel: "mixed loop APIs + split/reverse/heal on one face",
             renderDegree: 0,
@@ -3189,6 +3229,7 @@ export function KernelViewer() {
             kind: "mesh",
             curveHandle: null,
             ownedHandles: built,
+            exportHandles: [brep],
             name: "Bounds BREP: Solid Lifecycle",
             degreeLabel: "pre-shell vs post-solid bounds, Fast/Optimal comparison",
             renderDegree: 0,
@@ -3277,6 +3318,7 @@ export function KernelViewer() {
             kind: "mesh",
             curveHandle: null,
             ownedHandles: built,
+            exportHandles: [brep],
             name: "BREP Shell Assembly + Adjacency",
             degreeLabel: "face->brep assembly, loop edit, validate/heal/finalize, adjacency query",
             renderDegree: 0,
@@ -3368,6 +3410,7 @@ export function KernelViewer() {
             kind: "mesh",
             curveHandle: null,
             ownedHandles: built,
+            exportHandles: [brep],
             name: "BREP Solid Assembly Lifecycle",
             degreeLabel: "6 surfaces -> shell -> solid container + topology diagnostics",
             renderDegree: 0,
@@ -3458,6 +3501,7 @@ export function KernelViewer() {
             kind: "mesh",
             curveHandle: null,
             ownedHandles: built,
+            exportHandles: [loaded],
             name: "BREP Solid Roundtrip Audit",
             degreeLabel: "solid -> clone -> native bytes -> load, then invariant checks",
             renderDegree: 0,
@@ -3561,6 +3605,7 @@ export function KernelViewer() {
             kind: "mesh",
             curveHandle: null,
             ownedHandles: built,
+            exportHandles: [original, rebuilt],
             name: "BREP Solid Face Surgery Rebuild",
             degreeLabel: "extract faces, edit one face trim topology, then rebuild a second solid",
             renderDegree: 0,
@@ -3658,6 +3703,7 @@ export function KernelViewer() {
             kind: "mesh",
             curveHandle: null,
             ownedHandles: built,
+            exportHandles: [cloned],
             name: "BREP Face Bridge Roundtrip",
             degreeLabel: "face -> brep -> clone -> extract face, then compare tessellations",
             renderDegree: 0,
@@ -3758,6 +3804,7 @@ export function KernelViewer() {
             kind: "mesh",
             curveHandle: null,
             ownedHandles: built,
+            exportHandles: [brep, loaded],
             name: "BREP Native Save/Load Roundtrip",
             degreeLabel: "finalized brep -> bytes -> loaded brep, then validate and compare",
             renderDegree: 0,
@@ -3892,6 +3939,11 @@ export function KernelViewer() {
       activeHandlesRef.current = built.ownedHandles
         .filter(h => typeof h.object_id === "function")
         .map(h => ({ objectId: h.object_id() }));
+
+      const exportSrc = built.exportHandles ?? built.ownedHandles;
+      exportHandlesRef.current = exportSrc
+        .filter(h => typeof h.object_id === "function")
+        .map(h => ({ objectId: h.object_id() }));
       surfaceProbeD1ScaleRef.current = built.surfaceProbeD1Scale ?? 0.2;
       surfaceProbeD2ScaleRef.current = built.surfaceProbeD2Scale ?? 0.1;
 
@@ -3944,9 +3996,10 @@ export function KernelViewer() {
         setPreset(nurbsPresetOverride);
       }
 
-      if (cameraRef.current) cameraRef.current.up.set(0, 1, 0);
-      if (gridRef.current) gridRef.current.rotation.x = 0;
-      setSceneUpAxis("y");
+      if (cameraRef.current) cameraRef.current.up.set(0, 0, 1);
+      if (controlsRef.current && cameraRef.current) syncControlsUpAxis(controlsRef.current, cameraRef.current);
+      if (gridRef.current) gridRef.current.rotation.x = Math.PI / 2;
+      setSceneUpAxis("z");
       landXmlCurveDataRef.current = null;
       landXmlContextRef.current = null;
       setLandXmlAlignments([]);
@@ -4078,6 +4131,7 @@ export function KernelViewer() {
         setLandXmlZRange(zRange);
         setLandXmlDatumOffset(defaultDatum);
         setLandXmlVertExag(1);
+        setLandXmlScaleFactor(1);
         setLandXmlAlignments(context.alignments);
 
         const defaultAlign = 0;
@@ -4090,6 +4144,7 @@ export function KernelViewer() {
         setActiveDegreeLabel(built.degreeLabel);
         setActiveRenderDegree(built.renderDegree);
         setSampledPoints([]);
+        landXmlRawMeshRef.current = { meshVisual: built.meshVisual, overlayMeshes: built.overlayMeshes };
         setMeshVisual(built.meshVisual);
         setOverlayMeshes(built.overlayMeshes);
         setOverlayCurves(built.overlayCurves);
@@ -4125,37 +4180,27 @@ export function KernelViewer() {
 
           const fog = scene?.fog instanceof THREE.Fog ? scene.fog : null;
 
-          // For LandXML, frame the alignment curves (not the terrain mesh).
-          // The terrain can be vastly larger and distorts the view ratio.
-          const curvePts: THREE.Vector3[] = [];
-          for (const c of built.overlayCurves) {
-            for (const v of c.points) {
-              curvePts.push(new THREE.Vector3(v.x, v.y, v.z));
+          // Union ALL geometry (terrain mesh + overlay meshes + curves) for accurate framing
+          const allPts: THREE.Vector3[] = [];
+          if (built.meshVisual) {
+            for (const v of built.meshVisual.vertices) {
+              allPts.push(new THREE.Vector3(v.x, v.y, v.z));
             }
           }
-
-          if (curvePts.length > 0) {
+          for (const m of built.overlayMeshes) {
+            for (const v of m.vertices) {
+              allPts.push(new THREE.Vector3(v.x, v.y, v.z));
+            }
+          }
+          for (const c of built.overlayCurves) {
+            for (const v of c.points) {
+              allPts.push(new THREE.Vector3(v.x, v.y, v.z));
+            }
+          }
+          if (allPts.length > 0) {
             const box = new THREE.Box3();
-            for (const p of curvePts) box.expandByPoint(p);
+            for (const p of allPts) box.expandByPoint(p);
             zoomToFit(camera, controls, box, fog);
-          } else {
-            // Pure surface case (no alignments) -- use mesh vertices
-            const allPts: THREE.Vector3[] = [];
-            if (built.meshVisual) {
-              for (const v of built.meshVisual.vertices) {
-                allPts.push(new THREE.Vector3(v.x, v.y, v.z));
-              }
-            }
-            for (const m of built.overlayMeshes) {
-              for (const v of m.vertices) {
-                allPts.push(new THREE.Vector3(v.x, v.y, v.z));
-              }
-            }
-            if (allPts.length > 0) {
-              const box = new THREE.Box3();
-              for (const p of allPts) box.expandByPoint(p);
-              zoomToFit(camera, controls, box, fog);
-            }
           }
         });
       } catch (err) {
@@ -4176,8 +4221,31 @@ export function KernelViewer() {
   useEffect(() => {
     const data = landXmlCurveDataRef.current;
     if (!data || activeExample !== "landxmlViewer") return;
-    setOverlayCurves(applyDatumAndExaggeration(data, landXmlDatumOffset, landXmlVertExag));
-  }, [landXmlDatumOffset, landXmlVertExag, activeExample]);
+    setOverlayCurves(applyDatumAndExaggeration(data, landXmlDatumOffset, landXmlVertExag, landXmlScaleFactor));
+  }, [landXmlDatumOffset, landXmlVertExag, landXmlScaleFactor, activeExample]);
+
+  useEffect(() => {
+    const raw = landXmlRawMeshRef.current;
+    if (!raw || activeExample !== "landxmlViewer") return;
+    const s = landXmlScaleFactor;
+    if (s === 1) {
+      setMeshVisual(raw.meshVisual);
+      setOverlayMeshes(raw.overlayMeshes);
+      return;
+    }
+    if (raw.meshVisual) {
+      setMeshVisual({
+        ...raw.meshVisual,
+        vertices: raw.meshVisual.vertices.map((v) => ({ x: v.x * s, y: v.y * s, z: v.z * s })),
+      });
+    }
+    setOverlayMeshes(
+      raw.overlayMeshes.map((m) => ({
+        ...m,
+        vertices: m.vertices.map((v) => ({ x: v.x * s, y: v.y * s, z: v.z * s })),
+      })),
+    );
+  }, [landXmlScaleFactor, activeExample]);
 
   useEffect(() => {
     if (activeExample !== "landxmlViewer") return;
@@ -4235,13 +4303,20 @@ export function KernelViewer() {
       }
     }
 
-    // For LandXML, prefer overlay curves (alignments) over terrain mesh
+    // For LandXML, union ALL geometry (terrain mesh + overlay meshes + curves)
     const curvePoints = overlayCurves.flatMap((c) => c.points);
-    if (activeExample === "landxmlViewer" && curvePoints.length > 0) {
-      const box = new THREE.Box3();
-      for (const p of curvePoints) box.expandByPoint(new THREE.Vector3(p.x, p.y, p.z));
-      zoomToFit(camera, controls, box, fog);
-      return;
+    if (activeExample === "landxmlViewer") {
+      const allPts = [
+        ...(meshVisual?.vertices ?? []),
+        ...overlayMeshes.flatMap((visual) => visual.vertices),
+        ...curvePoints,
+      ];
+      if (allPts.length > 0) {
+        const box = new THREE.Box3();
+        for (const p of allPts) box.expandByPoint(new THREE.Vector3(p.x, p.y, p.z));
+        zoomToFit(camera, controls, box, fog);
+        return;
+      }
     }
 
     const allPoints = sampledPoints.length > 0
@@ -4266,9 +4341,9 @@ export function KernelViewer() {
 
     camera.position.copy(DEFAULT_CAMERA_POSITION);
     controls.target.copy(DEFAULT_CAMERA_TARGET);
-    camera.up.set(0, 1, 0);
+    camera.up.set(0, 0, 1);
     syncControlsUpAxis(controls, camera);
-    if (gridRef.current) gridRef.current.rotation.x = 0;
+    if (gridRef.current) gridRef.current.rotation.x = Math.PI / 2;
     controls.update();
   }, []);
 
@@ -4355,15 +4430,6 @@ export function KernelViewer() {
       controls.update();
     }
   }, [sceneUpAxis, toggleCameraMode]);
-
-  const toggleFollowCamera = useCallback((): void => {
-    const next = !followCameraRef.current;
-    followCameraRef.current = next;
-    setFollowCamera(next);
-    if (controlsRef.current) {
-      controlsRef.current.enabled = !next && orbitEnabled;
-    }
-  }, [orbitEnabled]);
 
   const updateSurfaceProbeForUv = useCallback(
     (nextU: number, nextV: number, logCommit: boolean): void => {
@@ -5170,7 +5236,7 @@ export function KernelViewer() {
         }
 
         sessionRef.current = session;
-        setCapabilities({ igesImport: false, igesExport: false });
+        setCapabilities({ igesImport: false, igesExport: true });
         nurbsPresetRef.current = loadedPreset;
         setPreset(loadedPreset);
         updateCurveForExample("nurbs", "Default example loaded", loadedPreset);
@@ -5279,6 +5345,7 @@ export function KernelViewer() {
     const aspect = viewport.clientWidth / Math.max(1, viewport.clientHeight);
     const perspCamera = new THREE.PerspectiveCamera(46, aspect, 0.01, 1200);
     perspCamera.position.copy(DEFAULT_CAMERA_POSITION);
+    perspCamera.up.set(0, 0, 1);
 
     const orthoHalf = 10;
     const orthoCamera = new THREE.OrthographicCamera(
@@ -5287,7 +5354,7 @@ export function KernelViewer() {
       0.001, 2400,
     );
     orthoCamera.position.copy(DEFAULT_CAMERA_POSITION);
-    orthoCamera.up.copy(perspCamera.up);
+    orthoCamera.up.set(0, 0, 1);
 
     // cameraRef (React ref) is the source of truth for the active camera.
     // The render loop reads cameraRef.current so toggleCameraMode takes effect immediately.
@@ -5325,9 +5392,11 @@ export function KernelViewer() {
     const controls = new OrbitControls(perspCamera, renderCanvas);
     controls.enableDamping = true;
     controls.target.copy(DEFAULT_CAMERA_TARGET);
+    syncControlsUpAxis(controls, perspCamera);
     controls.update();
 
     const grid = new THREE.GridHelper(30, 30, "#8596b6", "#b9c4d8");
+    grid.rotation.x = Math.PI / 2;
     grid.material.opacity = 0.5;
     grid.material.transparent = true;
     scene.add(grid);
@@ -6072,12 +6141,81 @@ export function KernelViewer() {
 
   useEffect(() => {
     if (controlsRef.current) {
-      controlsRef.current.enabled = orbitEnabled && !followCamera && !isTransformDraggingRef.current;
+      controlsRef.current.enabled = orbitEnabled && !isTransformDraggingRef.current;
     }
-  }, [orbitEnabled, followCamera]);
+  }, [orbitEnabled]);
 
   const canExportIges = useMemo(() => capabilities.igesExport, [capabilities.igesExport]);
   const canImportIges = useMemo(() => capabilities.igesImport, [capabilities.igesImport]);
+
+  const collectActiveObjectIds = useCallback((): number[] => {
+    const idSet = new Set<number>();
+
+    for (const h of exportHandlesRef.current) {
+      idSet.add(h.objectId);
+    }
+
+    const ctx = landXmlContextRef.current;
+    if (ctx) {
+      try {
+        idSet.add(ctx.docHandle.object_id());
+      } catch { /* freed handle */ }
+    }
+    return Array.from(idSet);
+  }, []);
+
+  const onExportIges = useCallback(() => {
+    const session = sessionRef.current;
+    if (!session) return;
+    try {
+      const ids = collectActiveObjectIds();
+      const igesText = (session as any).export_iges(new Float64Array(ids));
+      downloadTextFile(igesText, "export.igs", "application/iges");
+    } catch (err) {
+      appendLog("error", `IGES export failed: ${err}`);
+    }
+  }, [collectActiveObjectIds, appendLog]);
+
+  const onExportSat = useCallback(() => {
+    const session = sessionRef.current;
+    if (!session) return;
+    try {
+      const ids = collectActiveObjectIds();
+      const satText = (session as any).export_sat(new Float64Array(ids));
+      downloadTextFile(satText, "export.sat", "text/plain");
+    } catch (err) {
+      appendLog("error", `SAT export failed: ${err}`);
+    }
+  }, [collectActiveObjectIds, appendLog]);
+
+  const onExportStl = useCallback(() => {
+    const session = sessionRef.current;
+    if (!session) return;
+    try {
+      const ids = collectActiveObjectIds();
+      const stlText = (session as any).export_stl(new Float64Array(ids));
+      downloadTextFile(stlText, "export.stl", "application/sla");
+    } catch (err) {
+      appendLog("error", `STL export failed: ${err}`);
+    }
+  }, [collectActiveObjectIds, appendLog]);
+
+  const onExportGltf = useCallback(() => {
+    const session = sessionRef.current;
+    if (!session) return;
+    try {
+      const ids = collectActiveObjectIds();
+      const gltfText = (session as any).export_gltf(new Float64Array(ids));
+      downloadTextFile(gltfText, "export.gltf", "model/gltf+json");
+    } catch (err) {
+      appendLog("error", `glTF export failed: ${err}`);
+    }
+  }, [collectActiveObjectIds, appendLog]);
+
+  const exportMode = useMemo((): "cad" | "mesh" => {
+    return isMeshOnlyExample(activeExample) ? "mesh" : "cad";
+  }, [activeExample]);
+
   const showSurfaceProbeControls = useMemo(() => activeExample === "surfaceUvEval", [activeExample]);
   const showProbeControls = useMemo(() => shouldShowProbeForExample(activeExample), [activeExample]);
   const showGizmoControls = useMemo(
@@ -6258,16 +6396,23 @@ export function KernelViewer() {
       <ViewerToolbar
         canImportIges={canImportIges}
         canExportIges={canExportIges}
+        canExportSat={canExportIges}
         onLoadSession={onLoadSessionClick}
         onSaveSession={onSaveSession}
+        onExportIges={onExportIges}
+        onExportSat={onExportSat}
+        onExportStl={onExportStl}
+        onExportGltf={onExportGltf}
+        exportMode={exportMode}
+        landXmlScaleFactor={landXmlScaleFactor}
+        onLandXmlScaleFactorChange={setLandXmlScaleFactor}
+        showLandXmlScale={activeExample === "landxmlViewer"}
         orbitEnabled={orbitEnabled}
         showGrid={showGrid}
         showAxes={showAxes}
         cameraMode={cameraMode}
         onToggleCameraMode={toggleCameraMode}
         onApplyViewPreset={applyViewPreset}
-        followCamera={followCamera}
-        onToggleFollowCamera={toggleFollowCamera}
         onZoomExtents={zoomExtents}
         onResetCamera={resetCamera}
         onToggleOrbit={() => setOrbitEnabled((v) => !v)}
@@ -6329,8 +6474,6 @@ export function KernelViewer() {
         onLandXmlAlignmentChange={onLandXmlAlignmentChange}
         onLandXmlProfileChange={onLandXmlProfileChange}
         onLandXmlStationChange={onLandXmlStationChange}
-        followCamera={followCamera}
-        onToggleFollowCamera={toggleFollowCamera}
       />
 
       <KernelConsole

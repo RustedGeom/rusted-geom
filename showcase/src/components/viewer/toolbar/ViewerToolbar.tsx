@@ -7,26 +7,28 @@ import type { CameraMode, ViewPresetName } from "@/lib/viewer-types";
 
 const VIEW_PRESET_LABELS: Array<{ name: ViewPresetName; label: string }> = [
   { name: "top", label: "T" },
-  { name: "front", label: "F" },
-  { name: "right", label: "R" },
-  { name: "bottom", label: "Bo" },
-  { name: "back", label: "Bk" },
-  { name: "left", label: "L" },
 ];
 
 export interface ViewerToolbarProps {
   canImportIges: boolean;
   canExportIges: boolean;
+  canExportSat: boolean;
   onLoadSession: () => void;
   onSaveSession: () => void;
+  onExportIges: () => void;
+  onExportSat: () => void;
+  onExportStl: () => void;
+  onExportGltf: () => void;
+  exportMode: "cad" | "mesh";
+  landXmlScaleFactor: number;
+  onLandXmlScaleFactorChange: (v: number) => void;
+  showLandXmlScale: boolean;
   orbitEnabled: boolean;
   showGrid: boolean;
   showAxes: boolean;
   cameraMode: CameraMode;
   onToggleCameraMode: () => void;
   onApplyViewPreset: (preset: ViewPresetName) => void;
-  followCamera: boolean;
-  onToggleFollowCamera: () => void;
   onZoomExtents: () => void;
   onResetCamera: () => void;
   onToggleOrbit: () => void;
@@ -47,16 +49,23 @@ export interface ViewerToolbarProps {
 export function ViewerToolbar({
   canImportIges,
   canExportIges,
+  canExportSat,
   onLoadSession,
   onSaveSession,
+  onExportIges,
+  onExportSat,
+  onExportStl,
+  onExportGltf,
+  exportMode,
+  landXmlScaleFactor,
+  onLandXmlScaleFactorChange,
+  showLandXmlScale,
   orbitEnabled,
   showGrid,
   showAxes,
   cameraMode,
   onToggleCameraMode,
   onApplyViewPreset,
-  followCamera,
-  onToggleFollowCamera,
   onZoomExtents,
   onResetCamera,
   onToggleOrbit,
@@ -215,20 +224,30 @@ export function ViewerToolbar({
           ))}
         </div>
 
-        <button
-          type="button"
-          className={`tool-btn ${followCamera ? "is-active" : ""}`}
-          onClick={onToggleFollowCamera}
-          aria-label="Follow probe"
-          aria-pressed={followCamera}
-          title="Follow probe camera"
-        >
-          <ToolIcon>
-            <path d="M8 2v4l3 2-3 2v4" />
-            <circle cx="8" cy="8" r="6" fill="none" />
-          </ToolIcon>
-        </button>
       </div>
+
+      {showLandXmlScale ? (
+        <>
+          <div className="toolbar-divider" aria-hidden="true" />
+          <div className="toolbar-group" role="group" aria-label="Scale">
+            <label style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 11, whiteSpace: "nowrap" }}>
+              <span style={{ opacity: 0.7 }}>Scale</span>
+              <input
+                type="range"
+                min={0.001}
+                max={1}
+                step={0.001}
+                value={landXmlScaleFactor}
+                onChange={(e) => onLandXmlScaleFactorChange(Number(e.currentTarget.value))}
+                style={{ width: 64 }}
+              />
+              <span style={{ fontVariantNumeric: "tabular-nums", minWidth: 38, textAlign: "right" }}>
+                {landXmlScaleFactor.toFixed(3)}
+              </span>
+            </label>
+          </div>
+        </>
+      ) : null}
 
       <div className="toolbar-divider" aria-hidden="true" />
 
@@ -339,31 +358,6 @@ export function ViewerToolbar({
                     </ToolIcon>
                     {isOrtho ? "Persp" : "Ortho"}
                   </button>
-                  <button
-                    type="button"
-                    className={`overflow-btn ${followCamera ? "is-active" : ""}`}
-                    onClick={overflowAction(onToggleFollowCamera)}
-                    role="menuitem"
-                  >
-                    <ToolIcon size={13}>
-                      <path d="M8 2v4l3 2-3 2v4" />
-                      <circle cx="8" cy="8" r="6" fill="none" />
-                    </ToolIcon>
-                    Follow
-                  </button>
-                </div>
-                <div className="overflow-row overflow-row-views">
-                  {VIEW_PRESET_LABELS.map(({ name, label }) => (
-                    <button
-                      key={name}
-                      type="button"
-                      className="overflow-btn"
-                      onClick={overflowAction(() => onApplyViewPreset(name))}
-                      role="menuitem"
-                    >
-                      {label}
-                    </button>
-                  ))}
                 </div>
               </div>
 
@@ -411,18 +405,37 @@ export function ViewerToolbar({
                     </ToolIcon>
                     Save
                   </button>
-                  <button type="button" className="overflow-btn" disabled={!canImportIges} title="IGES import pending" role="menuitem">
-                    <ToolIcon size={13}>
-                      <path d="M2.8 3.2h10.4v9.6H2.8zM4.9 6.2h6.2M4.9 8h4.2M4.9 9.8h6.2" />
-                    </ToolIcon>
-                    IGES in
-                  </button>
-                  <button type="button" className="overflow-btn" disabled={!canExportIges} title="IGES export pending" role="menuitem">
-                    <ToolIcon size={13}>
-                      <path d="M2.8 3.2h10.4v9.6H2.8zM8 6v4.2m-1.6-1.3L8 10.2l1.6-1.6" />
-                    </ToolIcon>
-                    IGES out
-                  </button>
+                  {exportMode === "cad" ? (
+                    <>
+                      <button type="button" className="overflow-btn" disabled={!canExportIges} onClick={canExportIges ? overflowAction(onExportIges) : undefined} title="Export IGES" role="menuitem">
+                        <ToolIcon size={13}>
+                          <path d="M2.8 3.2h10.4v9.6H2.8zM8 6v4.2m-1.6-1.3L8 10.2l1.6-1.6" />
+                        </ToolIcon>
+                        IGES
+                      </button>
+                      <button type="button" className="overflow-btn" disabled={!canExportSat} onClick={canExportSat ? overflowAction(onExportSat) : undefined} title="Export SAT" role="menuitem">
+                        <ToolIcon size={13}>
+                          <path d="M2.8 3.2h10.4v9.6H2.8zM8 6v4.2m-1.6-1.3L8 10.2l1.6-1.6" />
+                        </ToolIcon>
+                        SAT
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      <button type="button" className="overflow-btn" onClick={overflowAction(onExportStl)} title="Export STL" role="menuitem">
+                        <ToolIcon size={13}>
+                          <path d="M2.8 3.2h10.4v9.6H2.8zM8 6v4.2m-1.6-1.3L8 10.2l1.6-1.6" />
+                        </ToolIcon>
+                        STL
+                      </button>
+                      <button type="button" className="overflow-btn" onClick={overflowAction(onExportGltf)} title="Export glTF" role="menuitem">
+                        <ToolIcon size={13}>
+                          <path d="M2.8 3.2h10.4v9.6H2.8zM8 6v4.2m-1.6-1.3L8 10.2l1.6-1.6" />
+                        </ToolIcon>
+                        glTF
+                      </button>
+                    </>
+                  )}
                 </div>
               </div>
 

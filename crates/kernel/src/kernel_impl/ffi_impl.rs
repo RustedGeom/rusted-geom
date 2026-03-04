@@ -721,6 +721,10 @@ include!("ffi_surface.rs");
 include!("ffi_face.rs");
 include!("ffi_intersection.rs");
 include!("ffi_brep.rs");
+include!("sat_writer.rs");
+include!("iges_writer.rs");
+include!("stl_writer.rs");
+include!("gltf_writer.rs");
 
 #[cfg(test)]
 include!("../tests/mod.rs");

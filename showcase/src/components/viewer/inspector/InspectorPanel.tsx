@@ -56,8 +56,6 @@ export interface InspectorPanelProps {
   onLandXmlAlignmentChange?: (idx: number) => void;
   onLandXmlProfileChange?: (idx: number) => void;
   onLandXmlStationChange?: (stationNorm: number, commit: boolean) => void;
-  followCamera?: boolean;
-  onToggleFollowCamera?: () => void;
 }
 
 export function InspectorPanel({
@@ -98,8 +96,6 @@ export function InspectorPanel({
   onLandXmlAlignmentChange,
   onLandXmlProfileChange,
   onLandXmlStationChange,
-  followCamera = false,
-  onToggleFollowCamera,
 }: InspectorPanelProps) {
   return (
     <aside
@@ -195,7 +191,7 @@ export function InspectorPanel({
                   Vertical exaggeration
                 </label>
                 <div style={{ display: "flex", gap: 4 }}>
-                  {[1, 5, 10, 20].map((v) => (
+                  {[1, 2, 5, 10].map((v) => (
                     <button
                       key={v}
                       className="example-trigger"
@@ -243,8 +239,6 @@ export function InspectorPanel({
             onAlignmentChange={onLandXmlAlignmentChange ?? (() => {})}
             onProfileChange={onLandXmlProfileChange ?? (() => {})}
             onStationChange={onLandXmlStationChange}
-            followCamera={followCamera}
-            onToggleFollowCamera={onToggleFollowCamera}
           />
         ) : showSurfaceProbeControls ? (
           <SurfaceProbeSection
@@ -252,7 +246,7 @@ export function InspectorPanel({
             onUpdateSurfaceProbe={onUpdateSurfaceProbe}
           />
         ) : showProbeControls ? (
-          <ProbeSection probeUiState={probeUiState} onUpdateProbe={onUpdateProbe} followCamera={followCamera} onToggleFollowCamera={onToggleFollowCamera} />
+          <ProbeSection probeUiState={probeUiState} onUpdateProbe={onUpdateProbe} />
         ) : (
           <ProbeUnavailableSection />
         )}

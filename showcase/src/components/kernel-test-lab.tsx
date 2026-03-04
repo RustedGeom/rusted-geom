@@ -79,6 +79,7 @@ export function KernelTestLab() {
   const [logs, setLogs] = useState<ContractLogEntry[]>([]);
   const [running, setRunning] = useState(false);
   const [summary, setSummary] = useState<ContractSuiteResult | null>(null);
+  const [filterText, setFilterText] = useState("");
 
   const totals = useMemo(() => {
     const pass = cases.filter((testCase) => testCase.status === "pass").length;
@@ -105,13 +106,15 @@ export function KernelTestLab() {
     downloadText(filename, formatContractLogsAsText(logs));
   }, [logs]);
 
-  const runSuite = useCallback(async () => {
+  const runWithFilter = useCallback(async (filterIds?: string[]) => {
     if (running) return;
 
     setRunning(true);
     setSummary(null);
     setLogs([]);
-    setCases(toInitialCases());
+    if (!filterIds) {
+      setCases(toInitialCases());
+    }
 
     try {
       const result = await runKernelContractSuite({
@@ -140,12 +143,27 @@ export function KernelTestLab() {
             return next;
           });
         },
-      });
+      }, filterIds);
       setSummary(result);
     } finally {
       setRunning(false);
     }
   }, [running, updateCase]);
+
+  const runSuite = useCallback(() => runWithFilter(), [runWithFilter]);
+
+  const runSingle = useCallback((caseId: string) => {
+    updateCase(caseId, (tc) => ({ ...tc, status: "idle", durationMs: null, errorMessage: null }));
+    void runWithFilter([caseId]);
+  }, [runWithFilter, updateCase]);
+
+  const filteredCases = useMemo(() => {
+    if (!filterText.trim()) return cases;
+    const q = filterText.toLowerCase();
+    return cases.filter(
+      (c) => c.id.toLowerCase().includes(q) || c.title.toLowerCase().includes(q) || c.summary.toLowerCase().includes(q),
+    );
+  }, [cases, filterText]);
 
   return (
     <div className={styles.page}>
@@ -236,14 +254,37 @@ export function KernelTestLab() {
               </div>
             </div>
 
+            <div style={{ padding: "0 16px 8px" }}>
+              <input
+                type="search"
+                placeholder="Filter cases…"
+                value={filterText}
+                onChange={(e) => setFilterText(e.currentTarget.value)}
+                style={{ width: "100%", padding: "6px 8px", fontSize: 13, borderRadius: 4, border: "1px solid var(--border, #333)" }}
+                aria-label="Filter test cases"
+              />
+            </div>
+
             <ul className={styles.caseList}>
-              {cases.map((testCase) => (
+              {filteredCases.map((testCase) => (
                 <li key={testCase.id} className={styles.caseItem}>
                   <div className={styles.caseRow}>
                     <h3 className={styles.caseTitle}>{testCase.title}</h3>
-                    <span className={`${styles.caseBadge} ${styles[`status_${testCase.status}`]}`}>
-                      {statusLabel(testCase.status)}
-                    </span>
+                    <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
+                      <button
+                        type="button"
+                        className={styles.secondaryButton}
+                        disabled={running}
+                        onClick={() => runSingle(testCase.id)}
+                        style={{ fontSize: 10, padding: "2px 6px" }}
+                        aria-label={`Run ${testCase.title}`}
+                      >
+                        Run
+                      </button>
+                      <span className={`${styles.caseBadge} ${styles[`status_${testCase.status}`]}`}>
+                        {statusLabel(testCase.status)}
+                      </span>
+                    </div>
                   </div>
                   <p className={styles.caseSummary}>{testCase.summary}</p>
                   <div className={styles.caseMeta}>

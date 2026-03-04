@@ -8,8 +8,6 @@ interface LandXmlProbeSectionProps {
   onAlignmentChange: (idx: number) => void;
   onProfileChange: (idx: number) => void;
   onStationChange: (stationNorm: number, commit: boolean) => void;
-  followCamera?: boolean;
-  onToggleFollowCamera?: () => void;
 }
 
 function fmtVec(v: { x: number; y: number; z: number }): string {
@@ -24,8 +22,6 @@ export function LandXmlProbeSection({
   onAlignmentChange,
   onProfileChange,
   onStationChange,
-  followCamera = false,
-  onToggleFollowCamera,
 }: LandXmlProbeSectionProps) {
   const info = alignments[selectedAlignIdx];
   const hasMultipleAlignments = alignments.length > 1;
@@ -129,12 +125,6 @@ export function LandXmlProbeSection({
             <output style={{ fontSize: 10 }}>{fmtVec(probeState.tangent)}</output>
           </div>
 
-          {onToggleFollowCamera ? (
-            <label className="inspector-field inspector-toggle">
-              <span>Follow camera</span>
-              <input type="checkbox" checked={followCamera} onChange={onToggleFollowCamera} />
-            </label>
-          ) : null}
         </>
       )}
     </section>
