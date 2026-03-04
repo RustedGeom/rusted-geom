@@ -1,11 +1,26 @@
 # @rustedgeom/kernel
 
-TypeScript and WASM bindings for the RustedGeom geometry kernel (`0.1.0-alpha.4`).
+TypeScript and WASM bindings for the RustedGeom geometry kernel (`0.1.0`).
 
 ## Install
 
+The package is published to [GitHub Packages](https://github.com/RustedGeom/rusted-geom/packages). Configure your project to use the `@rustedgeom` scope from the GitHub registry:
+
+**1. Create or update `.npmrc` in your project root:**
+
+```
+@rustedgeom:registry=https://npm.pkg.github.com
+//npm.pkg.github.com/:_authToken=${GITHUB_TOKEN}
+```
+
+> You need a GitHub Personal Access Token with `read:packages` scope. Set it as the `GITHUB_TOKEN` environment variable, or replace `${GITHUB_TOKEN}` with the token directly.
+
+**2. Install the package:**
+
 ```bash
 npm install @rustedgeom/kernel
+# or
+pnpm add @rustedgeom/kernel
 ```
 
 ## Build from source
@@ -145,11 +160,18 @@ const verts = session.landxml_surface_copy_vertices(doc, 0);
 const indices = session.landxml_surface_copy_indices(doc, 0);
 ```
 
-### CAD export
+### CAD export (IGES / SAT — curves, surfaces, B-reps)
 
 ```ts
 const iges = session.export_iges(new Float64Array([curve.object_id(), surface.object_id()]));
 const sat = session.export_sat(new Float64Array([brep.object_id()]));
+```
+
+### Mesh export (STL / glTF)
+
+```ts
+const stl = session.export_stl(new Float64Array([mesh.object_id()]));
+const gltf = session.export_gltf(new Float64Array([mesh.object_id()]));
 ```
 
 ## Session lifecycle

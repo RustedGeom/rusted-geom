@@ -38,11 +38,12 @@
 - **Bounding Volumes** — axis-aligned (AABB) and oriented (OBB) bounding boxes
 - **LandXML** — parsing, sampling, and surface reconstruction from survey data
 - **CAD Export** — IGES 5.3 and ACIS SAT file generation for curves, surfaces, and B-rep
+- **Mesh Export** — STL and glTF 2.0 export for triangulated meshes
 - **Benchmarked** — Criterion-based benchmarks with regression detection
 
 ### Project Status
 
-> **Alpha** (`0.1.0-alpha.4`) — APIs and package layout are evolving. Contributions and feedback welcome.
+> **v0.1.0** — First public release. APIs may still evolve. Contributions and feedback welcome.
 
 ---
 
@@ -81,7 +82,28 @@ npm install -g pnpm
 
 ---
 
-## Quickstart
+## Install the npm package
+
+The `@rustedgeom/kernel` package is published to [GitHub Packages](https://github.com/RustedGeom/rusted-geom/packages).
+
+**1. Add `.npmrc` to your project root:**
+
+```
+@rustedgeom:registry=https://npm.pkg.github.com
+//npm.pkg.github.com/:_authToken=${GITHUB_TOKEN}
+```
+
+> `GITHUB_TOKEN` must be a GitHub Personal Access Token with `read:packages` scope.
+
+**2. Install:**
+
+```bash
+npm install @rustedgeom/kernel
+```
+
+---
+
+## Quickstart (from source)
 
 ```bash
 # 1. Install JS dependencies
