@@ -13,7 +13,7 @@
   <a href="https://github.com/RustedGeom/rusted-geom/releases">
     <img src="https://img.shields.io/github/v/release/RustedGeom/rusted-geom?include_prereleases&label=release" alt="Release">
   </a>
-  <a href="https://rusted-geom-showcase.vercel.app">
+  <a href="https://rusted-geom-kernel-showcase.vercel.app">
     <img src="https://img.shields.io/badge/showcase-live-blue" alt="Showcase">
   </a>
   <a href="https://github.com/RustedGeom/rusted-geom/blob/main/LICENSE">
@@ -27,7 +27,7 @@
 
 **rusted-geom** is a NURBS (Non-Uniform Rational B-Spline) geometry kernel built in Rust and compiled to WebAssembly via `wasm-pack`. It exposes a fully typed TypeScript API through `wasm-bindgen`, enabling browser and Node.js applications to perform computational geometry operations at near-native speed.
 
-**[Live Showcase](https://rusted-geom-showcase.vercel.app)** — interactive 3D viewer with NURBS curves, surfaces, mesh booleans, and more.
+**[Live Showcase](https://rusted-geom-kernel-showcase.vercel.app)** — interactive 3D viewer with NURBS curves, surfaces, mesh booleans, and more.
 
 ### Key Capabilities
 
