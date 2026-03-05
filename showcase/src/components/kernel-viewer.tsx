@@ -42,6 +42,24 @@ import {
 import { parseExampleSelection } from "@/lib/examples";
 import { useTheme } from "@/lib/use-theme";
 import { useKeyboardShortcuts } from "@/lib/use-keyboard-shortcut";
+import {
+  nowStamp,
+  fileSafeStamp,
+  downloadText,
+  downloadJson,
+  downloadDataUrl,
+  downloadTextFile,
+} from "@/lib/download-utils";
+import {
+  magnitude,
+  dist,
+  addScaled,
+  scaleVec,
+  crossVec,
+  normalizedVec,
+  formatPoint,
+  formatVec,
+} from "@/lib/math-utils";
 import type {
   CameraMode,
   CameraSnapshot,
@@ -60,7 +78,7 @@ import type {
   ViewerPerformance,
   ViewPresetName,
 } from "@/lib/viewer-types";
-import { LANDXML_FILE_LIST, type LandXmlExampleKey, type LandXmlAlignmentInfo, type LandXmlProbeUiState } from "@/lib/viewer-types";
+import { LANDXML_FILE_LIST, isValidExampleKey, type LandXmlExampleKey, type LandXmlAlignmentInfo, type LandXmlProbeUiState } from "@/lib/viewer-types";
 import type { Bounds3 } from "@rustedgeom/kernel";
 import { ViewerToolbar } from "./viewer/toolbar/ViewerToolbar";
 import { InspectorPanel } from "./viewer/inspector/InspectorPanel";
@@ -166,54 +184,6 @@ function fromPoint3(point: RgmPoint3): THREE.Vector3 {
   return new THREE.Vector3(point.x, point.y, point.z);
 }
 
-function downloadJson(filename: string, payload: unknown): void {
-  const blob = new Blob([JSON.stringify(payload, null, 2)], {
-    type: "application/json",
-  });
-  const url = URL.createObjectURL(blob);
-  const anchor = document.createElement("a");
-  anchor.href = url;
-  anchor.download = filename;
-  anchor.click();
-  URL.revokeObjectURL(url);
-}
-
-function downloadDataUrl(filename: string, dataUrl: string): void {
-  const anchor = document.createElement("a");
-  anchor.href = dataUrl;
-  anchor.download = filename;
-  anchor.click();
-}
-
-function downloadText(filename: string, text: string): void {
-  const blob = new Blob([text], { type: "text/plain;charset=utf-8" });
-  const url = URL.createObjectURL(blob);
-  const anchor = document.createElement("a");
-  anchor.href = url;
-  anchor.download = filename;
-  anchor.click();
-  URL.revokeObjectURL(url);
-}
-
-function nowStamp(): string {
-  const d = new Date();
-  const hh = String(d.getHours()).padStart(2, "0");
-  const mm = String(d.getMinutes()).padStart(2, "0");
-  const ss = String(d.getSeconds()).padStart(2, "0");
-  const ms = String(d.getMilliseconds()).padStart(3, "0");
-  return `${hh}:${mm}:${ss}.${ms}`;
-}
-
-function fileSafeStamp(): string {
-  const d = new Date();
-  const year = d.getFullYear();
-  const month = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
-  const hh = String(d.getHours()).padStart(2, "0");
-  const mm = String(d.getMinutes()).padStart(2, "0");
-  const ss = String(d.getSeconds()).padStart(2, "0");
-  return `${year}-${month}-${day}_${hh}-${mm}-${ss}`;
-}
 
 function formatLogsAsText(entries: LogEntry[]): string {
   if (entries.length === 0) {
@@ -226,48 +196,6 @@ function formatLogsAsText(entries: LogEntry[]): string {
 }
 
 
-function dist(a: RgmPoint3, b: RgmPoint3): number {
-  const dx = a.x - b.x;
-  const dy = a.y - b.y;
-  const dz = a.z - b.z;
-  return Math.sqrt(dx * dx + dy * dy + dz * dz);
-}
-
-function addScaled(point: RgmPoint3, vector: RgmVec3, scale: number): RgmPoint3 {
-  return {
-    x: point.x + vector.x * scale,
-    y: point.y + vector.y * scale,
-    z: point.z + vector.z * scale,
-  };
-}
-
-function scaleVec(vector: RgmVec3, scale: number): RgmVec3 {
-  return {
-    x: vector.x * scale,
-    y: vector.y * scale,
-    z: vector.z * scale,
-  };
-}
-
-function crossVec(a: RgmVec3, b: RgmVec3): RgmVec3 {
-  return {
-    x: a.y * b.z - a.z * b.y,
-    y: a.z * b.x - a.x * b.z,
-    z: a.x * b.y - a.y * b.x,
-  };
-}
-
-function normalizedVec(vector: RgmVec3): RgmVec3 | null {
-  const len = magnitude(vector);
-  if (!Number.isFinite(len) || len <= 1e-12) {
-    return null;
-  }
-  return {
-    x: vector.x / len,
-    y: vector.y / len,
-    z: vector.z / len,
-  };
-}
 
 function buildArrowSegments(origin: RgmPoint3, vector: RgmVec3, scale: number): RgmPoint3[] {
   const scaled = scaleVec(vector, scale);
@@ -300,17 +228,6 @@ function buildArrowSegments(origin: RgmPoint3, vector: RgmVec3, scale: number): 
   return [origin, tip, tip, wingA, tip, wingB];
 }
 
-function magnitude(vector: RgmVec3): number {
-  return Math.sqrt(vector.x * vector.x + vector.y * vector.y + vector.z * vector.z);
-}
-
-function formatPoint(point: RgmPoint3): string {
-  return `(${point.x.toFixed(4)}, ${point.y.toFixed(4)}, ${point.z.toFixed(4)})`;
-}
-
-function formatVec(vector: RgmVec3): string {
-  return `(${vector.x.toFixed(4)}, ${vector.y.toFixed(4)}, ${vector.z.toFixed(4)})`;
-}
 
 function chordParams(points: RgmPoint3[]): number[] {
   if (points.length <= 1) {
@@ -1096,15 +1013,6 @@ function syncControlsUpAxis(
   c._quatInverse.copy(c._quat).invert();
 }
 
-function downloadTextFile(text: string, filename: string, mimeType: string): void {
-  const blob = new Blob([text], { type: mimeType });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = filename;
-  a.click();
-  URL.revokeObjectURL(url);
-}
 
 function zoomToFit(
   camera: THREE.PerspectiveCamera | THREE.OrthographicCamera,
@@ -1647,8 +1555,8 @@ export function KernelViewer() {
     duv: { x: 0, y: 0, z: 0 },
     dvv: { x: 0, y: 0, z: 0 },
   });
-  const [isInspectorOpen, setIsInspectorOpen] = useState(true);
-  const [isConsoleOpen, setIsConsoleOpen] = useState(true);
+  const [isInspectorOpen, setIsInspectorOpen] = useState(false);
+  const [isConsoleOpen, setIsConsoleOpen] = useState(false);
   const [isMobileLayout, setIsMobileLayout] = useState(false);
   const [kernelStatus, setKernelStatus] = useState<KernelStatus>("booting");
   const [isExampleBrowserOpen, setIsExampleBrowserOpen] = useState(false);
@@ -5239,7 +5147,11 @@ export function KernelViewer() {
         setCapabilities({ igesImport: false, igesExport: true });
         nurbsPresetRef.current = loadedPreset;
         setPreset(loadedPreset);
-        updateCurveForExample("nurbs", "Default example loaded", loadedPreset);
+
+        const urlParams = new URLSearchParams(window.location.search);
+        const exampleParam = urlParams.get("example");
+        const initialExample = isValidExampleKey(exampleParam) ? exampleParam : "nurbs";
+        updateCurveForExample(initialExample, "Default example loaded", initialExample === "nurbs" ? loadedPreset : undefined);
         setKernelStatus("ready");
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
@@ -5258,6 +5170,13 @@ export function KernelViewer() {
       curveHandleRef.current = null;
     };
   }, [appendLog, loadDefaultPreset, releaseOwnedCurveHandles, updateCurveForExample]);
+
+  // Sync activeExample to URL query param
+  useEffect(() => {
+    const url = new URL(window.location.href);
+    url.searchParams.set("example", activeExample);
+    window.history.replaceState(null, "", url.toString());
+  }, [activeExample]);
 
   useEffect(() => {
     const media = window.matchMedia(MOBILE_MEDIA_QUERY);
@@ -6367,6 +6286,12 @@ export function KernelViewer() {
 
   return (
     <div className="viewer-shell">
+      {/* Brand logo — fixed top-left, transparent background */}
+      <div className="viewer-logo" aria-label="rusted-geom">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src="/logo.png" className="viewer-logo-img" width={80} height={80} alt="" />
+      </div>
+
       <input
         ref={sessionFileInputRef}
         type="file"
@@ -6404,9 +6329,6 @@ export function KernelViewer() {
         onExportStl={onExportStl}
         onExportGltf={onExportGltf}
         exportMode={exportMode}
-        landXmlScaleFactor={landXmlScaleFactor}
-        onLandXmlScaleFactorChange={setLandXmlScaleFactor}
-        showLandXmlScale={activeExample === "landxmlViewer"}
         orbitEnabled={orbitEnabled}
         showGrid={showGrid}
         showAxes={showAxes}
@@ -6438,9 +6360,8 @@ export function KernelViewer() {
 
       <InspectorPanel
         isOpen={isInspectorOpen}
+        onClose={() => setIsInspectorOpen(false)}
         activeExample={activeExample}
-        activeCurveName={activeCurveName}
-        activeDegreeLabel={activeDegreeLabel}
         perfStats={perfStats}
         showGizmoControls={showGizmoControls}
         showTransformTargetControls={showTransformTargetControls}
@@ -6458,7 +6379,6 @@ export function KernelViewer() {
         onUpdateProbe={updateProbeForT}
         surfaceProbeUiState={surfaceProbeUiState}
         onUpdateSurfaceProbe={updateSurfaceProbeForUv}
-        onOpenExampleBrowser={() => setIsExampleBrowserOpen(true)}
         activeLandXmlFile={activeLandXmlFile}
         onLandXmlFileChange={setActiveLandXmlFile}
         landXmlStats={landXmlStats}
@@ -6491,6 +6411,50 @@ export function KernelViewer() {
         onSelect={onExampleBrowserSelect}
         onClose={() => setIsExampleBrowserOpen(false)}
       />
+
+      {/* Mobile bottom tab bar — visible only on phone */}
+      <nav className="mobile-tab-bar" aria-label="Quick access">
+        <button
+          type="button"
+          className={`mobile-tab-btn ${isExampleBrowserOpen ? "is-active" : ""}`}
+          onClick={() => setIsExampleBrowserOpen((v) => !v)}
+          aria-label="Examples"
+        >
+          <svg viewBox="0 0 16 16" aria-hidden="true">
+            <rect x="2.5" y="2.5" width="4.5" height="4.5" rx="0.8" />
+            <rect x="9" y="2.5" width="4.5" height="4.5" rx="0.8" />
+            <rect x="2.5" y="9" width="4.5" height="4.5" rx="0.8" />
+            <rect x="9" y="9" width="4.5" height="4.5" rx="0.8" />
+          </svg>
+          Examples
+        </button>
+        <button
+          type="button"
+          className={`mobile-tab-btn ${isInspectorOpen ? "is-active" : ""}`}
+          onClick={toggleInspector}
+          aria-label="Controls"
+        >
+          <svg viewBox="0 0 16 16" aria-hidden="true">
+            <path d="M3 4.2h10M3 8h10M3 11.8h10" />
+            <circle cx="5.4" cy="4.2" r="0.9" />
+            <circle cx="10.6" cy="8" r="0.9" />
+            <circle cx="7.2" cy="11.8" r="0.9" />
+          </svg>
+          Controls
+        </button>
+        <button
+          type="button"
+          className={`mobile-tab-btn ${isConsoleOpen ? "is-active" : ""}`}
+          onClick={toggleConsole}
+          aria-label="Console"
+        >
+          <svg viewBox="0 0 16 16" aria-hidden="true">
+            <rect x="2.6" y="3.1" width="10.8" height="9.8" rx="1.4" />
+            <path d="M4.8 7l1.8 1.5L4.8 10M8.2 10h3" />
+          </svg>
+          Console
+        </button>
+      </nav>
     </div>
   );
 }

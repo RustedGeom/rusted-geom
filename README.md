@@ -181,6 +181,10 @@ for (let i = 0; i < branchCount; i++) {
 | Build kernel WASM for showcase | `./scripts/build_kernel_wasm.sh` |
 | Stage WASM into web bindings | `./scripts/stage_web_wasm.sh` |
 | Build + pack `@rustedgeom/kernel` | `./scripts/pack_web.sh` |
+| Launch showcase (full rebuild) | `pnpm --dir showcase dev` |
+| Launch showcase (UI-only, skip WASM) | `pnpm --dir showcase dev:fast` |
+| WASM hot-reload during Rust iteration | `./scripts/watch_kernel.sh` |
+| Check WASM binary size against budget | `./scripts/check_wasm_size.sh` |
 | Run Rust unit tests | `cargo test -p kernel` |
 | TypeScript type check | `npm --prefix ./bindings/web run typecheck` |
 | Web runtime tests | `npm --prefix ./bindings/web run test` |

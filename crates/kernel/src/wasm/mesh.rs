@@ -183,6 +183,34 @@ impl KernelSession {
         Ok(points_to_flat(&pts))
     }
 
+    /// Copy all vertex positions as a flat `[x,y,z, …]` `Float32Array`.
+    ///
+    /// Preferred over `mesh_copy_vertices` when feeding Three.js `BufferAttribute`,
+    /// as it avoids a `Float64Array → RgmPoint3[] → Float32Array` double-copy.
+    pub fn mesh_copy_positions_f32(&self, mesh: &MeshHandle) -> Result<Vec<f32>, JsValue> {
+        let mut count = 0u32;
+        super::error::check(rgm_mesh_vertex_count(
+            self.handle(), RgmObjectHandle(mesh.object_id), &mut count,
+        ))?;
+        if count == 0 {
+            return Ok(Vec::new());
+        }
+        let mut pts = vec![RgmPoint3 { x: 0., y: 0., z: 0. }; count as usize];
+        let mut actual = 0u32;
+        super::error::check(rgm_mesh_copy_vertices(
+            self.handle(), RgmObjectHandle(mesh.object_id),
+            pts.as_mut_ptr(), count, &mut actual,
+        ))?;
+        pts.truncate(actual as usize);
+        let mut out = Vec::with_capacity(actual as usize * 3);
+        for p in &pts {
+            out.push(p.x as f32);
+            out.push(p.y as f32);
+            out.push(p.z as f32);
+        }
+        Ok(out)
+    }
+
     /// Copy all triangle indices as a flat `[i0,i1,i2, …]` array.
     pub fn mesh_copy_indices(&self, mesh: &MeshHandle) -> Result<Vec<u32>, JsValue> {
         // Phase 1: query count (triangles × 3)

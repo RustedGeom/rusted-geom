@@ -39,11 +39,11 @@
   gap: 0.7rem;
   padding: 0.38rem 0.48rem;
   border-radius: 13px;
-  border: 1px solid var(--line);
+  border: 1px solid var(--line-strong);
   background: var(--panel-strong);
-  backdrop-filter: blur(20px) saturate(160%);
-  -webkit-backdrop-filter: blur(20px) saturate(160%);
-  box-shadow: var(--shadow-1);
+  backdrop-filter: blur(24px) saturate(180%);
+  -webkit-backdrop-filter: blur(24px) saturate(180%);
+  box-shadow: var(--shadow-1), inset 0 1px 0 rgba(255, 255, 255, 0.05);
   flex-wrap: wrap;
 }
 
@@ -58,12 +58,14 @@
   color: var(--accent);
   font-size: 0.86rem;
   line-height: 1;
+  filter: drop-shadow(0 0 4px var(--accent-glow));
 }
 
 .brandName {
   font-family: var(--font-display), sans-serif;
-  font-size: 0.75rem;
+  font-size: 0.78rem;
   font-weight: 700;
+  letter-spacing: 0.02em;
   color: var(--ink);
   white-space: nowrap;
 }
@@ -149,7 +151,8 @@
 }
 
 .primaryButton:hover:not(:disabled) {
-  background: #275fdd;
+  background: color-mix(in srgb, var(--accent) 80%, #000);
+  box-shadow: 0 4px 12px var(--accent-glow);
 }
 
 .primaryButton:disabled {
@@ -246,9 +249,11 @@
 }
 
 .summaryTile strong {
-  color: var(--ink);
+  color: var(--accent);
   font-size: 0.94rem;
   font-variant-numeric: tabular-nums;
+  font-family: var(--font-display), sans-serif;
+  font-weight: 700;
 }
 
 .caseList {
@@ -298,8 +303,8 @@
 
 .status_running {
   color: var(--accent);
-  border-color: rgba(45, 104, 243, 0.28);
-  background: rgba(45, 104, 243, 0.1);
+  border-color: var(--accent-soft);
+  background: var(--accent-soft);
 }
 
 .status_pass {
@@ -335,8 +340,9 @@
 .caseMeta code {
   border-radius: 5px;
   padding: 0.09rem 0.33rem;
-  background: rgba(28, 39, 54, 0.09);
-  color: var(--ink);
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-family: var(--font-mono), ui-monospace, Menlo, monospace;
 }
 
 .caseError {
@@ -350,24 +356,25 @@
 .runSummary {
   margin: 0.62rem 0 0;
   border-radius: 9px;
-  border: 1px solid rgba(45, 104, 243, 0.26);
+  border: 1px solid var(--accent-soft);
   background: var(--accent-soft);
   padding: 0.45rem 0.56rem;
   font-size: 0.79rem;
   font-variant-numeric: tabular-nums;
+  box-shadow: 0 0 8px var(--accent-glow);
 }
 
 .console {
   border-radius: 11px;
-  border: 1px solid var(--line);
+  border: 1px solid var(--line-strong);
   background: var(--panel-strong);
   min-height: 260px;
   max-height: min(64vh, 620px);
   overflow: auto;
   padding: 0.35rem 0.46rem 0.46rem;
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  font-family: var(--font-mono), ui-monospace, Menlo, monospace;
   font-size: 0.72rem;
-  line-height: 1.46;
+  line-height: 1.5;
 }
 
 .emptyConsole {
@@ -387,19 +394,19 @@
 }
 
 .logLine:nth-child(2n) {
-  background: rgba(63, 94, 158, 0.05);
+  background: rgba(232, 103, 27, 0.03);
 }
 
 .logLine[data-contract-level="pass"] {
-  background: rgba(31, 122, 61, 0.16);
+  background: rgba(22, 163, 74, 0.12);
 }
 
 .logLine[data-contract-level="fail"] {
-  background: rgba(193, 55, 68, 0.2);
+  background: rgba(244, 63, 94, 0.14);
 }
 
 .logLine[data-contract-level="debug"] {
-  background: rgba(45, 104, 243, 0.12);
+  background: var(--accent-soft);
 }
 
 .logTime {

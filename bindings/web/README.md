@@ -107,8 +107,9 @@ const sphere = session.create_uv_sphere_mesh(0, 0, 0, 5.0, 32, 24);
 
 session.mesh_vertex_count(box);
 session.mesh_triangle_count(box);
-session.mesh_copy_vertices(box);   // Float64Array [x,y,z,...]
-session.mesh_copy_indices(box);    // Uint32Array [i0,i1,i2,...]
+session.mesh_copy_vertices(box);          // Float64Array [x,y,z,...]
+session.mesh_copy_positions_f32(box);     // Float32Array [x,y,z,...] — use directly as Three.js BufferAttribute
+session.mesh_copy_indices(box);           // Uint32Array [i0,i1,i2,...]
 
 const diff = session.mesh_boolean(box, torus, 2); // 0=union, 1=intersect, 2=difference
 ```

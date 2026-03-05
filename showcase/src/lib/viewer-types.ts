@@ -5,7 +5,7 @@ export type GizmoMode = "translate" | "rotate" | "scale";
 export type KernelStatus = "booting" | "ready" | "computing" | "error";
 export type CameraMode = "perspective" | "orthographic";
 export type SceneUpAxis = "y" | "z";
-export type ViewPresetName = "top";
+export type ViewPresetName = "top" | "bottom" | "left" | "right" | "front" | "back";
 
 export interface LogEntry {
   id: number;
@@ -123,6 +123,25 @@ export type ExampleKey =
   | "landxmlViewer";
 
 export type LandXmlExampleKey = "landxmlViewer";
+
+const VALID_EXAMPLE_KEYS = new Set<ExampleKey>([
+  "nurbs", "line", "polyline", "polycurve", "arc", "circle",
+  "intersectCurveCurve", "intersectCurvePlane",
+  "meshLarge", "meshTransform", "meshIntersectMeshMesh", "meshIntersectMeshPlane",
+  "meshBoolean", "bboxMeshBooleanAssembly",
+  "surfaceLarge", "surfaceTransform", "surfaceUvEval",
+  "surfaceIntersectSurface", "surfaceIntersectPlane", "surfaceIntersectCurve",
+  "bboxSurfaceWarped",
+  "trimEditWorkflow", "trimValidationFailures", "trimMultiLoopSurgery",
+  "brepShellAssembly", "brepSolidAssembly", "brepSolidRoundtripAudit",
+  "brepSolidFaceSurgery", "brepFaceBridgeRoundtrip", "brepNativeRoundtrip",
+  "bboxCurveNonTrivial", "bboxBrepSolidLifecycle",
+  "landxmlViewer",
+]);
+
+export function isValidExampleKey(value: unknown): value is ExampleKey {
+  return typeof value === "string" && VALID_EXAMPLE_KEYS.has(value as ExampleKey);
+}
 
 export interface LandXmlAlignmentInfo {
   index: number;

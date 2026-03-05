@@ -6,6 +6,8 @@
     "bindings:build": "pnpm --dir ../bindings/web build",
     "wasm:build": "../scripts/build_kernel_wasm.sh",
     "dev": "pnpm wasm:build && pnpm bindings:build && next dev",
+    "dev:fast": "next dev",
+    "dev:bindings": "pnpm bindings:build && next dev",
     "build": "pnpm wasm:build && pnpm bindings:build && next build",
     "start": "next start",
     "lint": "eslint",

@@ -1,19 +1,31 @@
-import type { Metadata } from "next";
-import { Sora, Source_Sans_3 } from "next/font/google";
+import type { Metadata, Viewport } from "next";
+import { Exo_2, Rubik, JetBrains_Mono } from "next/font/google";
 
 import "./globals.css";
 
-const displayFont = Sora({
+const displayFont = Exo_2({
   variable: "--font-display",
   subsets: ["latin"],
-  weight: ["500", "600", "700"],
+  weight: ["400", "500", "600", "700", "800"],
 });
 
-const bodyFont = Source_Sans_3({
+const bodyFont = Rubik({
   variable: "--font-body",
   subsets: ["latin"],
   weight: ["400", "500", "600"],
 });
+
+const monoFont = JetBrains_Mono({
+  variable: "--font-mono",
+  subsets: ["latin"],
+  weight: ["400", "500", "600"],
+});
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
+};
 
 export const metadata: Metadata = {
   title: "rusted-geom | Geometry Kernel Showcase",
@@ -27,7 +39,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body className={`${displayFont.variable} ${bodyFont.variable}`}>{children}</body>
+      <body className={`${displayFont.variable} ${bodyFont.variable} ${monoFont.variable}`}>{children}</body>
     </html>
   );
 }
