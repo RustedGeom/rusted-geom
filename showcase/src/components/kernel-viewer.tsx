@@ -3,9 +3,7 @@
 import {
   KernelSession,
   loadKernel,
-  type BrepHandle,
   type CurveHandle,
-  type FaceHandle,
   type IntersectionHandle,
   type LandXmlDocHandle,
   type MeshHandle,
@@ -42,6 +40,24 @@ import {
 import { parseExampleSelection } from "@/lib/examples";
 import { useTheme } from "@/lib/use-theme";
 import { useKeyboardShortcuts } from "@/lib/use-keyboard-shortcut";
+import {
+  nowStamp,
+  fileSafeStamp,
+  downloadText,
+  downloadJson,
+  downloadDataUrl,
+  downloadTextFile,
+} from "@/lib/download-utils";
+import {
+  magnitude,
+  dist,
+  addScaled,
+  scaleVec,
+  crossVec,
+  normalizedVec,
+  formatPoint,
+  formatVec,
+} from "@/lib/math-utils";
 import type {
   CameraMode,
   CameraSnapshot,
@@ -60,7 +76,7 @@ import type {
   ViewerPerformance,
   ViewPresetName,
 } from "@/lib/viewer-types";
-import { LANDXML_FILE_LIST, type LandXmlExampleKey, type LandXmlAlignmentInfo, type LandXmlProbeUiState } from "@/lib/viewer-types";
+import { LANDXML_FILE_LIST, isValidExampleKey, type LandXmlExampleKey, type LandXmlAlignmentInfo, type LandXmlProbeUiState } from "@/lib/viewer-types";
 import type { Bounds3 } from "@rustedgeom/kernel";
 import { ViewerToolbar } from "./viewer/toolbar/ViewerToolbar";
 import { InspectorPanel } from "./viewer/inspector/InspectorPanel";
@@ -121,8 +137,7 @@ const MAX_RENDER_SAMPLES = 12000;
 const MOBILE_MEDIA_QUERY = "(max-width: 880px)";
 
 
-type AnyHandle = CurveHandle | MeshHandle | SurfaceHandle | FaceHandle | IntersectionHandle | BrepHandle;
-type BrepFaceId = number;
+type AnyHandle = CurveHandle | MeshHandle | SurfaceHandle | IntersectionHandle;
 
 interface BuiltExample {
   kind: "curve" | "mesh";
@@ -166,54 +181,6 @@ function fromPoint3(point: RgmPoint3): THREE.Vector3 {
   return new THREE.Vector3(point.x, point.y, point.z);
 }
 
-function downloadJson(filename: string, payload: unknown): void {
-  const blob = new Blob([JSON.stringify(payload, null, 2)], {
-    type: "application/json",
-  });
-  const url = URL.createObjectURL(blob);
-  const anchor = document.createElement("a");
-  anchor.href = url;
-  anchor.download = filename;
-  anchor.click();
-  URL.revokeObjectURL(url);
-}
-
-function downloadDataUrl(filename: string, dataUrl: string): void {
-  const anchor = document.createElement("a");
-  anchor.href = dataUrl;
-  anchor.download = filename;
-  anchor.click();
-}
-
-function downloadText(filename: string, text: string): void {
-  const blob = new Blob([text], { type: "text/plain;charset=utf-8" });
-  const url = URL.createObjectURL(blob);
-  const anchor = document.createElement("a");
-  anchor.href = url;
-  anchor.download = filename;
-  anchor.click();
-  URL.revokeObjectURL(url);
-}
-
-function nowStamp(): string {
-  const d = new Date();
-  const hh = String(d.getHours()).padStart(2, "0");
-  const mm = String(d.getMinutes()).padStart(2, "0");
-  const ss = String(d.getSeconds()).padStart(2, "0");
-  const ms = String(d.getMilliseconds()).padStart(3, "0");
-  return `${hh}:${mm}:${ss}.${ms}`;
-}
-
-function fileSafeStamp(): string {
-  const d = new Date();
-  const year = d.getFullYear();
-  const month = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
-  const hh = String(d.getHours()).padStart(2, "0");
-  const mm = String(d.getMinutes()).padStart(2, "0");
-  const ss = String(d.getSeconds()).padStart(2, "0");
-  return `${year}-${month}-${day}_${hh}-${mm}-${ss}`;
-}
 
 function formatLogsAsText(entries: LogEntry[]): string {
   if (entries.length === 0) {
@@ -226,48 +193,6 @@ function formatLogsAsText(entries: LogEntry[]): string {
 }
 
 
-function dist(a: RgmPoint3, b: RgmPoint3): number {
-  const dx = a.x - b.x;
-  const dy = a.y - b.y;
-  const dz = a.z - b.z;
-  return Math.sqrt(dx * dx + dy * dy + dz * dz);
-}
-
-function addScaled(point: RgmPoint3, vector: RgmVec3, scale: number): RgmPoint3 {
-  return {
-    x: point.x + vector.x * scale,
-    y: point.y + vector.y * scale,
-    z: point.z + vector.z * scale,
-  };
-}
-
-function scaleVec(vector: RgmVec3, scale: number): RgmVec3 {
-  return {
-    x: vector.x * scale,
-    y: vector.y * scale,
-    z: vector.z * scale,
-  };
-}
-
-function crossVec(a: RgmVec3, b: RgmVec3): RgmVec3 {
-  return {
-    x: a.y * b.z - a.z * b.y,
-    y: a.z * b.x - a.x * b.z,
-    z: a.x * b.y - a.y * b.x,
-  };
-}
-
-function normalizedVec(vector: RgmVec3): RgmVec3 | null {
-  const len = magnitude(vector);
-  if (!Number.isFinite(len) || len <= 1e-12) {
-    return null;
-  }
-  return {
-    x: vector.x / len,
-    y: vector.y / len,
-    z: vector.z / len,
-  };
-}
 
 function buildArrowSegments(origin: RgmPoint3, vector: RgmVec3, scale: number): RgmPoint3[] {
   const scaled = scaleVec(vector, scale);
@@ -300,17 +225,6 @@ function buildArrowSegments(origin: RgmPoint3, vector: RgmVec3, scale: number): 
   return [origin, tip, tip, wingA, tip, wingB];
 }
 
-function magnitude(vector: RgmVec3): number {
-  return Math.sqrt(vector.x * vector.x + vector.y * vector.y + vector.z * vector.z);
-}
-
-function formatPoint(point: RgmPoint3): string {
-  return `(${point.x.toFixed(4)}, ${point.y.toFixed(4)}, ${point.z.toFixed(4)})`;
-}
-
-function formatVec(vector: RgmVec3): string {
-  return `(${vector.x.toFixed(4)}, ${vector.y.toFixed(4)}, ${vector.z.toFixed(4)})`;
-}
 
 function chordParams(points: RgmPoint3[]): number[] {
   if (points.length <= 1) {
@@ -684,22 +598,11 @@ function shouldShowProbeForExample(example: ExampleKey): boolean {
     example !== "surfaceIntersectPlane" &&
     example !== "surfaceIntersectCurve" &&
     example !== "bboxSurfaceWarped" &&
-    example !== "trimEditWorkflow" &&
-    example !== "trimValidationFailures" &&
-    example !== "trimMultiLoopSurgery" &&
-    example !== "brepShellAssembly" &&
-    example !== "brepSolidAssembly" &&
-    example !== "brepSolidRoundtripAudit" &&
-    example !== "brepSolidFaceSurgery" &&
-    example !== "brepFaceBridgeRoundtrip" &&
-    example !== "brepNativeRoundtrip" &&
-    example !== "bboxBrepSolidLifecycle" &&
+    example !== "sweepSurface" &&
+    example !== "loftSurface" &&
+    example !== "meshVolume" &&
     example !== "landxmlViewer"
   );
-}
-
-function isBrepExample(example: ExampleKey): boolean {
-  return example.startsWith("brep");
 }
 
 function isMeshOnlyExample(example: ExampleKey): boolean {
@@ -709,7 +612,8 @@ function isMeshOnlyExample(example: ExampleKey): boolean {
     example === "meshIntersectMeshMesh" ||
     example === "meshIntersectMeshPlane" ||
     example === "meshBoolean" ||
-    example === "bboxMeshBooleanAssembly"
+    example === "bboxMeshBooleanAssembly" ||
+    example === "meshVolume"
   );
 }
 
@@ -1096,15 +1000,6 @@ function syncControlsUpAxis(
   c._quatInverse.copy(c._quat).invert();
 }
 
-function downloadTextFile(text: string, filename: string, mimeType: string): void {
-  const blob = new Blob([text], { type: mimeType });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = filename;
-  a.click();
-  URL.revokeObjectURL(url);
-}
 
 function zoomToFit(
   camera: THREE.PerspectiveCamera | THREE.OrthographicCamera,
@@ -1647,8 +1542,8 @@ export function KernelViewer() {
     duv: { x: 0, y: 0, z: 0 },
     dvv: { x: 0, y: 0, z: 0 },
   });
-  const [isInspectorOpen, setIsInspectorOpen] = useState(true);
-  const [isConsoleOpen, setIsConsoleOpen] = useState(true);
+  const [isInspectorOpen, setIsInspectorOpen] = useState(false);
+  const [isConsoleOpen, setIsConsoleOpen] = useState(false);
   const [isMobileLayout, setIsMobileLayout] = useState(false);
   const [kernelStatus, setKernelStatus] = useState<KernelStatus>("booting");
   const [isExampleBrowserOpen, setIsExampleBrowserOpen] = useState(false);
@@ -2984,183 +2879,65 @@ export function KernelViewer() {
         }
       }
 
-      if (example === "trimEditWorkflow") {
+      if (example === "sweepSurface") {
         const built: AnyHandle[] = [];
         try {
-          const net = buildWarpedSurfaceNet(14, 12, 10, 9, 0.95);
-          const surface = session.create_nurbs_surface(net.desc.degree_u, net.desc.degree_v, net.desc.control_u_count, net.desc.control_v_count, net.desc.periodic_u, net.desc.periodic_v, net.points, net.weights, net.knotsU, net.knotsV);
-          built.push(surface);
-          const face = session.create_face_from_surface(surface);
-          built.push(face);
-          session.face_add_loop(face, new Float64Array((rectangleLoopUV(0.05, 0.95, 0.08, 0.92)).flatMap((p: {u:number,v:number}) => [p.u, p.v])), true);
-          session.face_add_loop(face, new Float64Array((rectangleLoopUV(0.35, 0.65, 0.35, 0.65)).flatMap((p: {u:number,v:number}) => [p.u, p.v])), false);
-          session.face_split_trim_edge(face, 0, 1, 0.42);
-          session.face_reverse_loop(face, 1);
-          session.face_heal(face);
-          const valid = session.face_validate(face);
-          const mesh = session.face_tessellate_to_mesh(face, new Float64Array(0));
+          const pathPts = pointsToFlat([
+            { x: 0, y: 0, z: 0 },
+            { x: 3, y: 0, z: 2 },
+            { x: 7, y: 2, z: 4 },
+            { x: 12, y: 4, z: 3 },
+            { x: 16, y: 2, z: 1 },
+            { x: 20, y: 0, z: 0 },
+          ]);
+          const pathCurve = session.interpolate_nurbs_fit_points(pathPts, 3, false);
+          built.push(pathCurve);
+
+          const profilePts = pointsToFlat([
+            { x: 0, y: -1.2, z: -0.6 },
+            { x: 0, y: -0.6, z: -1.0 },
+            { x: 0, y: 0.6, z: -1.0 },
+            { x: 0, y: 1.2, z: -0.6 },
+            { x: 0, y: 1.2, z: 0.6 },
+            { x: 0, y: 0.6, z: 1.0 },
+            { x: 0, y: -0.6, z: 1.0 },
+            { x: 0, y: -1.2, z: 0.6 },
+          ]);
+          const profileCurve = session.create_polyline(profilePts, true);
+          built.push(profileCurve);
+
+          const sweepSurface = session.sweep(pathCurve, profileCurve, 24);
+          built.push(sweepSurface);
+
+          const mesh = session.surface_tessellate_to_mesh(sweepSurface, new Float64Array([24, 16, 64, 48, 1e-4, 0.06]));
           built.push(mesh);
+
           const buffers = meshToBuffers(session, mesh);
+          const pathSamples = samplePolyline(session, pathCurve, 200);
+          const profileSamples = samplePolyline(session, profileCurve, 200);
+
           return {
             kind: "mesh",
             curveHandle: null,
             ownedHandles: built,
-            exportHandles: [face],
-            name: "Trim Edit Workflow",
-            degreeLabel: "add loop -> split edge -> reverse loop -> heal",
+            exportHandles: [sweepSurface],
+            name: "Sweep Surface",
+            degreeLabel: "profile swept along NURBS path",
             renderDegree: 0,
             renderSamples: 0,
             meshVisual: {
               vertices: buffers.vertices,
               indices: buffers.indices,
-              color: "#81b6df",
-              opacity: 0.9,
-              wireframe: true,
-              name: "edited trimmed face",
-            },
-            overlayMeshes: [],
-            overlayCurves: [],
-            segmentOverlays: [],
-            intersectionPoints: [],
-            planeVisual: null,
-            interactiveMeshHandle: null,
-            transformTargets: [],
-            defaultTransformTargetKey: null,
-            intersectionMs: 0,
-            logs: [`face valid=${valid}`, `triangles=${session.mesh_triangle_count(mesh)}`],
-          };
-        } catch (error) {
-          throw error;
-        }
-      }
-
-      if (example === "trimValidationFailures") {
-        const built: AnyHandle[] = [];
-        try {
-          const net = buildWarpedSurfaceNet(12, 10, 9, 8, 0.7);
-          const surface = session.create_nurbs_surface(net.desc.degree_u, net.desc.degree_v, net.desc.control_u_count, net.desc.control_v_count, net.desc.periodic_u, net.desc.periodic_v, net.points, net.weights, net.knotsU, net.knotsV);
-          built.push(surface);
-          const face = session.create_face_from_surface(surface);
-          built.push(face);
-          session.face_add_loop(face, new Float64Array((rectangleLoopUV(0.1, 0.92, 0.1, 0.9)).flatMap((p: {u:number,v:number}) => [p.u, p.v])), true);
-          session.face_add_loop(face, new Float64Array((rectangleLoopUV(0.22, 0.48, 0.22, 0.48)).flatMap((p: {u:number,v:number}) => [p.u, p.v])), true);
-          const before = session.face_validate(face);
-          session.face_heal(face);
-          const after = session.face_validate(face);
-          const mesh = session.face_tessellate_to_mesh(face, new Float64Array(0));
-          built.push(mesh);
-          const buffers = meshToBuffers(session, mesh);
-          return {
-            kind: "mesh",
-            curveHandle: null,
-            ownedHandles: built,
-            exportHandles: [face],
-            name: "Trim Validation Failure + Heal",
-            degreeLabel: "intentionally invalid topology diagnostics",
-            renderDegree: 0,
-            renderSamples: 0,
-            meshVisual: {
-              vertices: buffers.vertices,
-              indices: buffers.indices,
-              color: "#88bade",
-              opacity: 0.86,
-              wireframe: true,
-              name: "validation face",
-            },
-            overlayMeshes: [],
-            overlayCurves: [],
-            segmentOverlays: [],
-            intersectionPoints: [],
-            planeVisual: null,
-            interactiveMeshHandle: null,
-            transformTargets: [],
-            defaultTransformTargetKey: null,
-            intersectionMs: 0,
-            logs: [
-              `valid before heal=${before}`,
-              `valid after heal=${after}`,
-              "Two outer loops were added intentionally to trigger a validation failure.",
-            ],
-          };
-        } catch (error) {
-          throw error;
-        }
-      }
-
-      if (example === "trimMultiLoopSurgery") {
-        const built: AnyHandle[] = [];
-        try {
-          const net = buildWarpedSurfaceNet(18, 14, 12, 10, 1.05);
-          const surface = session.create_nurbs_surface(net.desc.degree_u, net.desc.degree_v, net.desc.control_u_count, net.desc.control_v_count, net.desc.periodic_u, net.desc.periodic_v, net.points, net.weights, net.knotsU, net.knotsV);
-          built.push(surface);
-          const face = session.create_face_from_surface(surface);
-          built.push(face);
-
-          session.face_add_loop(face, new Float64Array([
-              { u: 0.06, v: 0.08 },
-              { u: 0.90, v: 0.07 },
-              { u: 0.95, v: 0.32 },
-              { u: 0.88, v: 0.78 },
-              { u: 0.58, v: 0.94 },
-              { u: 0.20, v: 0.88 },
-              { u: 0.05, v: 0.54 },
-            ].flatMap((p: {u:number,v:number}) => [p.u, p.v])), true);
-
-          session.face_add_loop(face, new Float64Array((rectangleLoopUV(0.20, 0.42, 0.24, 0.52)).flatMap((p: {u:number,v:number}) => [p.u, p.v])), false);
-
-          const edgeLoopPoints: RgmUv2[] = [
-            { u: 0.62, v: 0.30 },
-            { u: 0.76, v: 0.36 },
-            { u: 0.78, v: 0.52 },
-            { u: 0.66, v: 0.63 },
-            { u: 0.52, v: 0.58 },
-            { u: 0.50, v: 0.40 },
-          ];
-          const edgeLoopInput: RgmTrimLoopInput = {
-            edge_count: edgeLoopPoints.length,
-            is_outer: false,
-          };
-          const edgeLoopEdges: RgmTrimEdgeInput[] = edgeLoopPoints.map((start, idx) => {
-            const end = edgeLoopPoints[(idx + 1) % edgeLoopPoints.length];
-            return {
-              start_uv: start,
-              end_uv: end,
-              curve_3d: 0,
-              has_curve_3d: false,
-            };
-          });
-          session.face_add_loop_edges(face, edgeLoopInput.is_outer, new Float64Array(edgeLoopEdges.flatMap(e => [e.start_uv.u, e.start_uv.v, e.end_uv.u, e.end_uv.v, e.has_curve_3d ? Number(e.curve_3d) : 0.0, e.has_curve_3d ? 1.0 : 0.0])));
-
-          session.face_split_trim_edge(face, 0, 2, 0.41);
-          session.face_split_trim_edge(face, 2, 4, 0.57);
-          session.face_reverse_loop(face, 1);
-
-          const validBefore = session.face_validate(face);
-          session.face_heal(face);
-          const validAfter = session.face_validate(face);
-
-          const mesh = session.face_tessellate_to_mesh(face, new Float64Array([20, 20, 46, 46, 2.0e-4, 0.08]));
-          built.push(mesh);
-          const buffers = meshToBuffers(session, mesh);
-          return {
-            kind: "mesh",
-            curveHandle: null,
-            ownedHandles: built,
-            exportHandles: [face],
-            name: "Trim Multi-Loop Surgery",
-            degreeLabel: "mixed loop APIs + split/reverse/heal on one face",
-            renderDegree: 0,
-            renderSamples: 0,
-            meshVisual: {
-              vertices: buffers.vertices,
-              indices: buffers.indices,
-              color: "#93bde6",
+              color: "#7bb8d7",
               opacity: 0.88,
-              wireframe: true,
-              name: "multi-loop trimmed face",
+              wireframe: false,
+              name: "sweep surface",
             },
             overlayMeshes: [],
-            overlayCurves: [],
+            overlayCurves: [
+              { points: pathSamples, color: "#f5a623", width: 2.5, opacity: 0.95, name: "path" },
+              { points: profileSamples, color: "#e06060", width: 2.0, opacity: 0.85, name: "profile (at origin)" },
+            ],
             segmentOverlays: [],
             intersectionPoints: [],
             planeVisual: null,
@@ -3169,10 +2946,9 @@ export function KernelViewer() {
             defaultTransformTargetKey: null,
             intersectionMs: 0,
             logs: [
-              `loops added=3 (1 outer + 2 inner)`,
-              `split ops=2 reverse ops=1`,
-              `valid before heal=${validBefore}`,
-              `valid after heal=${validAfter}`,
+              `path: 6-point NURBS degree-3`,
+              `profile: 8-vertex closed polyline`,
+              `stations=24`,
               `triangles=${session.mesh_triangle_count(mesh)}`,
             ],
           };
@@ -3181,167 +2957,68 @@ export function KernelViewer() {
         }
       }
 
-      if (example === "bboxBrepSolidLifecycle") {
+      if (example === "loftSurface") {
         const built: AnyHandle[] = [];
         try {
-          const surfaces = buildSkewedBoxSurfaces(
-            session,
-            { x: 0.2, y: -0.1, z: 0.0 },
-            { x: 4.6, y: 3.2, z: 2.4 },
-            0.07,
-          );
-          built.push(...surfaces);
+          const sections: { x: number; halfW: number; halfH: number }[] = [
+            { x: 0, halfW: 1.0, halfH: 0.3 },
+            { x: 5, halfW: 1.8, halfH: 0.6 },
+            { x: 12, halfW: 2.5, halfH: 1.0 },
+            { x: 18, halfW: 2.0, halfH: 0.8 },
+            { x: 24, halfW: 1.2, halfH: 0.4 },
+          ];
+          const sectionHandles: { id: number; handle: CurveHandle }[] = [];
+          const sectionOverlays: { points: RgmPoint3[]; color: string; width: number; opacity: number; name: string }[] = [];
+          const sectionColors = ["#e06060", "#e0a040", "#60c060", "#4090e0", "#a060d0"];
 
-          const brep = session.brep_create_empty();
-          built.push(brep);
-          const faceIds: BrepFaceId[] = [];
-          for (const surface of surfaces) {
-            const faceId = session.brep_add_face_from_surface(brep, surface);
-            faceIds.push(faceId);
-            session.brep_add_loop_uv(brep, faceId, new Float64Array((rectangleLoopUV(0.0, 1.0, 0.0, 1.0)).flatMap((p: {u:number,v:number}) => [p.u, p.v])), true)
+          for (let i = 0; i < sections.length; i++) {
+            const s = sections[i];
+            const pts = pointsToFlat([
+              { x: s.x, y: -s.halfW, z: -s.halfH },
+              { x: s.x, y: s.halfW, z: -s.halfH },
+              { x: s.x, y: s.halfW, z: s.halfH },
+              { x: s.x, y: -s.halfW, z: s.halfH },
+            ]);
+            const h = session.create_polyline(pts, true);
+            built.push(h);
+            sectionHandles.push({ id: h.object_id(), handle: h });
+            sectionOverlays.push({
+              points: samplePolyline(session, h, 100),
+              color: sectionColors[i % sectionColors.length],
+              width: 2.0,
+              opacity: 0.9,
+              name: `section ${i} (x=${s.x})`,
+            });
           }
 
-          const preStart = performance.now();
-          const preFast = session.compute_bounds(brep.object_id(), 0, 0, 0.0);
-          const preMs = performance.now() - preStart;
+          const sectionIds = new Float64Array(sectionHandles.map((s) => s.id));
+          const loftSurface = session.loft(sectionIds, 16);
+          built.push(loftSurface);
 
-          const reportBefore = session.brep_validate(brep);
-          const fixed = session.brep_heal(brep);
-          const shellId = session.brep_finalize_shell(brep);
-          const solidId = session.brep_finalize_solid(brep);
-          const reportAfter = session.brep_validate(brep);
-
-          const postFastStart = performance.now();
-          const postFast = session.compute_bounds(brep.object_id(), 0, 0, 0.0);
-          const postFastMs = performance.now() - postFastStart;
-          const postOptimalStart = performance.now();
-          const postOptimal = session.compute_bounds(brep.object_id(), 1, 6144, 0.0);
-          const postOptimalMs = performance.now() - postOptimalStart;
-
-          const mesh = session.brep_tessellate_to_mesh(brep, new Float64Array([12, 12, 34, 34, 1.6e-4, 0.08]));
+          const mesh = session.surface_tessellate_to_mesh(loftSurface, new Float64Array([20, 12, 56, 40, 1e-4, 0.06]));
           built.push(mesh);
+
           const buffers = meshToBuffers(session, mesh);
-          const preExt = obbExtents(preFast);
-          const postFastExt = obbExtents(postFast);
-          const postOptimalExt = obbExtents(postOptimal);
 
           return {
             kind: "mesh",
             curveHandle: null,
             ownedHandles: built,
-            exportHandles: [brep],
-            name: "Bounds BREP: Solid Lifecycle",
-            degreeLabel: "pre-shell vs post-solid bounds, Fast/Optimal comparison",
+            exportHandles: [loftSurface],
+            name: "Loft Surface",
+            degreeLabel: "lofted through cross-sections",
             renderDegree: 0,
             renderSamples: 0,
             meshVisual: {
               vertices: buffers.vertices,
               indices: buffers.indices,
-              color: "#7cb2dc",
-              opacity: 0.58,
+              color: "#7bb8d7",
+              opacity: 0.88,
               wireframe: false,
-              name: "brep lifecycle solid",
+              name: "loft surface",
             },
             overlayMeshes: [],
-            overlayCurves: [],
-            segmentOverlays: boundsOverlaySegments(postOptimal),
-            intersectionPoints: [],
-            planeVisual: null,
-            interactiveMeshHandle: null,
-            transformTargets: [],
-            defaultTransformTargetKey: null,
-            intersectionMs: 0,
-            boundsMs: preMs + postFastMs + postOptimalMs,
-            logs: [
-              `pre-finalize fast=${preMs.toFixed(2)}ms obb_extents=${formatExtents(preExt)} volume=${extentsVolume(preExt).toFixed(3)}`,
-              `post-finalize fast=${postFastMs.toFixed(2)}ms obb_extents=${formatExtents(postFastExt)} volume=${extentsVolume(postFastExt).toFixed(3)}`,
-              `post-finalize optimal=${postOptimalMs.toFixed(2)}ms obb_extents=${formatExtents(postOptimalExt)} volume=${extentsVolume(postOptimalExt).toFixed(3)}`,
-              `world_aabb_extents=${formatExtents(aabbExtentsFromBounds3(postOptimal))}`,
-              `shell_id=${shellId} solid_id=${solidId} face_count=${faceIds.length} heal_fixed=${fixed}`,
-              ...validationReportLogLines(reportBefore, "validate(before finalize)"),
-              ...validationReportLogLines(reportAfter, "validate(after finalize)"),
-            ],
-          };
-        } catch (error) {
-          throw error;
-        }
-      }
-
-      if (example === "brepShellAssembly") {
-        const built: AnyHandle[] = [];
-        try {
-          const net = buildWarpedSurfaceNet(20, 14, 14, 10, 0.85);
-          const surface = session.create_nurbs_surface(net.desc.degree_u, net.desc.degree_v, net.desc.control_u_count, net.desc.control_v_count, net.desc.periodic_u, net.desc.periodic_v, net.points, net.weights, net.knotsU, net.knotsV);
-          built.push(surface);
-
-          const leftFace = session.create_face_from_surface(surface);
-          const rightFace = session.create_face_from_surface(surface);
-          built.push(leftFace, rightFace);
-
-          session.face_add_loop(leftFace, new Float64Array((rectangleLoopUV(0.02, 0.52, 0.06, 0.94)).flatMap((p: {u:number,v:number}) => [p.u, p.v])), true);
-          session.face_add_loop(rightFace, new Float64Array((rectangleLoopUV(0.48, 0.98, 0.06, 0.94)).flatMap((p: {u:number,v:number}) => [p.u, p.v])), true);
-
-          const brep = session.brep_create_empty();
-          built.push(brep);
-          const leftFaceId = session.brep_add_face(brep, leftFace);
-          const rightFaceId = session.brep_add_face(brep, rightFace);
-
-          session.brep_add_loop_uv(brep, leftFaceId, new Float64Array(([
-              { u: 0.14, v: 0.18 },
-              { u: 0.34, v: 0.2 },
-              { u: 0.36, v: 0.42 },
-              { u: 0.22, v: 0.58 },
-              { u: 0.1, v: 0.46 },
-            ]).flatMap((p: {u:number,v:number}) => [p.u, p.v])), false)
-
-          const before = session.brep_validate(brep);
-          const fixed = session.brep_heal(brep);
-          const shellId = session.brep_finalize_shell(brep);
-          const after = session.brep_validate(brep);
-          const state = session.brep_state(brep);
-          const faceCount = session.brep_face_count(brep);
-          const leftAdj = session.brep_face_adjacency(brep, leftFaceId);
-          const rightAdj = session.brep_face_adjacency(brep, rightFaceId);
-          const area = session.brep_estimate_area(brep);
-
-          const brepMesh = session.brep_tessellate_to_mesh(brep, new Float64Array([18, 18, 50, 44, 1.8e-4, 0.08]));
-          built.push(brepMesh);
-          const brepBuffers = meshToBuffers(session, brepMesh);
-
-          const leftExtractedFace = session.brep_extract_face_object(brep, leftFaceId);
-          built.push(leftExtractedFace);
-          const leftMesh = session.face_tessellate_to_mesh(leftExtractedFace, new Float64Array(0));
-          built.push(leftMesh);
-          const leftBuffers = meshToBuffers(session, leftMesh);
-
-          return {
-            kind: "mesh",
-            curveHandle: null,
-            ownedHandles: built,
-            exportHandles: [brep],
-            name: "BREP Shell Assembly + Adjacency",
-            degreeLabel: "face->brep assembly, loop edit, validate/heal/finalize, adjacency query",
-            renderDegree: 0,
-            renderSamples: 0,
-            meshVisual: {
-              vertices: brepBuffers.vertices,
-              indices: brepBuffers.indices,
-              color: "#7db2db",
-              opacity: 0.54,
-              wireframe: false,
-              name: "assembled brep shell",
-            },
-            overlayMeshes: [
-              {
-                vertices: leftBuffers.vertices,
-                indices: leftBuffers.indices,
-                color: "#f3b36f",
-                opacity: 0.14,
-                wireframe: false,
-                name: "extracted left face",
-              },
-            ],
-            overlayCurves: [],
+            overlayCurves: sectionOverlays,
             segmentOverlays: [],
             intersectionPoints: [],
             planeVisual: null,
@@ -3350,96 +3027,10 @@ export function KernelViewer() {
             defaultTransformTargetKey: null,
             intersectionMs: 0,
             logs: [
-              `shell_id=${shellId} state=${state} face_count=${faceCount}`,
-              `heal fixed_count=${fixed} area_estimate=${area.toFixed(5)}`,
-              `left adjacency=[${leftAdj.join(", ")}] right adjacency=[${rightAdj.join(", ")}]`,
-              ...validationReportLogLines(before, "validate(before)"),
-              ...validationReportLogLines(after, "validate(after)"),
-              `triangles=${session.mesh_triangle_count(brepMesh)}`,
-            ],
-          };
-        } catch (error) {
-          throw error;
-        }
-      }
-
-      if (example === "brepSolidAssembly") {
-        const built: AnyHandle[] = [];
-        try {
-          const surfaces = buildSkewedBoxSurfaces(
-            session,
-            { x: 0.0, y: 0.0, z: 0.0 },
-            { x: 4.0, y: 2.8, z: 2.0 },
-            0.0,
-          );
-          built.push(...surfaces);
-
-          const brep = session.brep_create_empty();
-          built.push(brep);
-
-          const faceIds: BrepFaceId[] = [];
-          for (const surface of surfaces) {
-            const faceId = session.brep_add_face_from_surface(brep, surface);
-            faceIds.push(faceId);
-            session.brep_add_loop_uv(brep, faceId, new Float64Array(([
-                { u: 0.0, v: 0.0 },
-                { u: 1.0, v: 0.0 },
-                { u: 1.0, v: 1.0 },
-                { u: 0.0, v: 1.0 },
-              ]).flatMap((p: {u:number,v:number}) => [p.u, p.v])), true)
-          }
-
-          const reportBefore = session.brep_validate(brep);
-          const fixed = session.brep_heal(brep);
-          const shellId = session.brep_finalize_shell(brep);
-          const solidId = session.brep_finalize_solid(brep);
-          const reportAfter = session.brep_validate(brep);
-
-          const shellCount = session.brep_shell_count(brep);
-          const solidCount = session.brep_solid_count(brep);
-          const isSolid = session.brep_is_solid(brep);
-          const area = session.brep_estimate_area(brep);
-          const state = session.brep_state(brep);
-          const adjacency = session.brep_face_adjacency(brep, faceIds[0]);
-
-          const mesh = session.brep_tessellate_to_mesh(brep, new Float64Array([10, 10, 30, 30, 1.5e-4, 0.08]));
-          built.push(mesh);
-          const buffers = meshToBuffers(session, mesh);
-
-          return {
-            kind: "mesh",
-            curveHandle: null,
-            ownedHandles: built,
-            exportHandles: [brep],
-            name: "BREP Solid Assembly Lifecycle",
-            degreeLabel: "6 surfaces -> shell -> solid container + topology diagnostics",
-            renderDegree: 0,
-            renderSamples: 0,
-            meshVisual: {
-              vertices: buffers.vertices,
-              indices: buffers.indices,
-              color: "#7bb1da",
-              opacity: 0.56,
-              wireframe: false,
-              name: "solid brep assembly",
-            },
-            overlayMeshes: [],
-            overlayCurves: [],
-            segmentOverlays: [],
-            intersectionPoints: [],
-            planeVisual: null,
-            interactiveMeshHandle: null,
-            transformTargets: [],
-            defaultTransformTargetKey: null,
-            intersectionMs: 0,
-            logs: [
-              `shell_id=${shellId} solid_id=${solidId} state=${state}`,
-              `shell_count=${shellCount} solid_count=${solidCount} is_solid=${isSolid}`,
-              `face_count=${faceIds.length} adjacency(face0)=[${adjacency.join(", ")}]`,
-              `heal fixed_count=${fixed} area_estimate=${area.toFixed(5)}`,
-              ...validationReportLogLines(reportBefore, "validate(before)"),
-              ...validationReportLogLines(reportAfter, "validate(after)"),
+              `sections=${sections.length} (closed polylines)`,
+              `samples per section=16`,
               `triangles=${session.mesh_triangle_count(mesh)}`,
+              ...sections.map((s, i) => `  section ${i}: x=${s.x}, width=${s.halfW * 2}, height=${s.halfH * 2}`),
             ],
           };
         } catch (error) {
@@ -3447,72 +3038,40 @@ export function KernelViewer() {
         }
       }
 
-      if (example === "brepSolidRoundtripAudit") {
+      if (example === "meshVolume") {
         const built: AnyHandle[] = [];
         try {
-          const surfaces = buildSkewedBoxSurfaces(
-            session,
-            { x: 0.4, y: -0.2, z: 0.1 },
-            { x: 5.2, y: 3.0, z: 2.6 },
-            0.08,
-          );
-          built.push(...surfaces);
+          const torus = session.create_torus_mesh(0, 0, 0, 4.0, 1.5, 64, 32);
+          built.push(torus);
 
-          const source = session.brep_create_empty();
-          built.push(source);
-          const sourceFaceIds: BrepFaceId[] = [];
-          for (const surface of surfaces) {
-            const faceId = session.brep_add_face_from_surface(source, surface);
-            sourceFaceIds.push(faceId);
-            session.brep_add_loop_uv(source, faceId, new Float64Array((rectangleLoopUV(0.0, 1.0, 0.0, 1.0)).flatMap((p: {u:number,v:number}) => [p.u, p.v])), true);
-          }
+          const torusVolume = session.mesh_volume(torus);
+          const torusBuf = meshToBuffers(session, torus);
+          const torusTriCount = session.mesh_triangle_count(torus);
+          const torusVertCount = session.mesh_vertex_count(torus);
 
-          const reportBefore = session.brep_validate(source);
-          const fixed = session.brep_heal(source);
-          const shellId = session.brep_finalize_shell(source);
-          const solidId = session.brep_finalize_solid(source);
-          const reportAfter = session.brep_validate(source);
-          const sourceArea = session.brep_estimate_area(source);
+          const expectedVolume = 2 * Math.PI * Math.PI * 4.0 * 1.5 * 1.5;
 
-          const clone = session.brep_clone(source);
-          built.push(clone);
-          const cloneArea = session.brep_estimate_area(clone);
-          const bytes = session.brep_save_native(clone);
-          const loaded = session.brep_load_native(bytes);
-          built.push(loaded);
-          const loadedArea = session.brep_estimate_area(loaded);
-          const loadedState = session.brep_state(loaded);
-          const loadedSolid = session.brep_is_solid(loaded);
-          const loadedShellCount = session.brep_shell_count(loaded);
-          const loadedSolidCount = session.brep_solid_count(loaded);
-          const loadedFaceCount = session.brep_face_count(loaded);
-          const loadedReport = session.brep_validate(loaded);
-
-          const adjacencySignature = sourceFaceIds
-            .slice(0, 3)
-            .map((faceId) => `f${faceId}:[${session.brep_face_adjacency(loaded, faceId).join(",")}]`)
-            .join(" ");
-
-          const loadedMesh = session.brep_tessellate_to_mesh(loaded, new Float64Array([10, 10, 28, 28, 1.5e-4, 0.08]));
-          built.push(loadedMesh);
-          const loadedBuffers = meshToBuffers(session, loadedMesh);
+          const sphere = session.create_uv_sphere_mesh(0, 0, 0, 3.0, 48, 32);
+          built.push(sphere);
+          const sphereVolume = session.mesh_volume(sphere);
+          const expectedSphereVol = (4 / 3) * Math.PI * 3.0 * 3.0 * 3.0;
 
           return {
-            kind: "mesh",
+            kind: "mesh" as const,
             curveHandle: null,
             ownedHandles: built,
-            exportHandles: [loaded],
-            name: "BREP Solid Roundtrip Audit",
-            degreeLabel: "solid -> clone -> native bytes -> load, then invariant checks",
+            exportHandles: [torus],
+            name: "Mesh Volume",
+            degreeLabel: "Volume",
             renderDegree: 0,
             renderSamples: 0,
             meshVisual: {
-              vertices: loadedBuffers.vertices,
-              indices: loadedBuffers.indices,
-              color: "#7cb3dd",
-              opacity: 0.56,
+              vertices: torusBuf.vertices,
+              indices: torusBuf.indices,
+              color: "#88aacc",
+              opacity: 0.85,
               wireframe: false,
-              name: "loaded solid",
+              name: "torus (R=4, r=1.5)",
             },
             overlayMeshes: [],
             overlayCurves: [],
@@ -3524,324 +3083,14 @@ export function KernelViewer() {
             defaultTransformTargetKey: null,
             intersectionMs: 0,
             logs: [
-              `shell_id=${shellId} solid_id=${solidId} face_count=${sourceFaceIds.length}`,
-              `heal fixed_count=${fixed} serialized_bytes=${bytes.length}`,
-              `loaded state=${loadedState} is_solid=${loadedSolid} shells=${loadedShellCount} solids=${loadedSolidCount} faces=${loadedFaceCount}`,
-              `area source=${sourceArea.toFixed(6)} clone=${cloneArea.toFixed(6)} loaded=${loadedArea.toFixed(6)} delta=${Math.abs(sourceArea - loadedArea).toExponential(2)}`,
-              `adjacency signature: ${adjacencySignature}`,
-              ...validationReportLogLines(reportBefore, "source validate(before)"),
-              ...validationReportLogLines(reportAfter, "source validate(after)"),
-              ...validationReportLogLines(loadedReport, "loaded validate"),
-              `loaded triangles=${session.mesh_triangle_count(loadedMesh)}`,
-            ],
-          };
-        } catch (error) {
-          throw error;
-        }
-      }
-
-      if (example === "brepSolidFaceSurgery") {
-        const built: AnyHandle[] = [];
-        try {
-          const surfaces = buildSkewedBoxSurfaces(
-            session,
-            { x: -0.6, y: 0.3, z: 0.0 },
-            { x: 4.6, y: 3.4, z: 2.2 },
-            0.03,
-          );
-          built.push(...surfaces);
-
-          const original = session.brep_create_empty();
-          built.push(original);
-          for (const surface of surfaces) {
-            const faceId = session.brep_add_face_from_surface(original, surface);
-            session.brep_add_loop_uv(original, faceId, new Float64Array((rectangleLoopUV(0.0, 1.0, 0.0, 1.0)).flatMap((p: {u:number,v:number}) => [p.u, p.v])), true);
-          }
-          session.brep_finalize_shell(original);
-          session.brep_finalize_solid(original);
-
-          const extractedFaces: FaceHandle[] = [];
-          const originalFaceCount = session.brep_face_count(original);
-          for (let idx = 0; idx < originalFaceCount; idx += 1) {
-            const face = session.brep_extract_face_object(original, idx as unknown as BrepFaceId);
-            extractedFaces.push(face);
-            built.push(face);
-          }
-
-          const surgeryFace = extractedFaces[0];
-          const surgeryValidBefore = session.face_validate(surgeryFace);
-          session.face_add_loop(surgeryFace, new Float64Array([
-              { u: 0.22, v: 0.18 },
-              { u: 0.46, v: 0.2 },
-              { u: 0.5, v: 0.42 },
-              { u: 0.3, v: 0.54 },
-              { u: 0.18, v: 0.4 },
-            ].flatMap((p: {u:number,v:number}) => [p.u, p.v])), false);
-          session.face_split_trim_edge(surgeryFace, 1, 1, 0.53);
-          session.face_reverse_loop(surgeryFace, 1);
-          session.face_heal(surgeryFace);
-          const surgeryValidAfter = session.face_validate(surgeryFace);
-
-          const rebuilt = session.brep_create_from_faces(new Float64Array((extractedFaces).map((f: FaceHandle) => f.object_id())));
-          built.push(rebuilt);
-          const rebuiltReportBefore = session.brep_validate(rebuilt);
-          session.brep_finalize_shell(rebuilt);
-          const rebuiltSolidId = session.brep_finalize_solid(rebuilt);
-          const rebuiltReportAfter = session.brep_validate(rebuilt);
-          const rebuiltIsSolid = session.brep_is_solid(rebuilt);
-          const rebuiltSolidCount = session.brep_solid_count(rebuilt);
-          const rebuiltArea = session.brep_estimate_area(rebuilt);
-          const originalArea = session.brep_estimate_area(original);
-
-          const originalMesh = session.brep_tessellate_to_mesh(original, new Float64Array([10, 10, 30, 30, 1.6e-4, 0.08]));
-          built.push(originalMesh);
-          const originalBuffers = meshToBuffers(session, originalMesh);
-
-          const rebuiltMesh = session.brep_tessellate_to_mesh(rebuilt, new Float64Array([10, 10, 30, 30, 1.6e-4, 0.08]));
-          built.push(rebuiltMesh);
-          const rebuiltBuffers = meshToBuffers(session, rebuiltMesh);
-
-          return {
-            kind: "mesh",
-            curveHandle: null,
-            ownedHandles: built,
-            exportHandles: [original, rebuilt],
-            name: "BREP Solid Face Surgery Rebuild",
-            degreeLabel: "extract faces, edit one face trim topology, then rebuild a second solid",
-            renderDegree: 0,
-            renderSamples: 0,
-            meshVisual: {
-              vertices: rebuiltBuffers.vertices,
-              indices: rebuiltBuffers.indices,
-              color: "#80b6de",
-              opacity: 0.58,
-              wireframe: false,
-              name: "rebuilt surgical solid",
-            },
-            overlayMeshes: [
-              {
-                vertices: originalBuffers.vertices,
-                indices: originalBuffers.indices,
-                color: "#f2b271",
-                opacity: 0.1,
-                wireframe: false,
-                name: "original reference solid",
-              },
-            ],
-            overlayCurves: [],
-            segmentOverlays: [],
-            intersectionPoints: [],
-            planeVisual: null,
-            interactiveMeshHandle: null,
-            transformTargets: [],
-            defaultTransformTargetKey: null,
-            intersectionMs: 0,
-            logs: [
-              `original faces extracted=${originalFaceCount} rebuilt_solid_id=${rebuiltSolidId}`,
-              `surgery face valid before=${surgeryValidBefore} after=${surgeryValidAfter}`,
-              `rebuilt is_solid=${rebuiltIsSolid} solid_count=${rebuiltSolidCount}`,
-              `area original=${originalArea.toFixed(6)} rebuilt=${rebuiltArea.toFixed(6)} delta=${Math.abs(originalArea - rebuiltArea).toExponential(2)}`,
-              ...validationReportLogLines(rebuiltReportBefore, "rebuilt validate(before finalize)"),
-              ...validationReportLogLines(rebuiltReportAfter, "rebuilt validate(after finalize)"),
-              `rebuilt triangles=${session.mesh_triangle_count(rebuiltMesh)}`,
-            ],
-          };
-        } catch (error) {
-          throw error;
-        }
-      }
-
-      if (example === "brepFaceBridgeRoundtrip") {
-        const built: AnyHandle[] = [];
-        try {
-          const net = buildWarpedSurfaceNet(18, 16, 12, 11, 1.1);
-          const surface = session.create_nurbs_surface(net.desc.degree_u, net.desc.degree_v, net.desc.control_u_count, net.desc.control_v_count, net.desc.periodic_u, net.desc.periodic_v, net.points, net.weights, net.knotsU, net.knotsV);
-          built.push(surface);
-
-          const sourceFace = session.create_face_from_surface(surface);
-          built.push(sourceFace);
-          session.face_add_loop(sourceFace, new Float64Array([
-              { u: 0.06, v: 0.08 },
-              { u: 0.88, v: 0.06 },
-              { u: 0.94, v: 0.34 },
-              { u: 0.88, v: 0.9 },
-              { u: 0.22, v: 0.94 },
-              { u: 0.06, v: 0.6 },
-            ].flatMap((p: {u:number,v:number}) => [p.u, p.v])), true);
-          session.face_add_loop(sourceFace, new Float64Array((rectangleLoopUV(0.24, 0.46, 0.22, 0.5)).flatMap((p: {u:number,v:number}) => [p.u, p.v])), false);
-          session.face_split_trim_edge(sourceFace, 0, 2, 0.44);
-          session.face_reverse_loop(sourceFace, 1);
-          session.face_heal(sourceFace);
-
-          const sourceValid = session.face_validate(sourceFace);
-          const sourceMesh = session.face_tessellate_to_mesh(sourceFace, new Float64Array([18, 18, 46, 42, 2.0e-4, 0.08]));
-          built.push(sourceMesh);
-          const sourceBuffers = meshToBuffers(session, sourceMesh);
-
-          const brep = session.brep_from_face_object(sourceFace);
-          built.push(brep);
-          const cloned = session.brep_clone(brep);
-          built.push(cloned);
-          const report = session.brep_validate(cloned);
-          const clonedArea = session.brep_estimate_area(cloned);
-          const clonedFaceCount = session.brep_face_count(cloned);
-          const rootFaceId = 0 as BrepFaceId;
-          const clonedAdj = session.brep_face_adjacency(cloned, rootFaceId);
-
-          const extractedFace = session.brep_extract_face_object(cloned, rootFaceId);
-          built.push(extractedFace);
-          const extractedValid = session.face_validate(extractedFace);
-          const extractedMesh = session.face_tessellate_to_mesh(extractedFace, new Float64Array([18, 18, 46, 42, 2.0e-4, 0.08]));
-          built.push(extractedMesh);
-          const extractedBuffers = meshToBuffers(session, extractedMesh);
-
-          const brepMesh = session.brep_tessellate_to_mesh(cloned, new Float64Array(0));
-          built.push(brepMesh);
-          const brepBuffers = meshToBuffers(session, brepMesh);
-
-          return {
-            kind: "mesh",
-            curveHandle: null,
-            ownedHandles: built,
-            exportHandles: [cloned],
-            name: "BREP Face Bridge Roundtrip",
-            degreeLabel: "face -> brep -> clone -> extract face, then compare tessellations",
-            renderDegree: 0,
-            renderSamples: 0,
-            meshVisual: {
-              vertices: brepBuffers.vertices,
-              indices: brepBuffers.indices,
-              color: "#79afd9",
-              opacity: 0.56,
-              wireframe: false,
-              name: "cloned brep mesh",
-            },
-            overlayMeshes: [
-              {
-                vertices: sourceBuffers.vertices,
-                indices: sourceBuffers.indices,
-                color: "#f4b472",
-                opacity: 0.1,
-                wireframe: false,
-                name: "source face mesh",
-              },
-              {
-                vertices: extractedBuffers.vertices,
-                indices: extractedBuffers.indices,
-                color: "#8fe4b8",
-                opacity: 0.1,
-                wireframe: false,
-                name: "extracted face mesh",
-              },
-            ],
-            overlayCurves: [],
-            segmentOverlays: [],
-            intersectionPoints: [],
-            planeVisual: null,
-            interactiveMeshHandle: null,
-            transformTargets: [],
-            defaultTransformTargetKey: null,
-            intersectionMs: 0,
-            logs: [
-              `source face valid=${sourceValid} extracted valid=${extractedValid}`,
-              `clone face_count=${clonedFaceCount} adjacency(face0)=[${clonedAdj.join(", ")}]`,
-              `clone area_estimate=${clonedArea.toFixed(5)}`,
-              ...validationReportLogLines(report, "clone validate"),
-              `source triangles=${session.mesh_triangle_count(sourceMesh)}`,
-              `extracted triangles=${session.mesh_triangle_count(extractedMesh)}`,
-              `brep triangles=${session.mesh_triangle_count(brepMesh)}`,
-            ],
-          };
-        } catch (error) {
-          throw error;
-        }
-      }
-
-      if (example === "brepNativeRoundtrip") {
-        const built: AnyHandle[] = [];
-        try {
-          const net = buildWarpedSurfaceNet(17, 13, 11, 9, 0.9);
-          const surface = session.create_nurbs_surface(net.desc.degree_u, net.desc.degree_v, net.desc.control_u_count, net.desc.control_v_count, net.desc.periodic_u, net.desc.periodic_v, net.points, net.weights, net.knotsU, net.knotsV);
-          built.push(surface);
-
-          const brep = session.brep_create_empty();
-          built.push(brep);
-          const faceId = session.brep_add_face_from_surface(brep, surface);
-          session.brep_add_loop_uv(brep, faceId, new Float64Array(([
-              { u: 0.06, v: 0.09 },
-              { u: 0.92, v: 0.08 },
-              { u: 0.95, v: 0.91 },
-              { u: 0.08, v: 0.94 },
-            ]).flatMap((p: {u:number,v:number}) => [p.u, p.v])), true)
-          session.brep_add_loop_uv(brep, faceId, new Float64Array((rectangleLoopUV(0.2, 0.38, 0.22, 0.46)).flatMap((p: {u:number,v:number}) => [p.u, p.v])), false);
-          session.brep_add_loop_uv(brep, faceId, new Float64Array(([
-              { u: 0.6, v: 0.3 },
-              { u: 0.76, v: 0.34 },
-              { u: 0.72, v: 0.56 },
-              { u: 0.54, v: 0.5 },
-            ]).flatMap((p: {u:number,v:number}) => [p.u, p.v])), false)
-          const shellId = session.brep_finalize_shell(brep);
-          const reportBefore = session.brep_validate(brep);
-          const bytes = session.brep_save_native(brep);
-          const areaBefore = session.brep_estimate_area(brep);
-
-          const loaded = session.brep_load_native(bytes);
-          built.push(loaded);
-          const reportAfter = session.brep_validate(loaded);
-          const areaAfter = session.brep_estimate_area(loaded);
-          const loadedState = session.brep_state(loaded);
-          const loadedFaceCount = session.brep_face_count(loaded);
-
-          const loadedMesh = session.brep_tessellate_to_mesh(loaded, new Float64Array([16, 16, 42, 36, 2.2e-4, 0.085]));
-          built.push(loadedMesh);
-          const loadedBuffers = meshToBuffers(session, loadedMesh);
-
-          const originalMesh = session.brep_tessellate_to_mesh(brep, new Float64Array(0));
-          built.push(originalMesh);
-          const originalBuffers = meshToBuffers(session, originalMesh);
-
-          return {
-            kind: "mesh",
-            curveHandle: null,
-            ownedHandles: built,
-            exportHandles: [brep, loaded],
-            name: "BREP Native Save/Load Roundtrip",
-            degreeLabel: "finalized brep -> bytes -> loaded brep, then validate and compare",
-            renderDegree: 0,
-            renderSamples: 0,
-            meshVisual: {
-              vertices: loadedBuffers.vertices,
-              indices: loadedBuffers.indices,
-              color: "#7eb5dc",
-              opacity: 0.56,
-              wireframe: false,
-              name: "loaded brep",
-            },
-            overlayMeshes: [
-              {
-                vertices: originalBuffers.vertices,
-                indices: originalBuffers.indices,
-                color: "#f2b472",
-                opacity: 0.1,
-                wireframe: false,
-                name: "original brep",
-              },
-            ],
-            overlayCurves: [],
-            segmentOverlays: [],
-            intersectionPoints: [],
-            planeVisual: null,
-            interactiveMeshHandle: null,
-            transformTargets: [],
-            defaultTransformTargetKey: null,
-            intersectionMs: 0,
-            logs: [
-              `shell_id=${shellId} serialized_bytes=${bytes.length}`,
-              `loaded state=${loadedState} face_count=${loadedFaceCount}`,
-              `area before=${areaBefore.toFixed(6)} area after=${areaAfter.toFixed(6)} delta=${Math.abs(areaBefore - areaAfter).toExponential(2)}`,
-              ...validationReportLogLines(reportBefore, "original validate"),
-              ...validationReportLogLines(reportAfter, "loaded validate"),
-              `loaded triangles=${session.mesh_triangle_count(loadedMesh)}`,
+              `Torus (R=4, r=1.5): vertices=${torusVertCount}, triangles=${torusTriCount}`,
+              `  computed volume  = ${torusVolume.toFixed(4)}`,
+              `  expected (2pi^2Rr^2) = ${expectedVolume.toFixed(4)}`,
+              `  error = ${((Math.abs(torusVolume - expectedVolume) / expectedVolume) * 100).toFixed(2)}%`,
+              `Sphere (r=3):`,
+              `  computed volume  = ${sphereVolume.toFixed(4)}`,
+              `  expected (4/3 pi r^3) = ${expectedSphereVol.toFixed(4)}`,
+              `  error = ${((Math.abs(sphereVolume - expectedSphereVol) / expectedSphereVol) * 100).toFixed(2)}%`,
             ],
           };
         } catch (error) {
@@ -5223,6 +4472,10 @@ export function KernelViewer() {
   useEffect(() => {
     let disposed = false;
 
+    const urlParams = new URLSearchParams(window.location.search);
+    const exampleParam = urlParams.get("example");
+    const initialExample = isValidExampleKey(exampleParam) ? exampleParam : "nurbs";
+
     (async () => {
       try {
         appendLog("info", "Loading kernel WASM runtime");
@@ -5239,7 +4492,8 @@ export function KernelViewer() {
         setCapabilities({ igesImport: false, igesExport: true });
         nurbsPresetRef.current = loadedPreset;
         setPreset(loadedPreset);
-        updateCurveForExample("nurbs", "Default example loaded", loadedPreset);
+
+        updateCurveForExample(initialExample, "Default example loaded", initialExample === "nurbs" ? loadedPreset : undefined);
         setKernelStatus("ready");
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
@@ -5258,6 +4512,13 @@ export function KernelViewer() {
       curveHandleRef.current = null;
     };
   }, [appendLog, loadDefaultPreset, releaseOwnedCurveHandles, updateCurveForExample]);
+
+  // Sync activeExample to URL query param
+  useEffect(() => {
+    const url = new URL(window.location.href);
+    url.searchParams.set("example", activeExample);
+    window.history.replaceState(null, "", url.toString());
+  }, [activeExample]);
 
   useEffect(() => {
     const media = window.matchMedia(MOBILE_MEDIA_QUERY);
@@ -5646,18 +4907,16 @@ export function KernelViewer() {
       interactiveMeshHandleRef.current !== null;
     const origin = interactive ? centroidOfPoints(meshVisual.vertices) : undefined;
     const geometry = createMeshGeometry(meshVisual.vertices, meshVisual.indices, origin);
-    const brepVisual = isBrepExample(activeExample);
     const booleanVisual = activeExample === "meshBoolean";
     const booleanResultVisual = booleanVisual && meshVisual.name === "boolean result (A - B)";
-    const visualOpacity = brepVisual ? Math.min(meshVisual.opacity, 0.58) : meshVisual.opacity;
     const material = new THREE.MeshStandardMaterial({
       color: meshVisual.color,
-      transparent: visualOpacity < 1,
-      opacity: visualOpacity,
-      roughness: brepVisual ? 0.32 : 0.5,
-      metalness: brepVisual ? 0.04 : 0.08,
+      transparent: meshVisual.opacity < 1,
+      opacity: meshVisual.opacity,
+      roughness: 0.5,
+      metalness: 0.08,
       side: THREE.DoubleSide,
-      depthWrite: brepVisual ? false : booleanResultVisual,
+      depthWrite: booleanResultVisual,
       depthTest: booleanVisual ? booleanResultVisual : true,
       polygonOffset: booleanVisual && !booleanResultVisual,
       polygonOffsetFactor: booleanVisual && !booleanResultVisual ? 2 : 0,
@@ -5671,7 +4930,7 @@ export function KernelViewer() {
     scene.add(mesh);
     meshRef.current = mesh;
 
-    if (meshVisual.wireframe && !brepVisual && !booleanVisual) {
+    if (meshVisual.wireframe && !booleanVisual) {
       const wire = new THREE.LineSegments(
         new THREE.WireframeGeometry(geometry),
         new THREE.LineBasicMaterial({
@@ -5826,20 +5085,18 @@ export function KernelViewer() {
     }
     overlayMeshRefs.current = [];
 
-    const brepVisual = isBrepExample(activeExample);
     const booleanVisual = activeExample === "meshBoolean";
     for (const visual of overlayMeshes) {
       const geometry = createMeshGeometry(visual.vertices, visual.indices);
       const booleanResultVisual = booleanVisual && visual.name === "boolean result (A - B)";
-      const visualOpacity = brepVisual ? Math.min(visual.opacity, 0.18) : visual.opacity;
       const material = new THREE.MeshStandardMaterial({
         color: visual.color,
-        transparent: visualOpacity < 1,
-        opacity: visualOpacity,
-        roughness: brepVisual ? 0.36 : 0.55,
-        metalness: brepVisual ? 0.02 : 0.05,
+        transparent: visual.opacity < 1,
+        opacity: visual.opacity,
+        roughness: 0.55,
+        metalness: 0.05,
         side: THREE.DoubleSide,
-        depthWrite: brepVisual ? false : booleanResultVisual,
+        depthWrite: booleanResultVisual,
         depthTest: booleanVisual ? booleanResultVisual : true,
         polygonOffset: booleanVisual && !booleanResultVisual,
         polygonOffsetFactor: booleanVisual && !booleanResultVisual ? 2 : 0,
@@ -5850,7 +5107,7 @@ export function KernelViewer() {
       scene.add(mesh);
 
       let wire: THREE.LineSegments<THREE.WireframeGeometry, THREE.LineBasicMaterial> | null = null;
-      if (visual.wireframe && !brepVisual && !booleanVisual) {
+      if (visual.wireframe && !booleanVisual) {
         wire = new THREE.LineSegments(
           new THREE.WireframeGeometry(geometry),
           new THREE.LineBasicMaterial({
@@ -6367,6 +5624,12 @@ export function KernelViewer() {
 
   return (
     <div className="viewer-shell">
+      {/* Brand logo — fixed top-left, transparent background */}
+      <div className="viewer-logo" aria-label="rusted-geom">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src="/logo.png" className="viewer-logo-img" width={80} height={80} alt="" />
+      </div>
+
       <input
         ref={sessionFileInputRef}
         type="file"
@@ -6404,9 +5667,6 @@ export function KernelViewer() {
         onExportStl={onExportStl}
         onExportGltf={onExportGltf}
         exportMode={exportMode}
-        landXmlScaleFactor={landXmlScaleFactor}
-        onLandXmlScaleFactorChange={setLandXmlScaleFactor}
-        showLandXmlScale={activeExample === "landxmlViewer"}
         orbitEnabled={orbitEnabled}
         showGrid={showGrid}
         showAxes={showAxes}
@@ -6438,9 +5698,8 @@ export function KernelViewer() {
 
       <InspectorPanel
         isOpen={isInspectorOpen}
+        onClose={() => setIsInspectorOpen(false)}
         activeExample={activeExample}
-        activeCurveName={activeCurveName}
-        activeDegreeLabel={activeDegreeLabel}
         perfStats={perfStats}
         showGizmoControls={showGizmoControls}
         showTransformTargetControls={showTransformTargetControls}
@@ -6458,7 +5717,6 @@ export function KernelViewer() {
         onUpdateProbe={updateProbeForT}
         surfaceProbeUiState={surfaceProbeUiState}
         onUpdateSurfaceProbe={updateSurfaceProbeForUv}
-        onOpenExampleBrowser={() => setIsExampleBrowserOpen(true)}
         activeLandXmlFile={activeLandXmlFile}
         onLandXmlFileChange={setActiveLandXmlFile}
         landXmlStats={landXmlStats}
@@ -6491,6 +5749,50 @@ export function KernelViewer() {
         onSelect={onExampleBrowserSelect}
         onClose={() => setIsExampleBrowserOpen(false)}
       />
+
+      {/* Mobile bottom tab bar — visible only on phone */}
+      <nav className="mobile-tab-bar" aria-label="Quick access">
+        <button
+          type="button"
+          className={`mobile-tab-btn ${isExampleBrowserOpen ? "is-active" : ""}`}
+          onClick={() => setIsExampleBrowserOpen((v) => !v)}
+          aria-label="Examples"
+        >
+          <svg viewBox="0 0 16 16" aria-hidden="true">
+            <rect x="2.5" y="2.5" width="4.5" height="4.5" rx="0.8" />
+            <rect x="9" y="2.5" width="4.5" height="4.5" rx="0.8" />
+            <rect x="2.5" y="9" width="4.5" height="4.5" rx="0.8" />
+            <rect x="9" y="9" width="4.5" height="4.5" rx="0.8" />
+          </svg>
+          Examples
+        </button>
+        <button
+          type="button"
+          className={`mobile-tab-btn ${isInspectorOpen ? "is-active" : ""}`}
+          onClick={toggleInspector}
+          aria-label="Controls"
+        >
+          <svg viewBox="0 0 16 16" aria-hidden="true">
+            <path d="M3 4.2h10M3 8h10M3 11.8h10" />
+            <circle cx="5.4" cy="4.2" r="0.9" />
+            <circle cx="10.6" cy="8" r="0.9" />
+            <circle cx="7.2" cy="11.8" r="0.9" />
+          </svg>
+          Controls
+        </button>
+        <button
+          type="button"
+          className={`mobile-tab-btn ${isConsoleOpen ? "is-active" : ""}`}
+          onClick={toggleConsole}
+          aria-label="Console"
+        >
+          <svg viewBox="0 0 16 16" aria-hidden="true">
+            <rect x="2.6" y="3.1" width="10.8" height="9.8" rx="1.4" />
+            <path d="M4.8 7l1.8 1.5L4.8 10M8.2 10h3" />
+          </svg>
+          Console
+        </button>
+      </nav>
     </div>
   );
 }

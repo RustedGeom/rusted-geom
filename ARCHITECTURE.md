@@ -1,5 +1,23 @@
 # Architecture Overview
 
+## Geometry Pipeline
+
+The kernel is organized as a two-layer pipeline:
+
+```
+NURBS  ──▶  Mesh
+create      boolean + display
+```
+
+| Layer | Responsibility | Does NOT do |
+|-------|---------------|-------------|
+| **NURBS** | Create curves and surfaces: interpolation, sweep, loft, evaluation, derivatives, CAD export (IGES, SAT) | Booleans, topology |
+| **Mesh** | CSG booleans (union, intersection, difference), volume computation, visualization, mesh export (STL, glTF) | Parametric geometry |
+
+Boolean operations are handled at the mesh level via direct mesh CSG (the `boolmesh` crate). Surfaces can be tessellated to meshes, then the mesh boolean produces exact intersection edges with sharp features.
+
+---
+
 ## Repository Layout
 
 ```
@@ -26,32 +44,29 @@ src/
   lib.rs                 — Crate root; declares all top-level modules
   kernel_impl.rs         — Flat module: pulls in all kernel_impl/*.rs via include!
   kernel_impl/           — Per-domain kernel operations (include! flat module)
-    curve_*.rs           — NURBS curve operations
-    surface_*.rs         — NURBS surface operations
+    curve_*.rs           — NURBS curve creation and evaluation
+    surface_*.rs         — NURBS surface creation, tessellation, intersection
+    sweep_loft_ops.rs    — Sweep/loft surface construction
     mesh_*.rs            — Mesh operations and booleans
-    face_*.rs            — Trimmed face operations
     intersection_*.rs    — Curve/surface/mesh intersection algorithms
-    brep_*.rs            — B-rep solid assembly and validation
+    volume_ops.rs        — Mesh volume computation (divergence theorem)
     bounds_ops.rs        — Bounding box computation (AABB/OBB) with caching
     ffi_*.rs             — C ABI export functions (extern "C", #[no_mangle])
   math/
     basis.rs             — find_span, ders_basis_funs (stack-alloc fast path ≤ degree 5)
     nurbs_surface_eval.rs — eval_nurbs_surface_uv_unchecked (hot-path, no validation)
+    vec3.rs              — 3D vector/point arithmetic (single source of truth)
     bounds.rs            — PCA via Jacobi eigendecomposition for OBB computation
     *.rs                 — Other NURBS math utilities
-  elements/
-    brep/                — B-rep data structures (Face, Loop, Edge, Vertex)
   session/
     store.rs             — Global session registry (DashMap keyed by session ID)
-    objects.rs           — Per-session object store
+    objects.rs           — Per-session object store (geometry objects)
   wasm/                  — wasm-bindgen public API (the web-facing layer)
     mod.rs               — KernelSession struct + handle macros
     curve.rs             — Curve constructors and evaluation
     surface.rs           — Surface constructors and evaluation
-    mesh.rs              — Mesh operations
-    face.rs              — Trimmed face operations
+    mesh.rs              — Mesh operations, CSG booleans, volume computation
     intersection.rs      — Intersection operations
-    brep.rs              — B-rep assembly
     bounds.rs            — Bounding box computation
     error.rs             — Result<T, JsValue> helpers
 ```

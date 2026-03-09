@@ -57,30 +57,11 @@ fn rgm_mesh_boolean_impl(
             let b = find_mesh(state, mesh_b)?;
             let a_vertices = mesh_world_vertices(a);
             let b_vertices = mesh_world_vertices(b);
-            let mut a_pos = Vec::with_capacity(a_vertices.len() * 3);
-            for vertex in &a_vertices {
-                a_pos.push(vertex.x);
-                a_pos.push(vertex.y);
-                a_pos.push(vertex.z);
-            }
-            let mut b_pos = Vec::with_capacity(b_vertices.len() * 3);
-            for vertex in &b_vertices {
-                b_pos.push(vertex.x);
-                b_pos.push(vertex.y);
-                b_pos.push(vertex.z);
-            }
-            let mut a_indices = Vec::with_capacity(a.triangles.len() * 3);
-            for tri in &a.triangles {
-                a_indices.push(tri[0] as usize);
-                a_indices.push(tri[1] as usize);
-                a_indices.push(tri[2] as usize);
-            }
-            let mut b_indices = Vec::with_capacity(b.triangles.len() * 3);
-            for tri in &b.triangles {
-                b_indices.push(tri[0] as usize);
-                b_indices.push(tri[1] as usize);
-                b_indices.push(tri[2] as usize);
-            }
+
+            let a_pos: Vec<f64> = a_vertices.iter().flat_map(|v| [v.x, v.y, v.z]).collect();
+            let a_indices: Vec<usize> = a.triangles.iter().flat_map(|t| [t[0] as usize, t[1] as usize, t[2] as usize]).collect();
+            let b_pos: Vec<f64> = b_vertices.iter().flat_map(|v| [v.x, v.y, v.z]).collect();
+            let b_indices: Vec<usize> = b.triangles.iter().flat_map(|t| [t[0] as usize, t[1] as usize, t[2] as usize]).collect();
 
             let manifold_a =
                 Manifold::new(&a_pos, &a_indices).map_err(|_| RgmStatus::DegenerateGeometry)?;
@@ -129,13 +110,9 @@ fn rgm_mesh_boolean_impl(
 fn resolve_surface_operand(
     state: &SessionState,
     handle: RgmObjectHandle,
-) -> Result<(SurfaceData, Option<FaceData>), RgmStatus> {
+) -> Result<SurfaceData, RgmStatus> {
     match state.objects.get(&handle.0) {
-        Some(GeometryObject::Surface(surface)) => Ok((surface.clone(), None)),
-        Some(GeometryObject::Face(face)) => {
-            let surface = find_surface(state, face.surface)?.clone();
-            Ok((surface, Some(face.clone())))
-        }
+        Some(GeometryObject::Surface(surface)) => Ok(surface.clone()),
         Some(_) => Err(RgmStatus::InvalidInput),
         None => Err(RgmStatus::NotFound),
     }

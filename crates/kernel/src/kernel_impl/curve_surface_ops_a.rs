@@ -228,13 +228,41 @@ fn matrix_apply_vec(matrix: [[f64; 4]; 4], vector: RgmVec3) -> RgmVec3 {
     }
 }
 
-fn default_surface_tess_options(tol: RgmToleranceContext) -> RgmSurfaceTessellationOptions {
+fn adaptive_surface_tess_options(
+    surface: &NurbsSurfaceCore,
+    is_trimmed: bool,
+) -> RgmSurfaceTessellationOptions {
+    let spans_u = if surface.periodic_u {
+        surface.control_u_count.saturating_sub(surface.degree_u).max(1)
+    } else {
+        (surface.control_u_count - 1).max(1)
+    };
+    let spans_v = if surface.periodic_v {
+        surface.control_v_count.saturating_sub(surface.degree_v).max(1)
+    } else {
+        (surface.control_v_count - 1).max(1)
+    };
+
+    let samples_per_span = |deg: usize| -> usize {
+        match deg {
+            0 | 1 => 1,
+            _ => 2,
+        }
+    };
+
+    let min_u = (spans_u * samples_per_span(surface.degree_u)).clamp(4, 128) as u32;
+    let min_v = (spans_v * samples_per_span(surface.degree_v)).clamp(4, 128) as u32;
+
+    let max_factor: u32 = if is_trimmed { 2 } else { 4 };
+    let max_u = (min_u * max_factor).min(256);
+    let max_v = (min_v * max_factor).min(256);
+
     RgmSurfaceTessellationOptions {
-        min_u_segments: 24,
-        min_v_segments: 24,
-        max_u_segments: 256,
-        max_v_segments: 256,
-        chord_tol: (tol.abs_tol * 2000.0).max(1e-5),
+        min_u_segments: min_u,
+        min_v_segments: min_v,
+        max_u_segments: max_u,
+        max_v_segments: max_v,
+        chord_tol: (surface.tol.abs_tol * 2000.0).max(1e-5),
         normal_tol_rad: 0.08,
     }
 }
@@ -254,9 +282,10 @@ fn default_surface_intersection_tess_options(
 
 fn sanitize_surface_tess_options(
     options: Option<RgmSurfaceTessellationOptions>,
-    tol: RgmToleranceContext,
+    surface: &NurbsSurfaceCore,
+    is_trimmed: bool,
 ) -> RgmSurfaceTessellationOptions {
-    let mut value = options.unwrap_or_else(|| default_surface_tess_options(tol));
+    let mut value = options.unwrap_or_else(|| adaptive_surface_tess_options(surface, is_trimmed));
     if value.min_u_segments < 2 {
         value.min_u_segments = 2;
     }
@@ -276,7 +305,7 @@ fn sanitize_surface_tess_options(
         value.max_v_segments = 1024;
     }
     if value.chord_tol <= 0.0 {
-        value.chord_tol = (tol.abs_tol * 2000.0).max(1e-5);
+        value.chord_tol = (surface.tol.abs_tol * 2000.0).max(1e-5);
     }
     if value.normal_tol_rad <= 0.0 {
         value.normal_tol_rad = 0.08;
@@ -512,63 +541,3 @@ fn uv_lerp(a: RgmUv2, b: RgmUv2, t: f64) -> RgmUv2 {
     }
 }
 
-fn uv_from_point3(point: RgmPoint3) -> RgmUv2 {
-    RgmUv2 {
-        u: point.x,
-        v: point.y,
-    }
-}
-
-fn uv_point_segment_distance(point: RgmUv2, a: RgmUv2, b: RgmUv2) -> f64 {
-    let ab_u = b.u - a.u;
-    let ab_v = b.v - a.v;
-    let len2 = ab_u * ab_u + ab_v * ab_v;
-    if len2 <= f64::EPSILON {
-        return uv_distance(point, a);
-    }
-    let ap_u = point.u - a.u;
-    let ap_v = point.v - a.v;
-    let t = ((ap_u * ab_u + ap_v * ab_v) / len2).clamp(0.0, 1.0);
-    let proj = RgmUv2 {
-        u: a.u + t * ab_u,
-        v: a.v + t * ab_v,
-    };
-    uv_distance(point, proj)
-}
-
-fn normalize_trim_edge_samples(
-    start_uv: RgmUv2,
-    end_uv: RgmUv2,
-    samples: Vec<RgmUv2>,
-    tol: f64,
-) -> Vec<RgmUv2> {
-    let mut out = Vec::with_capacity(samples.len().max(2));
-    if samples.is_empty() {
-        out.push(start_uv);
-        out.push(end_uv);
-        return out;
-    }
-
-    out.push(start_uv);
-    for sample in samples {
-        if out
-            .last()
-            .map(|last| uv_distance(*last, sample) > tol)
-            .unwrap_or(true)
-        {
-            out.push(sample);
-        }
-    }
-
-    if uv_distance(*out.last().unwrap_or(&start_uv), end_uv) > tol {
-        out.push(end_uv);
-    } else if let Some(last) = out.last_mut() {
-        *last = end_uv;
-    }
-
-    if out.len() < 2 {
-        out.push(end_uv);
-    }
-
-    out
-}

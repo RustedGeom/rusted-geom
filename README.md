@@ -27,23 +27,25 @@
 
 **rusted-geom** is a NURBS (Non-Uniform Rational B-Spline) geometry kernel built in Rust and compiled to WebAssembly via `wasm-pack`. It exposes a fully typed TypeScript API through `wasm-bindgen`, enabling browser and Node.js applications to perform computational geometry operations at near-native speed.
 
-**[Live Showcase](https://rusted-geom-kernel-showcase.vercel.app)** — interactive 3D viewer with NURBS curves, surfaces, mesh booleans, and more.
+**[Live Showcase](https://rusted-geom-kernel-showcase.vercel.app)** — interactive 3D viewer with NURBS curves, surfaces, sweep/loft, CSG booleans, and more.
 
 ### Key Capabilities
 
 - **NURBS Curves & Surfaces** — construction, evaluation, tessellation, fit-point interpolation
-- **Mesh Operations** — box/torus primitives, boolean operations (union, intersection, difference)
-- **B-Rep Modeling** — trimmed faces, loops, edges, vertex topology
+- **Sweep & Loft** — sweep a profile along a path or loft through cross-sections to generate surfaces
+- **CSG Booleans** — union, intersection, and difference via direct mesh CSG (boolmesh)
+- **Volume Computation** — closed-mesh volume via divergence theorem (signed tetrahedron sum)
+- **Mesh Operations** — box/torus/sphere primitives, transforms, mesh export
 - **Intersections** — surface–surface and curve–surface intersection with branch tracking
 - **Bounding Volumes** — axis-aligned (AABB) and oriented (OBB) bounding boxes
 - **LandXML** — parsing, sampling, and surface reconstruction from survey data
-- **CAD Export** — IGES 5.3 and ACIS SAT file generation for curves, surfaces, and B-rep
+- **CAD Export** — IGES 5.3 and ACIS SAT file generation for curves and surfaces
 - **Mesh Export** — STL and glTF 2.0 export for triangulated meshes
 - **Benchmarked** — Criterion-based benchmarks with regression detection
 
 ### Project Status
 
-> **v0.1.0** — First public release. APIs may still evolve. Contributions and feedback welcome.
+> **v0.3.0** — Removed B-Rep/Face layer; NURBS + Mesh only. Sweep and loft produce surfaces directly. APIs may still evolve. Contributions and feedback welcome.
 
 ---
 
@@ -60,7 +62,7 @@ rusted-geom/
 
 | Package | Description |
 |---------|-------------|
-| `crates/kernel` | Core NURBS math, B-Rep structures, session management, WASM bindings |
+| `crates/kernel` | Core NURBS math, session management, WASM bindings |
 | `bindings/web` | Thin ESM re-export + WASM loader for `@rustedgeom/kernel` |
 | `showcase` | Next.js 16 + Three.js full-page viewer and developer test lab |
 
@@ -158,6 +160,49 @@ const result = session.mesh_boolean(box, torus, 2); // 0=union, 1=intersect, 2=d
 console.log("triangles:", session.mesh_triangle_count(result));
 ```
 
+### Sweep & Loft (surface generation)
+
+```ts
+// Sweep a closed profile along a 3D path → surface → mesh
+const path = session.interpolate_nurbs_fit_points(
+  new Float64Array([0,0,0, 5,0,2, 10,0,0]), 2, false
+);
+const profile = session.create_polyline(
+  new Float64Array([0,-1,0, 0,1,0, 0,1,1, 0,-1,1]), true
+);
+const surface = session.sweep(path, profile, 16);
+const mesh = session.surface_tessellate_to_mesh(surface, new Float64Array([]));
+console.log("triangles:", session.mesh_triangle_count(mesh));
+
+// Loft through cross-section curves
+const s0 = session.create_polyline(new Float64Array([0,-1,0, 0,1,0, 0,1,1, 0,-1,1]), true);
+const s1 = session.create_polyline(new Float64Array([10,-2,0, 10,2,0, 10,2,1.5, 10,-2,1.5]), true);
+const loftSurf = session.loft(new Float64Array([s0.object_id(), s1.object_id()]), 12);
+const loftMesh = session.surface_tessellate_to_mesh(loftSurf, new Float64Array([]));
+```
+
+### CSG boolean (union / intersection / difference)
+
+```ts
+const boxA = session.create_box_mesh(0, 0, 0, 4, 4, 4);
+const sphere = session.create_uv_sphere_mesh(1.5, 1.5, 0, 2.0, 32, 24);
+
+// 0 = union, 1 = intersection, 2 = difference
+const union = session.mesh_boolean(boxA, sphere, 0);
+const diff  = session.mesh_boolean(boxA, sphere, 2);
+
+console.log("union triangles:", session.mesh_triangle_count(union));
+console.log("volume:", session.mesh_volume(diff));
+```
+
+### Volume computation
+
+```ts
+const box = session.create_box_mesh(0, 0, 0, 3, 5, 7);
+const volume = session.mesh_volume(box);
+console.log("volume:", volume); // ~105.0
+```
+
 ### Surface–surface intersection
 
 ```ts
@@ -181,6 +226,10 @@ for (let i = 0; i < branchCount; i++) {
 | Build kernel WASM for showcase | `./scripts/build_kernel_wasm.sh` |
 | Stage WASM into web bindings | `./scripts/stage_web_wasm.sh` |
 | Build + pack `@rustedgeom/kernel` | `./scripts/pack_web.sh` |
+| Launch showcase (full rebuild) | `pnpm --dir showcase dev` |
+| Launch showcase (UI-only, skip WASM) | `pnpm --dir showcase dev:fast` |
+| WASM hot-reload during Rust iteration | `./scripts/watch_kernel.sh` |
+| Check WASM binary size against budget | `./scripts/check_wasm_size.sh` |
 | Run Rust unit tests | `cargo test -p kernel` |
 | TypeScript type check | `npm --prefix ./bindings/web run typecheck` |
 | Web runtime tests | `npm --prefix ./bindings/web run test` |
@@ -192,12 +241,33 @@ for (let i = 0; i < branchCount; i++) {
 
 ## Architecture
 
+### Geometry pipeline
+
+The kernel is organized as a three-layer pipeline. Each layer has a single responsibility and feeds the next:
+
+```
+NURBS             create geometry (curves, surfaces, evaluation, fitting, sweep, loft)
+  │
+  ▼
+Mesh              CSG booleans, volume computation, visualization, STL / glTF export
+```
+
+**NURBS** is the creation layer. Curves and surfaces are built here via interpolation, sweep, loft, or direct control-point specification. All geometry is rational B-spline.
+
+**Mesh** is the output and boolean layer. Triangle meshes support CSG boolean operations (union, intersection, difference) via direct mesh intersection, volume computation (divergence theorem), 3D visualization, and mesh-format export (STL, glTF). Surfaces can be tessellated to meshes for booleans and visualization.
+
+### Source layout
+
 ```
 crates/kernel (Rust)
   ├── math/            — NURBS basis functions, evaluation, fitting
-  ├── elements/brep/   — B-rep topology (Face, Loop, Edge, Vertex)
   ├── session/         — object registry and session lifecycle
   ├── kernel_impl/     — C ABI kernel operations
+  │     ├── curve_*          — NURBS curve creation and evaluation
+  │     ├── surface_*        — NURBS surface creation, tessellation, intersection
+  │     ├── sweep_loft_ops   — sweep / loft surface construction
+  │     ├── volume_ops       — mesh volume computation (divergence theorem)
+  │     └── ffi_*            — C ABI + WASM FFI exports
   ├── landxml/         — LandXML parsing and sampling
   └── wasm/            — #[wasm_bindgen] public API
          ↓  wasm-pack build

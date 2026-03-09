@@ -5,3 +5,19 @@ dist
 .claude/**/*
 .vercel
 showcase/out
+
+# Playwright MCP artifacts
+.playwright-mcp/
+
+# WASM build outputs
+crates/kernel/pkg/
+showcase/public/wasm/
+
+# Debug screenshots and scripts
+*.png
+!showcase/public/**/*.png
+check-*.mjs
+showcase/check-*.mjs
+showcase/test-examples.*
+showcase/playwright-manual.config.ts
+showcase/test-brep-*.spec.ts

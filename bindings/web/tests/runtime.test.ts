@@ -26,11 +26,6 @@ function clampedUniformKnots(controlCount: number, degree: number): number[] {
   return knots;
 }
 
-// Helper: flat [x,y,z, …] array from structured point array.
-function flatPoints(pts: Array<{ x: number; y: number; z: number }>): number[] {
-  return pts.flatMap((p) => [p.x, p.y, p.z]);
-}
-
 // Identity plane axes.
 const I_XX = 1, I_XY = 0, I_XZ = 0;
 const I_YX = 0, I_YY = 1, I_YZ = 0;
@@ -227,80 +222,4 @@ describe.skipIf(!pkgAvailable)("kernel wasm-bindgen API", () => {
     session.free();
   });
 
-  it("builds a B-rep shell and validates it", () => {
-    const session = new KernelSession();
-
-    const uCount = 3, vCount = 3;
-    const rawPts = flatPoints([
-      { x: -2, y: -2, z: 0 }, { x: -2, y: 0, z: 0.5 }, { x: -2, y: 2, z: 0 },
-      { x:  0, y: -2, z: 0.5 }, { x:  0, y: 0, z: 1   }, { x:  0, y: 2, z: 0.5 },
-      { x:  2, y: -2, z: 0 }, { x:  2, y: 0, z: 0.5 }, { x:  2, y: 2, z: 0 },
-    ]);
-    const ku = clampedUniformKnots(uCount, 2);
-    const kv = clampedUniformKnots(vCount, 2);
-
-    const surface = session.create_nurbs_surface(
-      2, 2, uCount, vCount, false, false,
-      rawPts, new Array(uCount * vCount).fill(1), ku, kv,
-    );
-
-    const brep = session.brep_create_empty();
-    const faceId = session.brep_add_face_from_surface(brep, surface);
-    session.brep_add_loop_uv(brep, faceId,
-      [0.05, 0.05, 0.95, 0.05, 0.95, 0.95, 0.05, 0.95],
-      true,
-    );
-    const shellId = session.brep_finalize_shell(brep);
-    expect(shellId).toBeGreaterThanOrEqual(0);
-
-    const result = session.brep_validate(brep);
-    expect(result.issue_count).toBeGreaterThanOrEqual(0);
-
-    surface.free();
-    brep.free();
-    result.free();
-    session.free();
-  });
-
-  it("round-trips a B-rep through native serialisation", () => {
-    const session = new KernelSession();
-
-    const box_ = session.create_box_mesh(0, 0, 0, 2, 2, 2);
-    const torus = session.create_torus_mesh(0, 0, 0, 1.5, 0.4, 24, 16);
-    const diff = session.mesh_boolean(box_, torus, 2);
-    expect(session.mesh_triangle_count(diff)).toBeGreaterThan(0);
-
-    // Build a proper B-rep with loops so it passes load-time validation (B3).
-    const uCount = 3, vCount = 3;
-    const rawPts = flatPoints([
-      { x: -1, y: -1, z: 0 }, { x: -1, y: 0, z: 0 }, { x: -1, y: 1, z: 0 },
-      { x:  0, y: -1, z: 0.5 }, { x:  0, y: 0, z: 0.5 }, { x:  0, y: 1, z: 0.5 },
-      { x:  1, y: -1, z: 0 }, { x:  1, y: 0, z: 0 }, { x:  1, y: 1, z: 0 },
-    ]);
-    const surface = session.create_nurbs_surface(
-      2, 2, uCount, vCount, false, false,
-      rawPts, new Array(uCount * vCount).fill(1),
-      clampedUniformKnots(uCount, 2), clampedUniformKnots(vCount, 2),
-    );
-    const brep = session.brep_create_empty();
-    const faceId = session.brep_add_face_from_surface(brep, surface);
-    session.brep_add_loop_uv(brep, faceId,
-      [0.05, 0.05, 0.95, 0.05, 0.95, 0.95, 0.05, 0.95],
-      true,
-    );
-    session.brep_finalize_shell(brep);
-
-    const bytes = session.brep_save_native(brep);
-    expect(bytes.length).toBeGreaterThan(0);
-    const brep2 = session.brep_load_native(bytes);
-    expect(session.brep_face_count(brep2)).toBe(session.brep_face_count(brep));
-
-    box_.free();
-    torus.free();
-    diff.free();
-    surface.free();
-    brep.free();
-    brep2.free();
-    session.free();
-  });
 });

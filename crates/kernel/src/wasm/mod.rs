@@ -7,10 +7,8 @@
 //! and releases it on `Drop` (or when JS GC collects it via FinalizationRegistry).
 
 mod bounds;
-mod brep;
 mod curve;
 mod error;
-mod face;
 mod intersection;
 mod io;
 mod landxml;
@@ -18,7 +16,6 @@ mod mesh;
 mod surface;
 
 pub use bounds::Bounds3;
-pub use brep::BrepValidationResult;
 pub use intersection::BranchSummary;
 pub use surface::SurfaceEvalResult;
 
@@ -156,9 +153,7 @@ macro_rules! define_handle {
 define_handle!(CurveHandle, "Handle to a curve object.");
 define_handle!(SurfaceHandle, "Handle to a surface object.");
 define_handle!(MeshHandle, "Handle to a mesh object.");
-define_handle!(FaceHandle, "Handle to a trimmed face object.");
 define_handle!(IntersectionHandle, "Handle to an intersection result.");
-define_handle!(BrepHandle, "Handle to a B-rep solid.");
 define_handle!(LandXmlDocHandle, "Handle to a parsed LandXML document.");
 
 // ─── Helpers shared across domain modules ─────────────────────────────────────
@@ -173,13 +168,6 @@ pub(crate) fn flat_to_points(flat: &[f64]) -> Vec<crate::RgmPoint3> {
 /// Convert a `Vec<RgmPoint3>` to a flat `[x, y, z, …]` `Vec<f64>`.
 pub(crate) fn points_to_flat(pts: &[crate::RgmPoint3]) -> Vec<f64> {
     pts.iter().flat_map(|p| [p.x, p.y, p.z]).collect()
-}
-
-/// Convert a flat `[u, v, u, v, …]` slice to `Vec<RgmUv2>`.
-pub(crate) fn flat_to_uv(flat: &[f64]) -> Vec<crate::RgmUv2> {
-    flat.chunks_exact(2)
-        .map(|c| crate::RgmUv2 { u: c[0], v: c[1] })
-        .collect()
 }
 
 pub(crate) fn uv_to_flat(uvs: &[crate::RgmUv2]) -> Vec<f64> {

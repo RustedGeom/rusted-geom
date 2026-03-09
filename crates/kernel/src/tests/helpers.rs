@@ -328,14 +328,6 @@
         super::rgm_mesh_boolean(session, mesh_a, mesh_b, op, out_mesh)
     }
 
-    fn rgm_intersection_branch_count(
-        session: RgmKernelHandle,
-        intersection: RgmObjectHandle,
-        out_count: *mut u32,
-    ) -> RgmStatus {
-        super::rgm_intersection_branch_count(session, intersection, out_count)
-    }
-
     fn create_session() -> RgmKernelHandle {
         let mut session = RgmKernelHandle(0);
         let status = rgm_kernel_create(&mut session as *mut _);
@@ -512,99 +504,6 @@
         surface
     }
 
-    fn add_outer_rect_loop(session: RgmKernelHandle, face: RgmObjectHandle) {
-        let outer = [
-            RgmUv2 { u: 0.0, v: 0.0 },
-            RgmUv2 { u: 1.0, v: 0.0 },
-            RgmUv2 { u: 1.0, v: 1.0 },
-            RgmUv2 { u: 0.0, v: 1.0 },
-        ];
-        assert_eq!(
-            rgm_face_add_loop(session, face, outer.as_ptr(), outer.len(), true),
-            RgmStatus::Ok
-        );
-    }
-
-    fn add_curved_hole_loop(
-        session: RgmKernelHandle,
-        face: RgmObjectHandle,
-        center_u: f64,
-        center_v: f64,
-        radius: f64,
-    ) -> Vec<RgmObjectHandle> {
-        let plane = RgmPlane {
-            origin: RgmPoint3 {
-                x: center_u,
-                y: center_v,
-                z: 0.0,
-            },
-            x_axis: RgmVec3 {
-                x: 1.0,
-                y: 0.0,
-                z: 0.0,
-            },
-            y_axis: RgmVec3 {
-                x: 0.0,
-                y: 1.0,
-                z: 0.0,
-            },
-            z_axis: RgmVec3 {
-                x: 0.0,
-                y: 0.0,
-                z: 1.0,
-            },
-        };
-
-        let mut curve_handles = Vec::new();
-        let mut edges = Vec::new();
-        for idx in 0..4 {
-            let start_angle = idx as f64 * (PI * 0.5);
-            let end_angle = (idx as f64 + 1.0) * (PI * 0.5);
-            let mut arc = RgmObjectHandle(0);
-            assert_eq!(
-                rgm_curve_create_arc_by_angles(
-                    session,
-                    plane,
-                    radius,
-                    start_angle,
-                    end_angle,
-                    tol(),
-                    &mut arc as *mut _,
-                ),
-                RgmStatus::Ok
-            );
-            curve_handles.push(arc);
-            edges.push(RgmTrimEdgeInput {
-                start_uv: RgmUv2 {
-                    u: center_u + radius * start_angle.cos(),
-                    v: center_v + radius * start_angle.sin(),
-                },
-                end_uv: RgmUv2 {
-                    u: center_u + radius * end_angle.cos(),
-                    v: center_v + radius * end_angle.sin(),
-                },
-                curve_3d: arc,
-                has_curve_3d: true,
-            });
-        }
-
-        let loop_input = RgmTrimLoopInput {
-            edge_count: edges.len() as u32,
-            is_outer: false,
-        };
-        assert_eq!(
-            rgm_face_add_loop_edges(
-                session,
-                face,
-                &loop_input as *const _,
-                edges.as_ptr(),
-                edges.len(),
-            ),
-            RgmStatus::Ok
-        );
-        curve_handles
-    }
-
     fn clamped_uniform_knots(control_count: usize, degree: usize) -> Vec<f64> {
         let knot_count = control_count + degree + 1;
         let mut knots = vec![0.0; knot_count];
@@ -734,23 +633,7 @@
             GeometryObject::Curve(curve) => Some(curve.clone()),
             GeometryObject::Mesh(_)
             | GeometryObject::Surface(_)
-            | GeometryObject::Face(_)
             | GeometryObject::Intersection(_)
-            | GeometryObject::Brep(_)
-            | GeometryObject::LandXmlDoc(_) => None,
-        }
-    }
-
-    fn debug_get_face(session: RgmKernelHandle, object: RgmObjectHandle) -> Option<FaceData> {
-        let session_entry = super::SESSIONS.get(&session.0)?;
-        let state = session_entry.value().read();
-        match state.objects.get(&object.0)? {
-            GeometryObject::Face(face) => Some(face.clone()),
-            GeometryObject::Curve(_)
-            | GeometryObject::Mesh(_)
-            | GeometryObject::Surface(_)
-            | GeometryObject::Intersection(_)
-            | GeometryObject::Brep(_)
             | GeometryObject::LandXmlDoc(_) => None,
         }
     }
@@ -762,11 +645,17 @@
             GeometryObject::Mesh(mesh) => Some(mesh.clone()),
             GeometryObject::Curve(_)
             | GeometryObject::Surface(_)
-            | GeometryObject::Face(_)
             | GeometryObject::Intersection(_)
-            | GeometryObject::Brep(_)
             | GeometryObject::LandXmlDoc(_) => None,
         }
+    }
+
+    fn rgm_mesh_volume(
+        session: RgmKernelHandle,
+        mesh: RgmObjectHandle,
+        out_volume: *mut f64,
+    ) -> RgmStatus {
+        super::rgm_mesh_volume(session, mesh, out_volume)
     }
 
     fn debug_get_intersection(
@@ -780,8 +669,6 @@
             GeometryObject::Curve(_)
             | GeometryObject::Mesh(_)
             | GeometryObject::Surface(_)
-            | GeometryObject::Face(_)
-            | GeometryObject::Brep(_)
             | GeometryObject::LandXmlDoc(_) => None,
         }
     }

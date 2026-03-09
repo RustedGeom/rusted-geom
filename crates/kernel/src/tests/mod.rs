@@ -10,6 +10,7 @@ mod tests {
     include!("../tests/test_surfaces.rs");
     include!("../tests/test_meshes.rs");
     include!("../tests/test_intersections.rs");
-    include!("../tests/test_brep.rs");
     include!("../tests/test_bounds.rs");
+    include!("../tests/test_sweep_loft.rs");
+    include!("../tests/test_volume_csg.rs");
 }

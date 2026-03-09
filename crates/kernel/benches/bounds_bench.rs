@@ -1,10 +1,9 @@
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
 use rusted_geom::{
-    rgm_brep_add_face_from_surface, rgm_brep_add_loop_uv, rgm_brep_create_empty,
     rgm_curve_create_polyline, rgm_kernel_create, rgm_kernel_destroy, rgm_mesh_create_torus,
     rgm_object_compute_bounds, rgm_object_release, rgm_surface_create_nurbs, RgmBounds3,
     RgmBoundsMode, RgmBoundsOptions, RgmKernelHandle, RgmNurbsSurfaceDesc, RgmObjectHandle,
-    RgmPoint3, RgmStatus, RgmToleranceContext, RgmUv2,
+    RgmPoint3, RgmStatus, RgmToleranceContext,
 };
 
 fn tol() -> RgmToleranceContext {
@@ -160,40 +159,6 @@ fn mesh_fixture(session: RgmKernelHandle) -> RgmObjectHandle {
     mesh
 }
 
-fn brep_fixture(session: RgmKernelHandle) -> (RgmObjectHandle, RgmObjectHandle) {
-    let surface = create_warped_surface(session, 10, 9, 8.0, 7.0, 0.7);
-    let mut brep = RgmObjectHandle(0);
-    assert_eq!(
-        rgm_brep_create_empty(session, &mut brep as *mut _),
-        RgmStatus::Ok
-    );
-    let mut face_id = 0_u32;
-    assert_eq!(
-        rgm_brep_add_face_from_surface(session, brep, surface, &mut face_id as *mut _),
-        RgmStatus::Ok
-    );
-    let outer = [
-        RgmUv2 { u: 0.05, v: 0.05 },
-        RgmUv2 { u: 0.95, v: 0.07 },
-        RgmUv2 { u: 0.94, v: 0.94 },
-        RgmUv2 { u: 0.06, v: 0.92 },
-    ];
-    let mut loop_id = 0_u32;
-    assert_eq!(
-        rgm_brep_add_loop_uv(
-            session,
-            brep,
-            face_id,
-            outer.as_ptr(),
-            outer.len(),
-            true,
-            &mut loop_id as *mut _,
-        ),
-        RgmStatus::Ok
-    );
-    (brep, surface)
-}
-
 fn bounds_options(mode: RgmBoundsMode, sample_budget: u32) -> RgmBoundsOptions {
     RgmBoundsOptions {
         mode,
@@ -323,26 +288,6 @@ fn bench_mesh_bounds_fast_cached(c: &mut Criterion) {
     destroy_session(session);
 }
 
-fn bench_brep_bounds_fast(c: &mut Criterion) {
-    let session = create_session();
-    let (brep, surface) = brep_fixture(session);
-    let options = bounds_options(RgmBoundsMode::Fast, 0);
-    let mut out = zero_bounds();
-
-    c.bench_function("brep_bounds_fast", |b| {
-        b.iter(|| {
-            let status =
-                rgm_object_compute_bounds(session, brep, &options as *const _, &mut out as *mut _);
-            black_box(status);
-            black_box(out);
-        })
-    });
-
-    assert_eq!(rgm_object_release(session, brep), RgmStatus::Ok);
-    assert_eq!(rgm_object_release(session, surface), RgmStatus::Ok);
-    destroy_session(session);
-}
-
 fn bench_obb_optimal_refine(c: &mut Criterion) {
     let session = create_session();
     let mesh = mesh_fixture(session);
@@ -367,7 +312,6 @@ criterion_group!(
     bench_curve_bounds_fast,
     bench_surface_bounds_fast,
     bench_mesh_bounds_fast_cached,
-    bench_brep_bounds_fast,
     bench_obb_optimal_refine,
 );
 criterion_main!(bounds_benches);

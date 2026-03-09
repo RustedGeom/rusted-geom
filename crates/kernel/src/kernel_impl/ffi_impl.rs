@@ -84,218 +84,10 @@ fn rgm_surface_tessellate_to_mesh_impl(
         out_mesh,
         |state| {
             let surface = find_surface(state, surface)?;
-            let samples = tessellate_surface_samples(surface, None, options)?;
+            let samples = tessellate_surface_samples(surface, options)?;
             Ok(build_mesh_from_tessellation(&samples))
         },
         "Surface tessellation failed",
-    )
-}
-
-fn rgm_face_create_from_surface_impl(
-    session: RgmKernelHandle,
-    surface: RgmObjectHandle,
-    out_face: *mut RgmObjectHandle,
-) -> RgmStatus {
-    create_face_object(
-        session,
-        out_face,
-        |state| {
-            let _ = find_surface(state, surface)?;
-            Ok(FaceData {
-                surface,
-                loops: Vec::new(),
-            })
-        },
-        "Face creation failed",
-    )
-}
-
-fn rgm_face_add_loop_impl(
-    session: RgmKernelHandle,
-    face: RgmObjectHandle,
-    points: *const RgmUv2,
-    point_count: usize,
-    is_outer: bool,
-) -> RgmStatus {
-    if points.is_null() {
-        return map_err_with_session(session, RgmStatus::InvalidInput, "Null trim loop points");
-    }
-    let points = unsafe { std::slice::from_raw_parts(points, point_count) };
-    let result = with_session_mut(session, |state| {
-        let face_data = find_face_mut(state, face)?;
-        let loop_data = build_trim_loop_from_points(points, is_outer, 1e-8)?;
-        face_data.loops.push(loop_data);
-        Ok(())
-    });
-    // P1: clear_error now handled inside with_session_mut on success.
-    match result {
-        Ok(()) => RgmStatus::Ok,
-        Err(status) => map_err_with_session(session, status, "Face add loop failed"),
-    }
-}
-
-fn rgm_face_add_loop_edges_impl(
-    session: RgmKernelHandle,
-    face: RgmObjectHandle,
-    loop_input: RgmTrimLoopInput,
-    edges: *const RgmTrimEdgeInput,
-    edge_count: usize,
-) -> RgmStatus {
-    if edges.is_null() {
-        return map_err_with_session(session, RgmStatus::InvalidInput, "Null trim edge array");
-    }
-    let edges = unsafe { std::slice::from_raw_parts(edges, edge_count) };
-    let result = with_session_mut(session, |state| {
-        let loop_data = build_trim_loop_from_edges(state, loop_input, edges, 1e-8)?;
-        let face_data = find_face_mut(state, face)?;
-        face_data.loops.push(loop_data);
-        Ok(())
-    });
-    match result {
-        Ok(()) => RgmStatus::Ok,
-        Err(status) => map_err_with_session(session, status, "Face add edge loop failed"),
-    }
-}
-
-fn rgm_face_remove_loop_impl(
-    session: RgmKernelHandle,
-    face: RgmObjectHandle,
-    loop_index: u32,
-) -> RgmStatus {
-    let result = with_session_mut(session, |state| {
-        let face_data = find_face_mut(state, face)?;
-        let idx = loop_index as usize;
-        if idx >= face_data.loops.len() {
-            return Err(RgmStatus::OutOfRange);
-        }
-        face_data.loops.remove(idx);
-        Ok(())
-    });
-    match result {
-        Ok(()) => RgmStatus::Ok,
-        Err(status) => map_err_with_session(session, status, "Face remove loop failed"),
-    }
-}
-
-fn rgm_face_split_trim_edge_impl(
-    session: RgmKernelHandle,
-    face: RgmObjectHandle,
-    loop_index: u32,
-    edge_index: u32,
-    split_t: f64,
-) -> RgmStatus {
-    let result = with_session_mut(session, |state| {
-        let face_data = find_face_mut(state, face)?;
-        let lidx = loop_index as usize;
-        if lidx >= face_data.loops.len() {
-            return Err(RgmStatus::OutOfRange);
-        }
-        if !(0.0..=1.0).contains(&split_t) {
-            return Err(RgmStatus::OutOfRange);
-        }
-        let loop_data = &mut face_data.loops[lidx];
-        let eidx = edge_index as usize;
-        if eidx >= loop_data.edges.len() {
-            return Err(RgmStatus::OutOfRange);
-        }
-        let edge = loop_data.edges[eidx].clone();
-        let (split_uv, left_samples, right_samples) = split_trim_edge_samples(&edge, split_t, 1e-8);
-        loop_data.edges[eidx].end_uv = split_uv;
-        loop_data.edges[eidx].uv_samples = left_samples;
-        loop_data.edges[eidx].curve_3d = None;
-        loop_data.edges.insert(
-            eidx + 1,
-            TrimEdgeData {
-                start_uv: split_uv,
-                end_uv: edge.end_uv,
-                curve_3d: None,
-                uv_samples: right_samples,
-            },
-        );
-        Ok(())
-    });
-    match result {
-        Ok(()) => RgmStatus::Ok,
-        Err(status) => map_err_with_session(session, status, "Face split edge failed"),
-    }
-}
-
-fn rgm_face_reverse_loop_impl(
-    session: RgmKernelHandle,
-    face: RgmObjectHandle,
-    loop_index: u32,
-) -> RgmStatus {
-    let result = with_session_mut(session, |state| {
-        let face_data = find_face_mut(state, face)?;
-        let idx = loop_index as usize;
-        if idx >= face_data.loops.len() {
-            return Err(RgmStatus::OutOfRange);
-        }
-        let loop_data = &mut face_data.loops[idx];
-        loop_data.edges.reverse();
-        for edge in &mut loop_data.edges {
-            std::mem::swap(&mut edge.start_uv, &mut edge.end_uv);
-            edge.uv_samples.reverse();
-            ensure_edge_samples(edge, 1e-8);
-        }
-        Ok(())
-    });
-    match result {
-        Ok(()) => RgmStatus::Ok,
-        Err(status) => map_err_with_session(session, status, "Face reverse loop failed"),
-    }
-}
-
-fn rgm_face_validate_impl(
-    session: RgmKernelHandle,
-    face: RgmObjectHandle,
-    out_valid: *mut bool,
-) -> RgmStatus {
-    if out_valid.is_null() {
-        return map_err_with_session(session, RgmStatus::InvalidInput, "Null out_valid pointer");
-    }
-    let result = with_session_mut(session, |state| {
-        let face_data = find_face(state, face)?;
-        let valid = validate_face_data(face_data, 1e-8);
-        unsafe {
-            *out_valid = valid;
-        }
-        Ok(())
-    });
-    match result {
-        Ok(()) => RgmStatus::Ok,
-        Err(status) => map_err_with_session(session, status, "Face validation failed"),
-    }
-}
-
-fn rgm_face_heal_impl(session: RgmKernelHandle, face: RgmObjectHandle) -> RgmStatus {
-    let result = with_session_mut(session, |state| {
-        let face_data = find_face_mut(state, face)?;
-        heal_face(face_data, 1e-8);
-        Ok(())
-    });
-    match result {
-        Ok(()) => RgmStatus::Ok,
-        Err(status) => map_err_with_session(session, status, "Face heal failed"),
-    }
-}
-
-fn rgm_face_tessellate_to_mesh_impl(
-    session: RgmKernelHandle,
-    face: RgmObjectHandle,
-    options: Option<RgmSurfaceTessellationOptions>,
-    out_mesh: *mut RgmObjectHandle,
-) -> RgmStatus {
-    create_mesh_object(
-        session,
-        out_mesh,
-        |state| {
-            let face_data = find_face(state, face)?;
-            let surface = find_surface(state, face_data.surface)?;
-            let samples = tessellate_surface_samples(surface, Some(face_data), options)?;
-            Ok(build_mesh_from_tessellation(&samples))
-        },
-        "Face tessellation failed",
     )
 }
 
@@ -309,10 +101,8 @@ fn rgm_intersect_surface_surface_impl(
         session,
         out_intersection,
         |state| {
-            let (surface_a_data, face_a) = resolve_surface_operand(state, surface_a)?;
-            let (surface_b_data, face_b) = resolve_surface_operand(state, surface_b)?;
-            let face_a_classifier = face_a.as_ref().map(FaceUvClassifier::from_face);
-            let face_b_classifier = face_b.as_ref().map(FaceUvClassifier::from_face);
+            let surface_a_data = resolve_surface_operand(state, surface_a)?;
+            let surface_b_data = resolve_surface_operand(state, surface_b)?;
             let options_a = default_surface_intersection_tess_options(surface_a_data.core.tol);
             let options_b = default_surface_intersection_tess_options(surface_b_data.core.tol);
             let tol = surface_a_data
@@ -393,30 +183,7 @@ fn rgm_intersect_surface_surface_impl(
                     chord_tol,
                     tol,
                 );
-                let clipped = clip_branch_against_faces(
-                    &branch,
-                    face_a_classifier.as_ref(),
-                    face_b_classifier.as_ref(),
-                    tol,
-                );
-                let mut candidates = clipped;
-                if let Some(classifier) = face_a_classifier.as_ref() {
-                    let mut next = Vec::new();
-                    for candidate in &candidates {
-                        next.extend(split_branch_inside_runs(candidate, classifier, true, 1e-8));
-                    }
-                    candidates = next;
-                }
-                if let Some(classifier) = face_b_classifier.as_ref() {
-                    let mut next = Vec::new();
-                    for candidate in &candidates {
-                        next.extend(split_branch_inside_runs(candidate, classifier, false, 1e-8));
-                    }
-                    candidates = next;
-                }
-                for candidate in candidates {
-                    push_unique_branch_fast(&mut branches, &mut deduper, candidate);
-                }
+                push_unique_branch_fast(&mut branches, &mut deduper, branch);
                 if branches.len() >= 4 {
                     break;
                 }
@@ -442,8 +209,7 @@ fn rgm_intersect_surface_plane_impl(
         session,
         out_intersection,
         |state| {
-            let (surface_data, face) = resolve_surface_operand(state, surface)?;
-            let face_classifier = face.as_ref().map(FaceUvClassifier::from_face);
+            let surface_data = resolve_surface_operand(state, surface)?;
             let options = default_surface_intersection_tess_options(surface_data.core.tol);
             let segments =
                 intersect_surface_plane_uv_segments(&surface_data, plane.origin, normal, options)?;
@@ -473,16 +239,7 @@ fn rgm_intersect_surface_plane_impl(
                     chord_tol,
                     tol,
                 );
-                let clipped =
-                    clip_branch_against_faces(&refined_raw, face_classifier.as_ref(), None, tol);
-                for branch in clipped {
-                    if let Some(classifier) = face_classifier.as_ref() {
-                        if !branch_within_face(&branch, classifier, true, 1e-8) {
-                            continue;
-                        }
-                    }
-                    push_unique_branch_fast(&mut branches, &mut deduper, branch);
-                }
+                push_unique_branch_fast(&mut branches, &mut deduper, refined_raw);
             }
             Ok(IntersectionData { branches })
         },
@@ -501,8 +258,7 @@ fn rgm_intersect_surface_curve_impl(
         out_intersection,
         |state| {
             let curve_data = find_curve(state, curve)?;
-            let (surface_data, face) = resolve_surface_operand(state, surface)?;
-            let face_classifier = face.as_ref().map(FaceUvClassifier::from_face);
+            let surface_data = resolve_surface_operand(state, surface)?;
             let tol = surface_data.core.tol.abs_tol.max(1e-7);
             let sample_count = surface_curve_seed_sample_count(curve_data);
             let scale =
@@ -528,16 +284,7 @@ fn rgm_intersect_surface_curve_impl(
                     closed: false,
                     flags: 0,
                 };
-                let clipped =
-                    clip_branch_against_faces(&branch, face_classifier.as_ref(), None, tol);
-                for value in clipped {
-                    if let Some(classifier) = face_classifier.as_ref() {
-                        if !branch_within_face(&value, classifier, true, 1e-8) {
-                            continue;
-                        }
-                    }
-                    push_unique_branch_fast(&mut branches, &mut deduper, value);
-                }
+                push_unique_branch_fast(&mut branches, &mut deduper, branch);
             }
 
             Ok(IntersectionData { branches })
@@ -718,9 +465,8 @@ include!("ffi_memory.rs");
 include!("ffi_curve.rs");
 include!("ffi_mesh.rs");
 include!("ffi_surface.rs");
-include!("ffi_face.rs");
 include!("ffi_intersection.rs");
-include!("ffi_brep.rs");
+include!("ffi_volume.rs");
 include!("sat_writer.rs");
 include!("iges_writer.rs");
 include!("stl_writer.rs");

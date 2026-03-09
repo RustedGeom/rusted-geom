@@ -2,9 +2,9 @@
 
 use super::{flat_to_points, MeshHandle, SurfaceHandle, KernelSession};
 use crate::{
-    rgm_surface_bake_transform, rgm_surface_create_nurbs, rgm_surface_d1_at, rgm_surface_d2_at,
-    rgm_surface_frame_at, rgm_surface_normal_at, rgm_surface_point_at, rgm_surface_rotate,
-    rgm_surface_scale, rgm_surface_tessellate_to_mesh, rgm_surface_translate,
+    rgm_loft, rgm_loft_typed, rgm_sweep, rgm_surface_bake_transform, rgm_surface_create_nurbs, rgm_surface_d1_at,
+    rgm_surface_d2_at, rgm_surface_frame_at, rgm_surface_normal_at, rgm_surface_point_at,
+    rgm_surface_rotate, rgm_surface_scale, rgm_surface_tessellate_to_mesh, rgm_surface_translate,
     RgmNurbsSurfaceDesc, RgmObjectHandle, RgmPoint3, RgmSurfaceEvalFrame,
     RgmSurfaceTessellationOptions, RgmUv2, RgmVec3,
 };
@@ -219,6 +219,84 @@ impl KernelSession {
         let mut out = RgmObjectHandle(0);
         super::error::check(rgm_surface_bake_transform(
             self.handle(), RgmObjectHandle(surface.object_id), &mut out,
+        ))?;
+        Ok(SurfaceHandle::new(self.session_id, out.0))
+    }
+
+    // ── Sweep / Loft ──────────────────────────────────────────────────────────
+
+    /// Sweep a profile curve along a path curve, returning a surface.
+    pub fn sweep(
+        &self,
+        path: &super::CurveHandle,
+        profile: &super::CurveHandle,
+        n_stations: u32,
+    ) -> Result<SurfaceHandle, JsValue> {
+        let mut out = RgmObjectHandle(0);
+        super::error::check(rgm_sweep(
+            self.handle(),
+            RgmObjectHandle(path.object_id),
+            RgmObjectHandle(profile.object_id),
+            n_stations,
+            false,
+            &mut out,
+        ))?;
+        Ok(SurfaceHandle::new(self.session_id, out.0))
+    }
+
+    /// Loft through multiple section curves, returning a surface.
+    ///
+    /// `section_ids` is a flat array of curve object IDs (as f64).
+    pub fn loft(
+        &self,
+        section_ids: Vec<f64>,
+        n_samples: u32,
+    ) -> Result<SurfaceHandle, JsValue> {
+        let handles: Vec<RgmObjectHandle> = section_ids
+            .iter()
+            .map(|&id| RgmObjectHandle(id as u64))
+            .collect();
+        let mut out = RgmObjectHandle(0);
+        super::error::check(rgm_loft(
+            self.handle(),
+            handles.as_ptr(),
+            handles.len(),
+            n_samples,
+            false,
+            &mut out,
+        ))?;
+        Ok(SurfaceHandle::new(self.session_id, out.0))
+    }
+
+    /// Loft with an explicit loft type, returning a surface.
+    ///
+    /// `loft_type`: `"normal"` (default), `"loose"`, `"tight"`, `"straight"`.
+    pub fn loft_typed(
+        &self,
+        section_ids: Vec<f64>,
+        n_samples: u32,
+        loft_type: String,
+    ) -> Result<SurfaceHandle, JsValue> {
+        let lt: u32 = match loft_type.as_str() {
+            "normal" | "" => 0,
+            "loose" => 1,
+            "tight" => 2,
+            "straight" => 3,
+            _ => return Err(JsValue::from_str(&format!("Unknown loft type: {loft_type}"))),
+        };
+        let handles: Vec<RgmObjectHandle> = section_ids
+            .iter()
+            .map(|&id| RgmObjectHandle(id as u64))
+            .collect();
+        let mut out = RgmObjectHandle(0);
+        super::error::check(rgm_loft_typed(
+            self.handle(),
+            handles.as_ptr(),
+            handles.len(),
+            n_samples,
+            false,
+            lt,
+            &mut out,
         ))?;
         Ok(SurfaceHandle::new(self.session_id, out.0))
     }

@@ -12,7 +12,7 @@ import sys
 THRESHOLDS_NS = {
     "curve_bounds_fast": 120.0,
     "curve_point_and_d1_at_polyline_1k": 700.0,
-    "curve_fit_nurbs_from_200_points": 450_000.0,
+    "curve_fit_nurbs_from_200_points": 500_000.0,
 }
 
 

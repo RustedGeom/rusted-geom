@@ -12,6 +12,7 @@ import {
   type ContractLogEntry,
   type ContractSuiteResult,
 } from "@/lib/kernel-contract-suite";
+import { fileSafeStamp, downloadText } from "@/lib/download-utils";
 import styles from "./kernel-test-lab.module.css";
 
 interface CaseUiState {
@@ -27,26 +28,6 @@ function formatMs(value: number): string {
   return `${value.toFixed(1)}ms`;
 }
 
-function fileSafeStamp(): string {
-  const d = new Date();
-  const year = d.getFullYear();
-  const month = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
-  const hh = String(d.getHours()).padStart(2, "0");
-  const mm = String(d.getMinutes()).padStart(2, "0");
-  const ss = String(d.getSeconds()).padStart(2, "0");
-  return `${year}-${month}-${day}_${hh}-${mm}-${ss}`;
-}
-
-function downloadText(filename: string, text: string): void {
-  const blob = new Blob([text], { type: "text/plain;charset=utf-8" });
-  const url = URL.createObjectURL(blob);
-  const anchor = document.createElement("a");
-  anchor.href = url;
-  anchor.download = filename;
-  anchor.click();
-  URL.revokeObjectURL(url);
-}
 
 function toInitialCases(): CaseUiState[] {
   return CONTRACT_CASES.map((testCase) => ({

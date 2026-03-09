@@ -14,6 +14,13 @@ wasm-pack build --target web --release \
   --out-dir "$repo_root/crates/kernel/pkg" \
   "$repo_root/crates/kernel"
 
+if command -v wasm-opt &>/dev/null; then
+  echo "Running wasm-opt -O3..."
+  wasm-opt -O3 --enable-simd \
+    "$repo_root/crates/kernel/pkg/rusted_geom_bg.wasm" \
+    -o "$repo_root/crates/kernel/pkg/rusted_geom_bg.wasm"
+fi
+
 mkdir -p "$repo_root/showcase/public/wasm"
 cp "$repo_root/crates/kernel/pkg/rusted_geom_bg.wasm" \
    "$repo_root/showcase/public/wasm/rusted_geom.wasm"

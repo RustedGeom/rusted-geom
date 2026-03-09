@@ -6,7 +6,6 @@
 //! module [`super::store`] holds the global session registry and insert helpers
 //! that depend on types defined here.
 
-use crate::elements::brep::types::BrepData;
 use crate::math::arc_length::ArcLengthCache;
 use crate::math::nurbs_curve_eval::NurbsCurveCore;
 use crate::math::nurbs_surface_eval::NurbsSurfaceCore;
@@ -51,26 +50,6 @@ pub(crate) struct SurfaceData {
 }
 
 #[derive(Clone, Debug)]
-pub(crate) struct TrimEdgeData {
-    pub(crate) start_uv: RgmUv2,
-    pub(crate) end_uv: RgmUv2,
-    pub(crate) curve_3d: Option<RgmObjectHandle>,
-    pub(crate) uv_samples: Vec<RgmUv2>,
-}
-
-#[derive(Clone, Debug)]
-pub(crate) struct TrimLoopData {
-    pub(crate) edges: Vec<TrimEdgeData>,
-    pub(crate) is_outer: bool,
-}
-
-#[derive(Clone, Debug)]
-pub(crate) struct FaceData {
-    pub(crate) surface: RgmObjectHandle,
-    pub(crate) loops: Vec<TrimLoopData>,
-}
-
-#[derive(Clone, Debug)]
 pub(crate) struct IntersectionBranchData {
     pub(crate) points: Vec<RgmPoint3>,
     pub(crate) uv_a: Vec<RgmUv2>,
@@ -104,15 +83,12 @@ pub(crate) struct LandXmlDocData {
     pub(crate) doc: crate::landxml::LandXmlDocument,
 }
 
-// S1: BrepInProgress removed; finalized state lives in BrepData.finalized.
 #[derive(Clone, Debug)]
 pub(crate) enum GeometryObject {
     Curve(CurveData),
     Mesh(MeshData),
     Surface(SurfaceData),
-    Face(FaceData),
     Intersection(IntersectionData),
-    Brep(BrepData),
     LandXmlDoc(LandXmlDocData),
 }
 
@@ -386,56 +362,12 @@ pub(crate) fn find_surface<'a>(
     }
 }
 
-pub(crate) fn find_face<'a>(
-    state: &'a SessionState,
-    object: RgmObjectHandle,
-) -> Result<&'a FaceData, RgmStatus> {
-    match state.objects.get(&object.0) {
-        Some(GeometryObject::Face(face)) => Ok(face),
-        Some(_) => Err(RgmStatus::InvalidInput),
-        None => Err(RgmStatus::NotFound),
-    }
-}
-
 pub(crate) fn find_intersection<'a>(
     state: &'a SessionState,
     object: RgmObjectHandle,
 ) -> Result<&'a IntersectionData, RgmStatus> {
     match state.objects.get(&object.0) {
         Some(GeometryObject::Intersection(intersection)) => Ok(intersection),
-        Some(_) => Err(RgmStatus::InvalidInput),
-        None => Err(RgmStatus::NotFound),
-    }
-}
-
-pub(crate) fn find_face_mut<'a>(
-    state: &'a mut SessionState,
-    object: RgmObjectHandle,
-) -> Result<&'a mut FaceData, RgmStatus> {
-    match state.objects.get_mut(&object.0) {
-        Some(GeometryObject::Face(face)) => Ok(face),
-        Some(_) => Err(RgmStatus::InvalidInput),
-        None => Err(RgmStatus::NotFound),
-    }
-}
-
-pub(crate) fn find_brep<'a>(
-    state: &'a SessionState,
-    object: RgmObjectHandle,
-) -> Result<&'a BrepData, RgmStatus> {
-    match state.objects.get(&object.0) {
-        Some(GeometryObject::Brep(brep)) => Ok(brep),
-        Some(_) => Err(RgmStatus::InvalidInput),
-        None => Err(RgmStatus::NotFound),
-    }
-}
-
-pub(crate) fn find_brep_mut<'a>(
-    state: &'a mut SessionState,
-    object: RgmObjectHandle,
-) -> Result<&'a mut BrepData, RgmStatus> {
-    match state.objects.get_mut(&object.0) {
-        Some(GeometryObject::Brep(brep)) => Ok(brep),
         Some(_) => Err(RgmStatus::InvalidInput),
         None => Err(RgmStatus::NotFound),
     }

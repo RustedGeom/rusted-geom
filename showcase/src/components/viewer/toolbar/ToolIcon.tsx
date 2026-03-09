@@ -5,7 +5,7 @@ interface ToolIconProps {
   size?: number;
 }
 
-export function ToolIcon({ children, size = 14 }: ToolIconProps) {
+export function ToolIcon({ children, size = 18 }: ToolIconProps) {
   return (
     <svg
       className="tool-icon"

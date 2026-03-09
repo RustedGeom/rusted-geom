@@ -125,31 +125,6 @@ fn create_surface_object(
     }
 }
 
-fn create_face_object(
-    session: RgmKernelHandle,
-    out_object: *mut RgmObjectHandle,
-    build: impl FnOnce(&SessionState) -> Result<FaceData, RgmStatus>,
-    message: &str,
-) -> RgmStatus {
-    if out_object.is_null() {
-        return map_err_with_session(session, RgmStatus::InvalidInput, "Null out_object pointer");
-    }
-
-    let result = with_session_mut(session, |state| {
-        let face = build(state)?;
-        let handle = insert_face(state, face);
-        write_out(out_object, handle)
-    });
-
-    match result {
-        Ok(()) => {
-            clear_error(session.0);
-            RgmStatus::Ok
-        }
-        Err(status) => map_err_with_session(session, status, message),
-    }
-}
-
 fn create_intersection_object(
     session: RgmKernelHandle,
     out_object: *mut RgmObjectHandle,

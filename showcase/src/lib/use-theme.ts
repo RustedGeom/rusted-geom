@@ -5,11 +5,11 @@ import { useCallback, useEffect, useState } from "react";
 const STORAGE_KEY = "rgm-theme";
 
 function getInitialTheme(): boolean {
-  if (typeof window === "undefined") return false;
+  if (typeof window === "undefined") return true;
   const stored = localStorage.getItem(STORAGE_KEY);
-  if (stored === "dark") return true;
-  if (stored === "light") return false;
-  return window.matchMedia("(prefers-color-scheme: dark)").matches;
+  if (stored !== null) return stored === "dark";
+  // CAD apps default to dark mode
+  return true;
 }
 
 function applyTheme(isDark: boolean): void {
@@ -17,7 +17,7 @@ function applyTheme(isDark: boolean): void {
 }
 
 export function useTheme(): { isDarkMode: boolean; toggleDarkMode: () => void } {
-  const [isDarkMode, setIsDarkMode] = useState(false);
+  const [isDarkMode, setIsDarkMode] = useState(true);
 
   useEffect(() => {
     const initial = getInitialTheme();

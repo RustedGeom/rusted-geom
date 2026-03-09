@@ -268,6 +268,28 @@ fn dedup_closed_points(mut points: Vec<RgmPoint3>, tol: f64) -> Vec<RgmPoint3> {
     points
 }
 
+fn centripetal_params(points: &[RgmPoint3]) -> Vec<f64> {
+    if points.len() <= 1 {
+        return vec![0.0; points.len()];
+    }
+
+    let mut cumulative = vec![0.0; points.len()];
+    let mut total = 0.0;
+
+    for i in 1..points.len() {
+        total += v3::distance(points[i - 1], points[i]).sqrt();
+        cumulative[i] = total;
+    }
+
+    if total <= f64::EPSILON {
+        return (0..points.len())
+            .map(|idx| idx as f64 / (points.len() - 1) as f64)
+            .collect();
+    }
+
+    cumulative.into_iter().map(|v| v / total).collect()
+}
+
 fn chord_length_params(points: &[RgmPoint3]) -> Vec<f64> {
     if points.len() <= 1 {
         return vec![0.0; points.len()];
@@ -318,6 +340,95 @@ fn clamped_open_knots(point_count: usize, degree: usize, params: &[f64]) -> Vec<
 fn uniform_periodic_knots(control_count: usize, degree: usize) -> Vec<f64> {
     let knot_count = control_count + degree + 1;
     (0..knot_count).map(|idx| idx as f64).collect()
+}
+
+/// Solve the B-spline interpolation problem: find control points P such that
+/// the B-spline defined by (P, knots, degree) passes through `data_points`
+/// at the given `params`.
+///
+/// Algorithm from Piegl & Tiller, *The NURBS Book*, Section 9.2.1.
+fn solve_bspline_interpolation(
+    data_points: &[RgmPoint3],
+    params: &[f64],
+    knots: &[f64],
+    degree: usize,
+) -> Result<Vec<RgmPoint3>, RgmStatus> {
+    let n = data_points.len();
+    if n < 2 || params.len() != n {
+        return Err(RgmStatus::InvalidInput);
+    }
+
+    let n_last = n - 1;
+
+    let mut mat = vec![vec![0.0f64; n]; n];
+    for k in 0..n {
+        let span = math::basis::find_span(n_last, degree, params[k], knots)?;
+        let basis = math::basis::basis_funs(span, params[k], degree, knots)?;
+        for j in 0..=degree {
+            let col = span - degree + j;
+            if col < n {
+                mat[k][col] = basis[j];
+            }
+        }
+    }
+
+    let mut rhs_x: Vec<f64> = data_points.iter().map(|p| p.x).collect();
+    let mut rhs_y: Vec<f64> = data_points.iter().map(|p| p.y).collect();
+    let mut rhs_z: Vec<f64> = data_points.iter().map(|p| p.z).collect();
+
+    for col in 0..n {
+        let mut max_val = mat[col][col].abs();
+        let mut max_row = col;
+        for row in (col + 1)..n.min(col + degree + 2) {
+            if mat[row][col].abs() > max_val {
+                max_val = mat[row][col].abs();
+                max_row = row;
+            }
+        }
+        if max_val < 1e-15 {
+            return Err(RgmStatus::NumericalFailure);
+        }
+        if max_row != col {
+            mat.swap(col, max_row);
+            rhs_x.swap(col, max_row);
+            rhs_y.swap(col, max_row);
+            rhs_z.swap(col, max_row);
+        }
+        for row in (col + 1)..n.min(col + degree + 2) {
+            let factor = mat[row][col] / mat[col][col];
+            if factor.abs() < 1e-18 {
+                continue;
+            }
+            for j in col..n.min(col + degree + 2) {
+                mat[row][j] -= factor * mat[col][j];
+            }
+            rhs_x[row] -= factor * rhs_x[col];
+            rhs_y[row] -= factor * rhs_y[col];
+            rhs_z[row] -= factor * rhs_z[col];
+        }
+    }
+
+    let mut result = vec![RgmPoint3 { x: 0.0, y: 0.0, z: 0.0 }; n];
+    for i in (0..n).rev() {
+        let mut sx = rhs_x[i];
+        let mut sy = rhs_y[i];
+        let mut sz = rhs_z[i];
+        for j in (i + 1)..n.min(i + degree + 2) {
+            sx -= mat[i][j] * result[j].x;
+            sy -= mat[i][j] * result[j].y;
+            sz -= mat[i][j] * result[j].z;
+        }
+        if mat[i][i].abs() < 1e-15 {
+            return Err(RgmStatus::NumericalFailure);
+        }
+        result[i] = RgmPoint3 {
+            x: sx / mat[i][i],
+            y: sy / mat[i][i],
+            z: sz / mat[i][i],
+        };
+    }
+
+    Ok(result)
 }
 
 fn build_nurbs_from_core(

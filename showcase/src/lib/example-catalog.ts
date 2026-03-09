@@ -63,7 +63,7 @@ export const EXAMPLE_SUMMARIES: Record<ExampleKey, string> = {
     "Lofts through multiple cross-section curves at varying stations to produce a smooth surface.",
   meshVolume:
     "Computes enclosed volumes of a torus and sphere mesh via the divergence theorem, comparing against analytic formulas.",
-  landxmlViewer: "Parses and visualizes LandXML 1.2 files with TIN terrain surfaces and horizontal/vertical alignments.",
+  landxmlViewer: "Loads and visualizes LandXML terrain/surface data from uploaded files.",
 };
 
 export interface ExampleCategoryItem {

@@ -178,104 +178,6 @@ fn mesh_optimal_points(mesh: &MeshData, sample_budget: u32) -> Result<Vec<RgmPoi
     Ok(points)
 }
 
-fn surface_points_aabb(surface: &SurfaceData) -> Result<RgmAabb3, RgmStatus> {
-    let points = surface_fast_points(surface)?;
-    crate::math::bounds::aabb_from_points(&points)
-}
-
-fn brep_fast_points(state: &mut SessionState, brep_handle: RgmObjectHandle) -> Result<Vec<RgmPoint3>, RgmStatus> {
-    let (faces, mut updates): (Vec<(usize, RgmObjectHandle, Option<RgmAabb3>)>, Vec<(usize, RgmAabb3)>) = {
-        let brep = find_brep(state, brep_handle)?;
-        if brep.faces.is_empty() {
-            return Err(RgmStatus::InvalidInput);
-        }
-        (
-            brep.faces
-                .iter_enumerated()
-                .map(|(face_id, face)| {
-                    (
-                        face_id.index(),
-                        face.surface,
-                        face.bbox.map(|bbox| RgmAabb3 {
-                            min: bbox.min,
-                            max: bbox.max,
-                        }),
-                    )
-                })
-                .collect(),
-            Vec::new(),
-        )
-    };
-
-    let mut points = Vec::with_capacity(faces.len() * 8);
-    for (face_idx, surface_handle, cached) in faces {
-        let aabb = if let Some(value) = cached {
-            value
-        } else {
-            let surface = find_surface(state, surface_handle)?;
-            let value = surface_points_aabb(surface)?;
-            updates.push((face_idx, value));
-            value
-        };
-        points.extend(crate::math::bounds::aabb_corners(aabb));
-    }
-
-    if !updates.is_empty() {
-        let brep = find_brep_mut(state, brep_handle)?;
-        for (face_idx, aabb) in updates {
-            if let Some(face) = brep
-                .faces
-                .as_raw_slice_mut()
-                .get_mut(face_idx)
-            {
-                face.bbox = Some(crate::elements::brep::types::BrepAabb3 {
-                    min: aabb.min,
-                    max: aabb.max,
-                });
-            }
-        }
-    }
-
-    Ok(points)
-}
-
-fn brep_optimal_points(
-    state: &mut SessionState,
-    brep_handle: RgmObjectHandle,
-    sample_budget: u32,
-) -> Result<Vec<RgmPoint3>, RgmStatus> {
-    let mut points = brep_fast_points(state, brep_handle)?;
-    let surfaces: Vec<RgmObjectHandle> = {
-        let brep = find_brep(state, brep_handle)?;
-        brep.faces.iter().map(|face| face.surface).collect()
-    };
-    if surfaces.is_empty() {
-        return Err(RgmStatus::InvalidInput);
-    }
-
-    let total_budget = if sample_budget == 0 {
-        2048
-    } else {
-        sample_budget.clamp(128, 65_536)
-    };
-    let per_face_budget = (total_budget / (surfaces.len() as u32)).max(16);
-    let grid = ((per_face_budget as f64).sqrt().round() as usize).clamp(4, 64);
-
-    for surface_handle in surfaces {
-        let surface = find_surface(state, surface_handle)?;
-        for iu in 0..=grid {
-            let u = (iu as f64) / (grid as f64);
-            for iv in 0..=grid {
-                let v = (iv as f64) / (grid as f64);
-                let frame = eval_surface_data_normalized(surface, RgmUv2 { u, v })?;
-                points.push(frame.point);
-            }
-        }
-    }
-
-    Ok(points)
-}
-
 fn compute_bounds_for_object(
     state: &mut SessionState,
     object: RgmObjectHandle,
@@ -286,8 +188,7 @@ fn compute_bounds_for_object(
         Some(GeometryObject::Curve(_)) => 0_u8,
         Some(GeometryObject::Surface(_)) => 1_u8,
         Some(GeometryObject::Mesh(_)) => 2_u8,
-        Some(GeometryObject::Brep(_)) => 3_u8,
-        Some(GeometryObject::Face(_)) | Some(GeometryObject::Intersection(_)) => 4_u8,
+        Some(GeometryObject::Intersection(_)) => 4_u8,
         Some(GeometryObject::LandXmlDoc(_)) => 255_u8,
         None => 255_u8,
     };
@@ -321,14 +222,6 @@ fn compute_bounds_for_object(
                 mesh_fast_points(mesh, options.sample_budget)?
             } else {
                 mesh_optimal_points(mesh, options.sample_budget)?
-            };
-            crate::math::bounds::compute_bounds_from_points(&points, mode, options.padding)
-        }
-        3 => {
-            let points = if mode == RgmBoundsMode::Fast {
-                brep_fast_points(state, object)?
-            } else {
-                brep_optimal_points(state, object, options.sample_budget)?
             };
             crate::math::bounds::compute_bounds_from_points(&points, mode, options.padding)
         }

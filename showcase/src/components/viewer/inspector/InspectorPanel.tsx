@@ -1,6 +1,5 @@
 import type { ExampleKey, GizmoMode, LandXmlAlignmentInfo, LandXmlProbeUiState, ProbeUiState, SurfaceProbeUiState, ViewerPerformance } from "@/lib/viewer-types";
 import { LANDXML_FILE_LIST } from "@/lib/viewer-types";
-import { ExampleSection } from "./ExampleSection";
 import { GizmoSection } from "./GizmoSection";
 import { LandXmlProbeSection } from "./LandXmlProbeSection";
 import { PerformanceSection } from "./PerformanceSection";
@@ -20,9 +19,8 @@ export interface LandXmlInspectorStats {
 
 export interface InspectorPanelProps {
   isOpen: boolean;
+  onClose?: () => void;
   activeExample: ExampleKey;
-  activeCurveName: string;
-  activeDegreeLabel: string;
   perfStats: ViewerPerformance;
   showGizmoControls: boolean;
   showTransformTargetControls: boolean;
@@ -40,7 +38,6 @@ export interface InspectorPanelProps {
   onUpdateProbe: (tNorm: number, commit: boolean) => void;
   surfaceProbeUiState: SurfaceProbeUiState;
   onUpdateSurfaceProbe: (u: number, v: number, commit: boolean) => void;
-  onOpenExampleBrowser: () => void;
   activeLandXmlFile?: string;
   onLandXmlFileChange?: (filename: string) => void;
   landXmlStats?: LandXmlInspectorStats | null;
@@ -60,9 +57,8 @@ export interface InspectorPanelProps {
 
 export function InspectorPanel({
   isOpen,
+  onClose,
   activeExample,
-  activeCurveName,
-  activeDegreeLabel,
   perfStats,
   showGizmoControls,
   showTransformTargetControls,
@@ -80,7 +76,6 @@ export function InspectorPanel({
   onUpdateProbe,
   surfaceProbeUiState,
   onUpdateSurfaceProbe,
-  onOpenExampleBrowser,
   activeLandXmlFile,
   onLandXmlFileChange,
   landXmlStats,
@@ -104,16 +99,24 @@ export function InspectorPanel({
       aria-hidden={!isOpen}
     >
       <div className="inspector-header">
-        <strong>Controls</strong>
+        <div className="inspector-title">
+          <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true">
+            <path d="M3 4.2h10M3 8h10M3 11.8h10" />
+            <circle cx="5.4" cy="4.2" r="0.9" />
+            <circle cx="10.6" cy="8" r="0.9" />
+            <circle cx="7.2" cy="11.8" r="0.9" />
+          </svg>
+          Controls
+        </div>
+        {onClose && (
+          <button type="button" className="inspector-close-btn" onClick={onClose} aria-label="Close controls panel">
+            <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true">
+              <path d="M3.5 3.5 12.5 12.5M12.5 3.5 3.5 12.5" />
+            </svg>
+          </button>
+        )}
       </div>
       <div className="inspector-body">
-        <ExampleSection
-          activeExample={activeExample}
-          activeCurveName={activeCurveName}
-          activeDegreeLabel={activeDegreeLabel}
-          onOpenExampleBrowser={onOpenExampleBrowser}
-        />
-
         {activeExample === "landxmlViewer" && onLandXmlFileChange ? (
           <section className="inspector-section" aria-label="LandXML File">
             <h2>LandXML File</h2>

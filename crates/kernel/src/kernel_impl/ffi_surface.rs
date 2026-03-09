@@ -277,6 +277,91 @@ pub extern "C" fn rgm_surface_tessellate_to_mesh(
     rgm_surface_tessellate_to_mesh_impl(session, surface, options, out_mesh)
 }
 
+#[no_mangle]
+pub extern "C" fn rgm_sweep(
+    session: RgmKernelHandle,
+    path: RgmObjectHandle,
+    profile: RgmObjectHandle,
+    n_stations: u32,
+    cap_faces: bool,
+    out_handle: *mut RgmObjectHandle,
+) -> RgmStatus {
+    if out_handle.is_null() {
+        return map_err_with_session(session, RgmStatus::InvalidInput, "Null out_handle pointer");
+    }
+    let result = with_session_mut(session, |state| {
+        let handle = sweep_impl(state, path, profile, n_stations as usize, cap_faces)?;
+        write_out(out_handle, handle)
+    });
+    match result {
+        Ok(()) => {
+            clear_error(session.0);
+            RgmStatus::Ok
+        }
+        Err(status) => map_err_with_session(session, status, "Sweep operation failed"),
+    }
+}
+
+#[no_mangle]
+pub extern "C" fn rgm_loft(
+    session: RgmKernelHandle,
+    section_handles: *const RgmObjectHandle,
+    section_count: usize,
+    n_samples: u32,
+    cap_faces: bool,
+    out_handle: *mut RgmObjectHandle,
+) -> RgmStatus {
+    if section_handles.is_null() || out_handle.is_null() {
+        return map_err_with_session(session, RgmStatus::InvalidInput, "Null pointer in loft");
+    }
+    let sections = unsafe { std::slice::from_raw_parts(section_handles, section_count) };
+    let result = with_session_mut(session, |state| {
+        let handle = loft_impl(state, sections, n_samples as usize, cap_faces, LoftType::Normal)?;
+        write_out(out_handle, handle)
+    });
+    match result {
+        Ok(()) => {
+            clear_error(session.0);
+            RgmStatus::Ok
+        }
+        Err(status) => map_err_with_session(session, status, "Loft operation failed"),
+    }
+}
+
+#[no_mangle]
+pub extern "C" fn rgm_loft_typed(
+    session: RgmKernelHandle,
+    section_handles: *const RgmObjectHandle,
+    section_count: usize,
+    n_samples: u32,
+    cap_faces: bool,
+    loft_type: u32,
+    out_handle: *mut RgmObjectHandle,
+) -> RgmStatus {
+    if section_handles.is_null() || out_handle.is_null() {
+        return map_err_with_session(session, RgmStatus::InvalidInput, "Null pointer in loft");
+    }
+    let lt = match loft_type {
+        0 => LoftType::Normal,
+        1 => LoftType::Loose,
+        2 => LoftType::Tight,
+        3 => LoftType::Straight,
+        _ => return map_err_with_session(session, RgmStatus::InvalidInput, "Invalid loft type"),
+    };
+    let sections = unsafe { std::slice::from_raw_parts(section_handles, section_count) };
+    let result = with_session_mut(session, |state| {
+        let handle = loft_impl(state, sections, n_samples as usize, cap_faces, lt)?;
+        write_out(out_handle, handle)
+    });
+    match result {
+        Ok(()) => {
+            clear_error(session.0);
+            RgmStatus::Ok
+        }
+        Err(status) => map_err_with_session(session, status, "Loft operation failed"),
+    }
+}
+
 fn polycurve_to_nurbs(
     state: &SessionState,
     poly: &PolycurveData,
