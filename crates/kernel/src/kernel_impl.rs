@@ -1,4 +1,5 @@
 include!("kernel_impl/foundation.rs");
+include!("kernel_impl/usd_convert.rs");
 include!("kernel_impl/curve_geometry.rs");
 include!("kernel_impl/curve_surface_ops_a.rs");
 include!("kernel_impl/curve_surface_ops_b.rs");

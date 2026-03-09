@@ -431,6 +431,7 @@ dependencies = [
  "parking_lot",
  "rayon",
  "roxmltree",
+ "rusted-usd",
  "serde_json",
  "wasm-bindgen",
 ]
@@ -643,6 +644,10 @@ name = "roxmltree"
 version = "0.20.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6c20b6793b5c2fa6553b250154b78d6d0db37e72700ae35fad9387a46f487c97"
+
+[[package]]
+name = "rusted-usd"
+version = "0.3.0"
 
 [[package]]
 name = "rustversion"
@@ -1076,6 +1081,18 @@ dependencies = [
  "serde_json",
  "unicode-xid",
  "wasmparser",
+]
+
+[[package]]
+name = "xtask"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "heck",
+ "prettyplease",
+ "proc-macro2",
+ "quote",
+ "syn",
 ]
 
 [[package]]

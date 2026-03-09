@@ -1,7 +1,10 @@
 [workspace]
 members = [
   "crates/kernel",
+  "crates/usd",
+  "xtask",
 ]
+default-members = ["crates/kernel"]
 resolver = "2"
 
 [workspace.package]

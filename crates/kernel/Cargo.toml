@@ -5,6 +5,9 @@ edition.workspace = true
 license.workspace = true
 authors.workspace = true
 
+[package.metadata.wasm-pack.profile.release]
+wasm-opt = false
+
 [lib]
 name = "rusted_geom"
 crate-type = ["rlib", "cdylib"]
@@ -42,6 +45,7 @@ once_cell.workspace = true
 parking_lot = "0.12"
 rayon.workspace = true
 roxmltree = "0.20"
+rusted-usd = { path = "../usd" }
 wasm-bindgen = "0.2"
 
 [dev-dependencies]

@@ -15,6 +15,9 @@ export interface ViewerToolbarProps {
   onExportSat: () => void;
   onExportStl: () => void;
   onExportGltf: () => void;
+  onExportGlb: () => void;
+  onExportUsda: () => void;
+  onExportUsdc: () => void;
   exportMode: "cad" | "mesh";
   orbitEnabled: boolean;
   showGrid: boolean;
@@ -49,6 +52,9 @@ export function ViewerToolbar({
   onExportSat,
   onExportStl,
   onExportGltf,
+  onExportGlb,
+  onExportUsda,
+  onExportUsdc,
   exportMode,
   orbitEnabled,
   showGrid,
@@ -326,29 +332,34 @@ export function ViewerToolbar({
                       <ToolIcon size={15}><rect x="3" y="2.5" width="10" height="11" rx="1" /><rect x="5" y="2.5" width="6" height="4" /><rect x="4" y="9" width="8" height="4" /></ToolIcon>
                       Save
                     </button>
-                    {exportMode === "cad" ? (
-                      <>
-                        <button type="button" className="overflow-btn" disabled={!canExportIges} onClick={canExportIges ? overflowAction(onExportIges) : undefined} role="menuitem">
-                          <ToolIcon size={15}><path d="M3 13C5 9 7 4 13 3" /><path d="M3 13h3M11 3h2v2" /></ToolIcon>
-                          IGES
-                        </button>
-                        <button type="button" className="overflow-btn" disabled={!canExportSat} onClick={canExportSat ? overflowAction(onExportSat) : undefined} role="menuitem">
-                          <ToolIcon size={15}><path d="M8 3l4 2.5v5L8 13 4 10.5v-5z" /><path d="M8 3v10M4 5.5l4 3 4-3" /></ToolIcon>
-                          SAT
-                        </button>
-                      </>
-                    ) : (
-                      <>
-                        <button type="button" className="overflow-btn" onClick={overflowAction(onExportStl)} role="menuitem">
-                          <ToolIcon size={15}><path d="M8 3l4.5 7.5h-9zM3.5 10.5l4.5-3.5 4.5 3.5" /></ToolIcon>
-                          STL
-                        </button>
-                        <button type="button" className="overflow-btn" onClick={overflowAction(onExportGltf)} role="menuitem">
-                          <ToolIcon size={15}><path d="M8 3l4 2.3v4.4L8 12 4 9.7V5.3z" /><path d="M4 5.3l4 2.3 4-2.3M8 7.6V12" /></ToolIcon>
-                          glTF
-                        </button>
-                      </>
-                    )}
+                    <button type="button" className="overflow-btn" disabled={!canExportIges} onClick={canExportIges ? overflowAction(onExportIges) : undefined} role="menuitem">
+                      <ToolIcon size={15}><path d="M3 13C5 9 7 4 13 3" /><path d="M3 13h3M11 3h2v2" /></ToolIcon>
+                      IGES
+                    </button>
+                    <button type="button" className="overflow-btn" disabled={!canExportSat} onClick={canExportSat ? overflowAction(onExportSat) : undefined} role="menuitem">
+                      <ToolIcon size={15}><path d="M8 3l4 2.5v5L8 13 4 10.5v-5z" /><path d="M8 3v10M4 5.5l4 3 4-3" /></ToolIcon>
+                      SAT
+                    </button>
+                    <button type="button" className="overflow-btn" onClick={overflowAction(onExportStl)} role="menuitem">
+                      <ToolIcon size={15}><path d="M8 3l4.5 7.5h-9zM3.5 10.5l4.5-3.5 4.5 3.5" /></ToolIcon>
+                      STL
+                    </button>
+                    <button type="button" className="overflow-btn" onClick={overflowAction(onExportGltf)} role="menuitem">
+                      <ToolIcon size={15}><path d="M8 3l4 2.3v4.4L8 12 4 9.7V5.3z" /><path d="M4 5.3l4 2.3 4-2.3M8 7.6V12" /></ToolIcon>
+                      glTF
+                    </button>
+                    <button type="button" className="overflow-btn" onClick={overflowAction(onExportGlb)} role="menuitem">
+                      <ToolIcon size={15}><rect x="3.5" y="3.5" width="9" height="9" /><path d="M6 6h4v4H6z" /></ToolIcon>
+                      GLB
+                    </button>
+                    <button type="button" className="overflow-btn" onClick={overflowAction(onExportUsda)} role="menuitem">
+                      <ToolIcon size={15}><path d="M4 3h8v10H4z" /><path d="M6 6h4M6 8h4M6 10h2" /></ToolIcon>
+                      USDA
+                    </button>
+                    <button type="button" className="overflow-btn" onClick={overflowAction(onExportUsdc)} role="menuitem">
+                      <ToolIcon size={15}><path d="M4 3h8v10H4z" /><path d="M6 6h4M6 8h4M6 10h2" /></ToolIcon>
+                      USDC
+                    </button>
                   </div>
                 </div>
 

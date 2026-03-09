@@ -35,6 +35,9 @@ pub extern "C" fn rgm_object_release(
         if state.objects.remove(&object.0).is_some() {
             state.mesh_accels.remove(&object.0);
             state.bounds_cache.remove(&object.0);
+            if let Some(path) = state.path_index.remove(&object.0) {
+                state.stage.remove_prim(&path);
+            }
             Ok(())
         } else {
             Err(RgmStatus::NotFound)
@@ -64,6 +67,58 @@ pub extern "C" fn rgm_last_error_code(session: RgmKernelHandle, out_code: *mut i
     // SAFETY: out_code is non-null by guard above.
     unsafe {
         *out_code = state.last_error_code as i32;
+    }
+
+    RgmStatus::Ok
+}
+
+/// Export USD stage (or a filtered subset) to USDA text.
+///
+/// If `object_id_count == 0`, the full stage is serialised.  Otherwise only the
+/// prims registered for the provided IDs are included.
+///
+/// On success, `*out_ptr` is set to a heap-allocated UTF-8 string (null-terminated)
+/// and `*out_len` to the byte count (excluding the null byte).  The caller must
+/// free the buffer with `rgm_dealloc(ptr, len + 1, 1)`.
+#[no_mangle]
+pub extern "C" fn rgm_export_usda_text(
+    session: RgmKernelHandle,
+    object_ids: *const u64,
+    object_id_count: usize,
+    out_ptr: *mut *mut u8,
+    out_len: *mut usize,
+) -> RgmStatus {
+    if out_ptr.is_null() || out_len.is_null() {
+        return RgmStatus::InvalidInput;
+    }
+    let ids: &[u64] = if object_ids.is_null() || object_id_count == 0 {
+        &[]
+    } else {
+        // SAFETY: caller guarantees pointer and count are valid.
+        unsafe { std::slice::from_raw_parts(object_ids, object_id_count) }
+    };
+
+    let text = match export_usda_text(session, ids) {
+        Ok(t) => t,
+        Err(_) => return map_err_with_session(session, RgmStatus::InternalError, "USDA export failed"),
+    };
+
+    let bytes = text.into_bytes();
+    let len = bytes.len();
+    let Ok(layout) = Layout::from_size_align(len + 1, 1) else {
+        return RgmStatus::InternalError;
+    };
+    // SAFETY: layout is valid.
+    let ptr = unsafe { alloc(layout) };
+    if ptr.is_null() {
+        return RgmStatus::InternalError;
+    }
+    // SAFETY: ptr is non-null, layout covers len + 1 bytes.
+    unsafe {
+        std::ptr::copy_nonoverlapping(bytes.as_ptr(), ptr, len);
+        *ptr.add(len) = 0;
+        *out_ptr = ptr;
+        *out_len = len;
     }
 
     RgmStatus::Ok
