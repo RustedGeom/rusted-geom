@@ -12,4 +12,5 @@ mod tests {
     include!("../tests/test_intersections.rs");
     include!("../tests/test_brep.rs");
     include!("../tests/test_bounds.rs");
+    include!("../tests/test_sweep_loft.rs");
 }

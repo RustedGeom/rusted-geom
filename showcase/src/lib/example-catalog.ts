@@ -34,6 +34,8 @@ export const EXAMPLE_OPTIONS: Record<string, ExampleKey> = {
   "BREP (native save/load roundtrip)": "brepNativeRoundtrip",
   "Bounds (BREP solid lifecycle)": "bboxBrepSolidLifecycle",
   "LandXML File Viewer": "landxmlViewer",
+  "Sweep BREP (bridge girder)": "sweepBridgeGirder",
+  "Loft BREP (bridge deck)": "loftBridgeDeck",
 };
 
 export const EXAMPLE_SUMMARIES: Record<ExampleKey, string> = {
@@ -84,6 +86,8 @@ export const EXAMPLE_SUMMARIES: Record<ExampleKey, string> = {
   bboxBrepSolidLifecycle:
     "Tracks BREP bounds across shell/solid lifecycle steps and compares Fast/Optimal bounds extents and compute times.",
   landxmlViewer: "Parses and visualizes LandXML 1.2 files with TIN terrain surfaces and horizontal/vertical alignments.",
+  sweepBridgeGirder: "Sweeps a closed bulb-tee profile along a pre-cambered path to create a watertight bridge girder solid.",
+  loftBridgeDeck: "Lofts multiple cross-section curves to form a bridge deck surface with varying width.",
 };
 
 export interface ExampleCategoryItem {
@@ -167,6 +171,14 @@ export const EXAMPLE_CATEGORIES: ExampleCategory[] = [
     ],
   },
   {
+    label: "Sweep / Loft",
+    key: "sweepLoft",
+    items: [
+      { key: "sweepBridgeGirder", label: "Sweep: Bridge Girder" },
+      { key: "loftBridgeDeck", label: "Loft: Bridge Deck" },
+    ],
+  },
+  {
     label: "LandXML",
     key: "landxml",
     items: [
@@ -187,6 +199,7 @@ export function parseExampleSelection(value: unknown): ExampleKey | null {
     "brepShellAssembly", "brepSolidAssembly", "brepSolidRoundtripAudit", "brepSolidFaceSurgery",
     "brepFaceBridgeRoundtrip", "brepNativeRoundtrip", "bboxBrepSolidLifecycle",
     "landxmlViewer",
+    "sweepBridgeGirder", "loftBridgeDeck",
   ];
   if (validKeys.includes(raw as ExampleKey)) {
     return raw as ExampleKey;

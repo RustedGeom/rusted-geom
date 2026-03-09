@@ -228,13 +228,41 @@ fn matrix_apply_vec(matrix: [[f64; 4]; 4], vector: RgmVec3) -> RgmVec3 {
     }
 }
 
-fn default_surface_tess_options(tol: RgmToleranceContext) -> RgmSurfaceTessellationOptions {
+fn adaptive_surface_tess_options(
+    surface: &NurbsSurfaceCore,
+    is_trimmed: bool,
+) -> RgmSurfaceTessellationOptions {
+    let spans_u = if surface.periodic_u {
+        surface.control_u_count.saturating_sub(surface.degree_u).max(1)
+    } else {
+        (surface.control_u_count - 1).max(1)
+    };
+    let spans_v = if surface.periodic_v {
+        surface.control_v_count.saturating_sub(surface.degree_v).max(1)
+    } else {
+        (surface.control_v_count - 1).max(1)
+    };
+
+    let samples_per_span = |deg: usize| -> usize {
+        match deg {
+            0 | 1 => 1,
+            _ => 2,
+        }
+    };
+
+    let min_u = (spans_u * samples_per_span(surface.degree_u)).clamp(4, 128) as u32;
+    let min_v = (spans_v * samples_per_span(surface.degree_v)).clamp(4, 128) as u32;
+
+    let max_factor: u32 = if is_trimmed { 2 } else { 4 };
+    let max_u = (min_u * max_factor).min(256);
+    let max_v = (min_v * max_factor).min(256);
+
     RgmSurfaceTessellationOptions {
-        min_u_segments: 24,
-        min_v_segments: 24,
-        max_u_segments: 256,
-        max_v_segments: 256,
-        chord_tol: (tol.abs_tol * 2000.0).max(1e-5),
+        min_u_segments: min_u,
+        min_v_segments: min_v,
+        max_u_segments: max_u,
+        max_v_segments: max_v,
+        chord_tol: (surface.tol.abs_tol * 2000.0).max(1e-5),
         normal_tol_rad: 0.08,
     }
 }
@@ -254,9 +282,10 @@ fn default_surface_intersection_tess_options(
 
 fn sanitize_surface_tess_options(
     options: Option<RgmSurfaceTessellationOptions>,
-    tol: RgmToleranceContext,
+    surface: &NurbsSurfaceCore,
+    is_trimmed: bool,
 ) -> RgmSurfaceTessellationOptions {
-    let mut value = options.unwrap_or_else(|| default_surface_tess_options(tol));
+    let mut value = options.unwrap_or_else(|| adaptive_surface_tess_options(surface, is_trimmed));
     if value.min_u_segments < 2 {
         value.min_u_segments = 2;
     }
@@ -276,7 +305,7 @@ fn sanitize_surface_tess_options(
         value.max_v_segments = 1024;
     }
     if value.chord_tol <= 0.0 {
-        value.chord_tol = (tol.abs_tol * 2000.0).max(1e-5);
+        value.chord_tol = (surface.tol.abs_tol * 2000.0).max(1e-5);
     }
     if value.normal_tol_rad <= 0.0 {
         value.normal_tol_rad = 0.08;

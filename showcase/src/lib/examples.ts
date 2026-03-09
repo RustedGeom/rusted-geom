@@ -33,6 +33,8 @@ export const EXAMPLE_OPTIONS: Record<string, ExampleKey> = {
   "BREP (face bridge roundtrip)": "brepFaceBridgeRoundtrip",
   "BREP (native save/load roundtrip)": "brepNativeRoundtrip",
   "Bounds (BREP solid lifecycle)": "bboxBrepSolidLifecycle",
+  "Sweep BREP (bridge girder)": "sweepBridgeGirder",
+  "Loft BREP (bridge deck)": "loftBridgeDeck",
   "LandXML File Viewer": "landxmlViewer",
 };
 
@@ -83,6 +85,10 @@ export const EXAMPLE_SUMMARIES: Record<ExampleKey, string> = {
     "Serializes a finalized BREP to native bytes, reloads it, and verifies topology/area/tessellation continuity.",
   bboxBrepSolidLifecycle:
     "Tracks BREP bounds across shell/solid lifecycle steps and compares Fast/Optimal bounds extents and compute times.",
+  sweepBridgeGirder:
+    "Sweeps a pre-stressed concrete bulb-tee cross-section along a pre-cambered path curve to produce a watertight bridge girder solid with cap faces.",
+  loftBridgeDeck:
+    "Lofts through multiple box-girder cross-sections at varying stations to produce a watertight bridge deck solid with cap faces.",
   landxmlViewer: "Parses and visualizes LandXML 1.2 files with TIN terrain surfaces and horizontal/vertical alignments.",
 };
 
@@ -167,6 +173,14 @@ export const EXAMPLE_CATEGORIES: ExampleCategory[] = [
     ],
   },
   {
+    label: "Sweep / Loft",
+    key: "sweepLoft",
+    items: [
+      { key: "sweepBridgeGirder", label: "Bridge Girder (Sweep)" },
+      { key: "loftBridgeDeck", label: "Bridge Deck (Loft)" },
+    ],
+  },
+  {
     label: "LandXML",
     key: "landxml",
     items: [
@@ -186,6 +200,7 @@ export function parseExampleSelection(value: unknown): ExampleKey | null {
     "trimEditWorkflow", "trimValidationFailures", "trimMultiLoopSurgery",
     "brepShellAssembly", "brepSolidAssembly", "brepSolidRoundtripAudit", "brepSolidFaceSurgery",
     "brepFaceBridgeRoundtrip", "brepNativeRoundtrip", "bboxBrepSolidLifecycle",
+    "sweepBridgeGirder", "loftBridgeDeck",
     "landxmlViewer",
   ];
   if (validKeys.includes(raw as ExampleKey)) {

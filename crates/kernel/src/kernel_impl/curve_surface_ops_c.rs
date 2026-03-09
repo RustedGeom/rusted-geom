@@ -311,7 +311,8 @@ fn tessellate_surface_samples(
     face: Option<&FaceData>,
     options: Option<RgmSurfaceTessellationOptions>,
 ) -> Result<TessSampleMesh, RgmStatus> {
-    let options = sanitize_surface_tess_options(options, surface.core.tol);
+    let is_trimmed = face.map_or(false, |f| !f.loops.is_empty());
+    let options = sanitize_surface_tess_options(options, &surface.core, is_trimmed);
     let u_segments = options.min_u_segments.min(options.max_u_segments) as usize;
     let v_segments = options.min_v_segments.min(options.max_v_segments) as usize;
     let u_segments = u_segments.max(2);
@@ -410,19 +411,28 @@ fn tessellate_surface_samples(
         }
     }
 
+    let per_u = surface.core.periodic_u;
+    let per_v = surface.core.periodic_v;
+
     let mut vertices = Vec::with_capacity(grid_uvs.len());
     for uv in &grid_uvs {
-        let frame = eval_surface_data_uv(surface, *uv)?;
-        vertices.push(frame.point);
+        let eval = eval_nurbs_surface_uv_unchecked(&surface.core, *uv)?;
+        vertices.push(matrix_apply_point(surface.transform, eval.point));
     }
+
+    let remap = |iu: usize, iv: usize| -> usize {
+        let iu = if per_u && iu == u_segments { 0 } else { iu };
+        let iv = if per_v && iv == v_segments { 0 } else { iv };
+        index_of(iu, iv)
+    };
 
     let mut triangles = Vec::new();
     for iu in 0..u_segments {
         for iv in 0..v_segments {
-            let a = index_of(iu, iv);
-            let b = index_of(iu + 1, iv);
-            let c = index_of(iu, iv + 1);
-            let d = index_of(iu + 1, iv + 1);
+            let a = remap(iu, iv);
+            let b = remap(iu + 1, iv);
+            let c = remap(iu, iv + 1);
+            let d = remap(iu + 1, iv + 1);
             add_triangle_indices(&mut triangles, a, b, c)?;
             add_triangle_indices(&mut triangles, b, d, c)?;
         }

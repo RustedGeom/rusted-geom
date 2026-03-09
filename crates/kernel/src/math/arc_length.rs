@@ -120,6 +120,8 @@ pub(crate) fn integrate_speed(curve: &NurbsCurveCore, a: f64, b: f64) -> Result<
     };
     let hi_eval = if hi < curve.u_end {
         (hi - edge_eps).max(lo)
+    } else if curve.periodic {
+        (hi - edge_eps).max(lo)
     } else {
         hi
     };

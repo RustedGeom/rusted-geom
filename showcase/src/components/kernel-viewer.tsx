@@ -616,7 +616,7 @@ function shouldShowProbeForExample(example: ExampleKey): boolean {
 }
 
 function isBrepExample(example: ExampleKey): boolean {
-  return example.startsWith("brep");
+  return example.startsWith("brep") || example === "sweepBridgeGirder" || example === "loftBridgeDeck";
 }
 
 function isMeshOnlyExample(example: ExampleKey): boolean {
@@ -3757,6 +3757,187 @@ export function KernelViewer() {
         }
       }
 
+      if (example === "sweepBridgeGirder") {
+        const built: AnyHandle[] = [];
+        try {
+          const pathPoints: RgmPoint3[] = [
+            { x: 0, y: 0, z: 0 },
+            { x: 7.5, y: 0, z: 0.03 },
+            { x: 15, y: 0, z: 0.05 },
+            { x: 22.5, y: 0, z: 0.03 },
+            { x: 30, y: 0, z: 0 },
+          ];
+          const path = session.interpolate_nurbs_fit_points(pointsToFlat(pathPoints), 3, false);
+          built.push(path);
+
+          const profilePoints: RgmPoint3[] = [
+            { x: 0, y: -0.30, z: 0.75 },
+            { x: 0, y: 0.30, z: 0.75 },
+            { x: 0, y: 0.30, z: 0.65 },
+            { x: 0, y: 0.075, z: 0.65 },
+            { x: 0, y: 0.075, z: 0.15 },
+            { x: 0, y: 0.25, z: 0.15 },
+            { x: 0, y: 0.25, z: 0.0 },
+            { x: 0, y: -0.25, z: 0.0 },
+            { x: 0, y: -0.25, z: 0.15 },
+            { x: 0, y: -0.075, z: 0.15 },
+            { x: 0, y: -0.075, z: 0.65 },
+            { x: 0, y: -0.30, z: 0.65 },
+          ];
+          const profile = session.create_polyline(pointsToFlat(profilePoints), true);
+          built.push(profile);
+
+          const brep = (session as any).sweep(path, profile, 12, true) as BrepHandle;
+          built.push(brep);
+
+          const mesh = session.brep_tessellate_to_mesh(brep, new Float64Array([]));
+          built.push(mesh);
+          const buffers = meshToBuffers(session, mesh);
+
+          const pathSamples = samplePolyline(session, path, 40);
+          const profileStartSamples = samplePolyline(session, profile, 24);
+
+          const profileEndPoints: RgmPoint3[] = profilePoints.map((p) => ({
+            x: 30,
+            y: p.y,
+            z: p.z,
+          }));
+          profileEndPoints.push({ ...profileEndPoints[0] });
+
+          return {
+            kind: "mesh",
+            curveHandle: null,
+            ownedHandles: built,
+            exportHandles: [brep],
+            name: "Bridge Girder (Sweep)",
+            degreeLabel: "Sweep BREP",
+            renderDegree: 0,
+            renderSamples: 0,
+            meshVisual: {
+              vertices: buffers.vertices,
+              indices: buffers.indices,
+              color: "#7c8a99",
+              opacity: 0.85,
+              wireframe: false,
+              name: "swept bridge girder",
+            },
+            overlayMeshes: [],
+            overlayCurves: [
+              {
+                points: pathSamples,
+                color: "#ff3333",
+                width: 3,
+                opacity: 1.0,
+                name: "path (pre-camber)",
+              },
+              {
+                points: profileStartSamples,
+                color: "#3366ff",
+                width: 2,
+                opacity: 1.0,
+                name: "profile @ start",
+              },
+              {
+                points: profileEndPoints,
+                color: "#33cc66",
+                width: 2,
+                opacity: 1.0,
+                name: "profile @ end",
+              },
+            ],
+            segmentOverlays: [],
+            intersectionPoints: [],
+            planeVisual: null,
+            interactiveMeshHandle: null,
+            transformTargets: [],
+            defaultTransformTargetKey: null,
+            intersectionMs: 0,
+            logs: [
+              `sweep path_pts=${pathPoints.length} profile_pts=${profilePoints.length} stations=12`,
+              `triangles=${session.mesh_triangle_count(mesh)}`,
+            ],
+          };
+        } catch (error) {
+          throw error;
+        }
+      }
+
+      if (example === "loftBridgeDeck") {
+        const built: AnyHandle[] = [];
+        try {
+          const sectionDefs: { x: number; pts: [number, number][] }[] = [
+            { x: 0, pts: [[-1.5, -0.4], [1.5, -0.4], [1.5, 0.4], [-1.5, 0.4]] },
+            { x: 7.5, pts: [[-2.0, -0.5], [2.0, -0.5], [2.0, 0.5], [-2.0, 0.5]] },
+            { x: 15, pts: [[-2.5, -0.6], [2.5, -0.6], [2.5, 0.6], [-2.5, 0.6]] },
+            { x: 22.5, pts: [[-2.0, -0.5], [2.0, -0.5], [2.0, 0.5], [-2.0, 0.5]] },
+            { x: 30, pts: [[-1.5, -0.4], [1.5, -0.4], [1.5, 0.4], [-1.5, 0.4]] },
+          ];
+
+          const sectionColors = ["#ff3333", "#ff9933", "#33cc33", "#3399ff", "#cc33ff"];
+          const sectionHandles: CurveHandle[] = [];
+          const overlayCurves: OverlayCurveVisual[] = [];
+
+          for (let i = 0; i < sectionDefs.length; i++) {
+            const def = sectionDefs[i];
+            const pts: RgmPoint3[] = def.pts.map(([y, z]) => ({ x: def.x, y, z }));
+            const handle = session.create_polyline(pointsToFlat(pts), true);
+            built.push(handle);
+            sectionHandles.push(handle);
+
+            const sampled = samplePolyline(session, handle, 24);
+            overlayCurves.push({
+              points: sampled,
+              color: sectionColors[i],
+              width: 2,
+              opacity: 1.0,
+              name: `section ${i} (x=${def.x})`,
+            });
+          }
+
+          const sectionIds = new Float64Array(sectionHandles.map((h) => h.object_id()));
+          const brep = (session as any).loft(sectionIds, 12, true) as BrepHandle;
+          built.push(brep);
+
+          const mesh = session.brep_tessellate_to_mesh(brep, new Float64Array([]));
+          built.push(mesh);
+          const buffers = meshToBuffers(session, mesh);
+
+          return {
+            kind: "mesh",
+            curveHandle: null,
+            ownedHandles: built,
+            exportHandles: [brep],
+            name: "Bridge Deck (Loft)",
+            degreeLabel: "Loft BREP",
+            renderDegree: 0,
+            renderSamples: 0,
+            meshVisual: {
+              vertices: buffers.vertices,
+              indices: buffers.indices,
+              color: "#8b9dad",
+              opacity: 0.85,
+              wireframe: false,
+              name: "lofted bridge deck",
+            },
+            overlayMeshes: [],
+            overlayCurves,
+            segmentOverlays: [],
+            intersectionPoints: [],
+            planeVisual: null,
+            interactiveMeshHandle: null,
+            transformTargets: [],
+            defaultTransformTargetKey: null,
+            intersectionMs: 0,
+            logs: [
+              `loft sections=${sectionDefs.length} n_samples=12`,
+              `triangles=${session.mesh_triangle_count(mesh)}`,
+            ],
+          };
+        } catch (error) {
+          throw error;
+        }
+      }
+
       if (example !== "polycurve") {
         throw new Error(`Unsupported example value: ${example}`);
       }
@@ -5131,6 +5312,10 @@ export function KernelViewer() {
   useEffect(() => {
     let disposed = false;
 
+    const urlParams = new URLSearchParams(window.location.search);
+    const exampleParam = urlParams.get("example");
+    const initialExample = isValidExampleKey(exampleParam) ? exampleParam : "nurbs";
+
     (async () => {
       try {
         appendLog("info", "Loading kernel WASM runtime");
@@ -5148,9 +5333,6 @@ export function KernelViewer() {
         nurbsPresetRef.current = loadedPreset;
         setPreset(loadedPreset);
 
-        const urlParams = new URLSearchParams(window.location.search);
-        const exampleParam = urlParams.get("example");
-        const initialExample = isValidExampleKey(exampleParam) ? exampleParam : "nurbs";
         updateCurveForExample(initialExample, "Default example loaded", initialExample === "nurbs" ? loadedPreset : undefined);
         setKernelStatus("ready");
       } catch (error) {

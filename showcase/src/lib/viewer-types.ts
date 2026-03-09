@@ -120,6 +120,8 @@ export type ExampleKey =
   | "brepNativeRoundtrip"
   | "bboxCurveNonTrivial"
   | "bboxBrepSolidLifecycle"
+  | "sweepBridgeGirder"
+  | "loftBridgeDeck"
   | "landxmlViewer";
 
 export type LandXmlExampleKey = "landxmlViewer";
@@ -136,6 +138,7 @@ const VALID_EXAMPLE_KEYS = new Set<ExampleKey>([
   "brepShellAssembly", "brepSolidAssembly", "brepSolidRoundtripAudit",
   "brepSolidFaceSurgery", "brepFaceBridgeRoundtrip", "brepNativeRoundtrip",
   "bboxCurveNonTrivial", "bboxBrepSolidLifecycle",
+  "sweepBridgeGirder", "loftBridgeDeck",
   "landxmlViewer",
 ]);
 
