@@ -109,19 +109,10 @@ export type ExampleKey =
   | "surfaceIntersectPlane"
   | "surfaceIntersectCurve"
   | "bboxSurfaceWarped"
-  | "trimEditWorkflow"
-  | "trimValidationFailures"
-  | "trimMultiLoopSurgery"
-  | "brepShellAssembly"
-  | "brepSolidAssembly"
-  | "brepSolidRoundtripAudit"
-  | "brepSolidFaceSurgery"
-  | "brepFaceBridgeRoundtrip"
-  | "brepNativeRoundtrip"
   | "bboxCurveNonTrivial"
-  | "bboxBrepSolidLifecycle"
-  | "sweepBridgeGirder"
-  | "loftBridgeDeck"
+  | "sweepSurface"
+  | "loftSurface"
+  | "meshVolume"
   | "landxmlViewer";
 
 export type LandXmlExampleKey = "landxmlViewer";
@@ -134,11 +125,10 @@ const VALID_EXAMPLE_KEYS = new Set<ExampleKey>([
   "surfaceLarge", "surfaceTransform", "surfaceUvEval",
   "surfaceIntersectSurface", "surfaceIntersectPlane", "surfaceIntersectCurve",
   "bboxSurfaceWarped",
-  "trimEditWorkflow", "trimValidationFailures", "trimMultiLoopSurgery",
-  "brepShellAssembly", "brepSolidAssembly", "brepSolidRoundtripAudit",
-  "brepSolidFaceSurgery", "brepFaceBridgeRoundtrip", "brepNativeRoundtrip",
-  "bboxCurveNonTrivial", "bboxBrepSolidLifecycle",
-  "sweepBridgeGirder", "loftBridgeDeck",
+  "bboxCurveNonTrivial",
+  "sweepSurface",
+  "loftSurface",
+  "meshVolume",
   "landxmlViewer",
 ]);
 

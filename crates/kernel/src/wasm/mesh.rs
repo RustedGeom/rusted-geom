@@ -5,8 +5,9 @@ use crate::{
     rgm_intersect_mesh_mesh, rgm_intersect_mesh_plane, rgm_mesh_boolean, rgm_mesh_copy_indices,
     rgm_mesh_copy_vertices, rgm_mesh_create_box, rgm_mesh_create_indexed, rgm_mesh_create_torus,
     rgm_mesh_create_uv_sphere, rgm_mesh_rotate, rgm_mesh_scale, rgm_mesh_bake_transform,
-    rgm_mesh_translate, rgm_mesh_triangle_count, rgm_mesh_vertex_count, RgmObjectHandle, RgmPlane,
-    RgmPoint3, RgmVec3,
+    rgm_mesh_translate, rgm_mesh_triangle_count, rgm_mesh_vertex_count,
+    rgm_mesh_volume,
+    RgmObjectHandle, RgmPlane, RgmPoint3, RgmVec3,
 };
 use wasm_bindgen::prelude::*;
 
@@ -311,6 +312,17 @@ impl KernelSession {
         ))?;
         pts.truncate(actual as usize);
         Ok(points_to_flat(&pts))
+    }
+
+    /// Compute the volume enclosed by a closed mesh using the divergence theorem.
+    pub fn mesh_volume(&self, mesh: &MeshHandle) -> Result<f64, JsValue> {
+        let mut vol = 0.0_f64;
+        super::error::check(rgm_mesh_volume(
+            self.handle(),
+            RgmObjectHandle(mesh.object_id),
+            &mut vol,
+        ))?;
+        Ok(vol)
     }
 }
 

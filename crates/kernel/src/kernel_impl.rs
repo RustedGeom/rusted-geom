@@ -10,6 +10,6 @@ include!("kernel_impl/bounds_ops.rs");
 include!("kernel_impl/surface_face_intersections_a.rs");
 include!("kernel_impl/surface_face_intersections_b.rs");
 include!("kernel_impl/surface_face_intersections_c.rs");
-include!("kernel_impl/brep_ops.rs");
 include!("kernel_impl/sweep_loft_ops.rs");
+include!("kernel_impl/volume_ops.rs");
 include!("kernel_impl/ffi_impl.rs");

@@ -26,15 +26,6 @@ pub(crate) fn export_stl_text(
 
         let meshes: Vec<&MeshData> = match obj {
             GeometryObject::Mesh(m) => vec![m],
-            GeometryObject::Brep(brep) => {
-                let mut ms = Vec::new();
-                for face in brep.faces.iter() {
-                    if let Some(GeometryObject::Mesh(m)) = state.objects.get(&face.surface.0) {
-                        ms.push(m);
-                    }
-                }
-                ms
-            }
             _ => continue,
         };
 

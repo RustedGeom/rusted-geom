@@ -1,4 +1,4 @@
-import { KernelSession, loadKernel, type CurveHandle, type MeshHandle, type SurfaceHandle, type BrepHandle } from "@rustedgeom/kernel";
+import { KernelSession, loadKernel, type CurveHandle, type MeshHandle, type SurfaceHandle } from "@rustedgeom/kernel";
 
 export type ContractCaseStatus = "idle" | "running" | "pass" | "fail";
 export type ContractLogLevel = "info" | "debug" | "pass" | "fail";
@@ -97,7 +97,7 @@ function plane(
 
 async function withSession(
   log: (level: ContractLogLevel, message: string) => void,
-  run: (session: KernelSession, track: <T extends CurveHandle | MeshHandle | SurfaceHandle | BrepHandle>(h: T) => T) => Promise<void> | void,
+  run: (session: KernelSession, track: <T extends CurveHandle | MeshHandle | SurfaceHandle>(h: T) => T) => Promise<void> | void,
 ): Promise<void> {
   const session = new KernelSession();
   try {
@@ -121,11 +121,6 @@ export const CONTRACT_CASES: ContractCaseSpec[] = [
     summary: "Mesh counts, transforms, mesh intersections, and boolean result invariants.",
   },
   {
-    id: "surface-face-contract",
-    title: "Surface + Face Contract",
-    summary: "Surface evaluations, face loop validation, tessellation, and surface-plane branches.",
-  },
-  {
     id: "invalid-input",
     title: "Invalid Curve Input",
     summary: "Invalid degree must surface a kernel error.",
@@ -134,11 +129,6 @@ export const CONTRACT_CASES: ContractCaseSpec[] = [
     id: "wasm-bindgen-api",
     title: "wasm-bindgen API Contract",
     summary: "Object IDs, session tolerances, compute_bounds, and intersection branch data.",
-  },
-  {
-    id: "brep-assembly-tessellation",
-    title: "B-rep Assembly + Tessellation",
-    summary: "Multi-face B-rep creation, validation, healing, tessellation, and shell/solid counts.",
   },
   {
     id: "landxml-parse-surface",
@@ -292,87 +282,6 @@ const RUNNERS: CaseRunner[] = [
     },
   },
   {
-    id: "surface-face-contract",
-    title: "Surface + Face Contract",
-    summary: "Surface evaluations, face loop validation, tessellation, and surface-plane branches.",
-    run: async (log) => {
-      await withSession(log, (session) => {
-        log("info", "Session created");
-
-        const controlPoints = [
-          -2, -2, 0,   -2, 0, 0.8,  -2, 2, 0.1,
-           0, -2, 0.7,  0, 0, -0.2,  0, 2, 0.9,
-           2, -2, -0.3, 2, 0,  0.6,  2, 2, 0.2,
-        ];
-        const weights = new Float64Array(9).fill(1);
-        const knots = clampedUniformKnots(3, 2);
-        const surface = session.create_nurbs_surface(
-          2, 2,             // degree_u, degree_v
-          3, 3,             // control_u_count, control_v_count
-          false, false,     // periodic_u, periodic_v
-          new Float64Array(controlPoints),
-          weights,
-          knots,
-          knots,
-        );
-
-        // Full frame evaluation
-        const frame = session.surface_frame_at(surface, 0.5, 0.5);
-        const ptArr = session.surface_point_at(surface, 0.5, 0.5);
-        assertOrThrow(Math.abs(frame.px - ptArr[0]) < 1e-7, "Surface point/frame x mismatch");
-        assertOrThrow(Math.abs(frame.py - ptArr[1]) < 1e-7, "Surface point/frame y mismatch");
-        assertOrThrow(Math.abs(frame.pz - ptArr[2]) < 1e-7, "Surface point/frame z mismatch");
-
-        const d1 = session.surface_d1_at(surface, 0.5, 0.5);
-        assertOrThrow(Math.abs(frame.du_x - d1[0]) < 1e-7, "Surface du mismatch");
-        assertOrThrow(Math.abs(frame.dv_y - d1[4]) < 1e-7, "Surface dv mismatch");
-
-        const d2 = session.surface_d2_at(surface, 0.5, 0.5);
-        assertOrThrow(Number.isFinite(d2[0]), "Surface duu should be finite");
-        assertOrThrow(Number.isFinite(d2[4]), "Surface duv should be finite");
-        assertOrThrow(Number.isFinite(d2[8]), "Surface dvv should be finite");
-        assertOrThrow(Number.isFinite(frame.nx), "Surface normal should be finite");
-        log("debug", "Surface point/frame/differential checks passed");
-
-        // Face with loops
-        const face = session.create_face_from_surface(surface);
-        // Add outer boundary loop (flat UV [u,v,...])
-        const outerUvs = [0.05, 0.05, 0.95, 0.05, 0.95, 0.95, 0.05, 0.95];
-        session.face_add_loop(face, new Float64Array(outerUvs), true);
-
-        // Add inner hole using a circle edge
-        const trimCircle = session.create_circle(
-          0.5, 0.5, 0,   // origin
-          1, 0, 0,        // x_axis
-          0, 1, 0,        // y_axis
-          0, 0, 1,        // z_axis
-          0.18,           // radius
-        );
-        // edges_flat: [u0,v0, u1,v1, obj_id, has_curve]
-        const edgesFlat = [0.68, 0.5, 0.68, 0.5, trimCircle.object_id(), 1.0];
-        session.face_add_loop_edges(face, false, new Float64Array(edgesFlat));
-        const valid = session.face_validate(face);
-        assertOrThrow(valid, "Face validation failed");
-
-        const faceMesh = session.face_tessellate_to_mesh(
-          face,
-          new Float64Array([28, 28, 48, 48, 1e-4, 0.08]),
-        );
-        const tessTriangles = session.mesh_triangle_count(faceMesh);
-        assertOrThrow(tessTriangles > 0, "Face tessellation returned no triangles");
-
-        const surfacePlaneIntersection = session.intersect_surface_plane(
-          surface,
-          plane(0, 0, 0.1, 1, 0, 0, 0, 1, 0, 0, 0, 1),
-        );
-        const branchCount = session.intersection_branch_count(surfacePlaneIntersection);
-        assertOrThrow(branchCount >= 0, "Surface-plane branch count check failed");
-
-        log("pass", `Surface/face checks passed (face triangles=${tessTriangles}, branches=${branchCount})`);
-      });
-    },
-  },
-  {
     id: "invalid-input",
     title: "Invalid Curve Input",
     summary: "Invalid degree must surface a kernel error.",
@@ -452,49 +361,6 @@ const RUNNERS: CaseRunner[] = [
         }
 
         log("pass", `wasm-bindgen API checks passed (bounds AABB ok, branches=${branches})`);
-      });
-    },
-  },
-  {
-    id: "brep-assembly-tessellation",
-    title: "B-rep Assembly + Tessellation",
-    summary: "Multi-face B-rep creation, validation, healing, tessellation, and shell/solid counts.",
-    run: async (log) => {
-      await withSession(log, (session) => {
-        log("info", "Creating multi-face B-rep");
-
-        const controlPoints = new Float64Array([
-          -2,-2,0, -2,0,1, -2,2,0,
-           0,-2,1,  0,0,-1, 0,2,1,
-           2,-2,0,  2,0,1,  2,2,0,
-        ]);
-        const weights = new Float64Array(9).fill(1);
-        const knots = clampedUniformKnots(3, 2);
-        const surf1 = session.create_nurbs_surface(2, 2, 3, 3, false, false, controlPoints, weights, knots, knots);
-        const surf2 = session.create_nurbs_surface(2, 2, 3, 3, false, false,
-          new Float64Array([-2,-2,2, -2,0,3, -2,2,2, 0,-2,3, 0,0,1, 0,2,3, 2,-2,2, 2,0,3, 2,2,2]),
-          weights, knots, knots,
-        );
-
-        const brep = (session as any).brep_create_empty();
-        (session as any).brep_add_face_from_surface(brep, surf1);
-        (session as any).brep_add_face_from_surface(brep, surf2);
-
-        const faceCount = (session as any).brep_face_count(brep);
-        assertOrThrow(faceCount === 2, `Expected 2 faces, got ${faceCount}`);
-
-        (session as any).brep_finalize_shell(brep);
-        const shellCount = (session as any).brep_shell_count(brep);
-        assertOrThrow(shellCount >= 1, `Expected at least 1 shell, got ${shellCount}`);
-
-        const validation = (session as any).brep_validate(brep);
-        log("debug", `B-rep validation: valid=${validation.valid}, faces=${validation.face_count}, shells=${validation.shell_count}`);
-
-        const mesh = (session as any).brep_tessellate_to_mesh(brep, new Float64Array([8, 8, 32, 32, 1e-3, 0.1]));
-        const triCount = session.mesh_triangle_count(mesh);
-        assertOrThrow(triCount > 0, `B-rep tessellation produced no triangles`);
-
-        log("pass", `B-rep assembly passed (faces=${faceCount}, shells=${shellCount}, triangles=${triCount})`);
       });
     },
   },

@@ -5,9 +5,8 @@
 //! protected by per-session read/write locks. All mutable access goes through
 //! [`with_session_mut`], which acquires a write lock for the target session.
 
-use crate::elements::brep::types::BrepData;
 use crate::session::objects::{
-    CurveData, FaceData, GeometryObject, IntersectionData, LandXmlDocData, MeshData, SessionState,
+    CurveData, GeometryObject, IntersectionData, LandXmlDocData, MeshData, SessionState,
     SurfaceData,
 };
 use crate::{RgmKernelHandle, RgmObjectHandle, RgmStatus};
@@ -89,12 +88,6 @@ pub(crate) fn insert_surface(state: &mut SessionState, surface: SurfaceData) -> 
     RgmObjectHandle(object_id)
 }
 
-pub(crate) fn insert_face(state: &mut SessionState, face: FaceData) -> RgmObjectHandle {
-    let object_id = NEXT_OBJECT_ID.fetch_add(1, Ordering::Relaxed);
-    state.objects.insert(object_id, GeometryObject::Face(face));
-    RgmObjectHandle(object_id)
-}
-
 pub(crate) fn insert_intersection(
     state: &mut SessionState,
     intersection: IntersectionData,
@@ -103,12 +96,6 @@ pub(crate) fn insert_intersection(
     state
         .objects
         .insert(object_id, GeometryObject::Intersection(intersection));
-    RgmObjectHandle(object_id)
-}
-
-pub(crate) fn insert_brep(state: &mut SessionState, brep: BrepData) -> RgmObjectHandle {
-    let object_id = NEXT_OBJECT_ID.fetch_add(1, Ordering::Relaxed);
-    state.objects.insert(object_id, GeometryObject::Brep(brep));
     RgmObjectHandle(object_id)
 }
 
@@ -123,4 +110,3 @@ pub(crate) fn insert_landxml_doc(
     RgmObjectHandle(object_id)
 }
 
-// S1: insert_brep_in_progress removed; callers use insert_brep with finalized=false.

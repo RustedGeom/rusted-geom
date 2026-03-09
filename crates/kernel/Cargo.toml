@@ -10,10 +10,6 @@ name = "rusted_geom"
 crate-type = ["rlib", "cdylib"]
 
 [[bench]]
-name = "brep_bench"
-harness = false
-
-[[bench]]
 name = "bounds_bench"
 harness = false
 
@@ -30,10 +26,6 @@ name = "mesh_bench"
 harness = false
 
 [[bench]]
-name = "face_bench"
-harness = false
-
-[[bench]]
 name = "intersection_bench"
 harness = false
 
@@ -45,13 +37,11 @@ harness = false
 bincode = "2.0.1"
 boolmesh = "0.1.9"
 dashmap = "6.1"
-index_vec = "0.1.4"
 js-sys = "0.3"
 once_cell.workspace = true
 parking_lot = "0.12"
 rayon.workspace = true
 roxmltree = "0.20"
-smallvec = { version = "1.15", features = ["union"] }
 wasm-bindgen = "0.2"
 
 [dev-dependencies]

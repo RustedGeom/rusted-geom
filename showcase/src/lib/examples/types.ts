@@ -1,7 +1,5 @@
 import type {
-  BrepHandle,
   CurveHandle,
-  FaceHandle,
   IntersectionHandle,
   MeshHandle,
   SurfaceHandle,
@@ -19,9 +17,7 @@ export type AnyHandle =
   | CurveHandle
   | MeshHandle
   | SurfaceHandle
-  | FaceHandle
-  | IntersectionHandle
-  | BrepHandle;
+  | IntersectionHandle;
 
 export interface BuiltExample {
   kind: "curve" | "mesh";

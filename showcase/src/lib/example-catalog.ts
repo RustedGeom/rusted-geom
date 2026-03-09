@@ -23,19 +23,10 @@ export const EXAMPLE_OPTIONS: Record<string, ExampleKey> = {
   "Surface (surface-plane intersection)": "surfaceIntersectPlane",
   "Surface (surface-curve intersection)": "surfaceIntersectCurve",
   "Bounds (surface warped)": "bboxSurfaceWarped",
-  "Trim (edit workflow)": "trimEditWorkflow",
-  "Trim (validation failures)": "trimValidationFailures",
-  "Trim (multi-loop surgery)": "trimMultiLoopSurgery",
-  "BREP (shell assembly + adjacency)": "brepShellAssembly",
-  "BREP (solid assembly lifecycle)": "brepSolidAssembly",
-  "BREP (solid roundtrip audit)": "brepSolidRoundtripAudit",
-  "BREP (solid face surgery rebuild)": "brepSolidFaceSurgery",
-  "BREP (face bridge roundtrip)": "brepFaceBridgeRoundtrip",
-  "BREP (native save/load roundtrip)": "brepNativeRoundtrip",
-  "Bounds (BREP solid lifecycle)": "bboxBrepSolidLifecycle",
+  "Sweep Surface (profile along path)": "sweepSurface",
+  "Loft Surface (through sections)": "loftSurface",
+  "Mesh Volume": "meshVolume",
   "LandXML File Viewer": "landxmlViewer",
-  "Sweep BREP (bridge girder)": "sweepBridgeGirder",
-  "Loft BREP (bridge deck)": "loftBridgeDeck",
 };
 
 export const EXAMPLE_SUMMARIES: Record<ExampleKey, string> = {
@@ -66,28 +57,13 @@ export const EXAMPLE_SUMMARIES: Record<ExampleKey, string> = {
   surfaceIntersectCurve: "Computes surface-curve intersections with UV and curve-parameter traces.",
   bboxSurfaceWarped:
     "Computes warped-surface bounds and compares sampled containment and volume between Fast and Optimal modes.",
-  trimEditWorkflow: "Demonstrates trim loop edit operations and retessellation in-kernel.",
-  trimValidationFailures:
-    "Creates an intentionally invalid trim topology and reports validation/heal behavior.",
-  trimMultiLoopSurgery:
-    "Builds a complex trimmed face with mixed loop construction (point loops + edge loops), split edits, and healing.",
-  brepShellAssembly:
-    "Builds a multi-face BREP shell from trimmed faces, edits loops through BREP APIs, validates/heals, and inspects adjacency.",
-  brepSolidAssembly:
-    "Builds a six-face box-like BREP, promotes shell to solid, and inspects shell/solid topology diagnostics.",
-  brepSolidRoundtripAudit:
-    "Builds a skewed solid, clones + serializes/loads it, and compares topology and geometric invariants across generations.",
-  brepSolidFaceSurgery:
-    "Extracts all faces from a solid, surgically edits one face, then rebuilds and validates a new solid from modified face objects.",
-  brepFaceBridgeRoundtrip:
-    "Round-trips a trimmed face through BREP bridge APIs (face -> brep -> face) and compares extracted geometry.",
-  brepNativeRoundtrip:
-    "Serializes a finalized BREP to native bytes, reloads it, and verifies topology/area/tessellation continuity.",
-  bboxBrepSolidLifecycle:
-    "Tracks BREP bounds across shell/solid lifecycle steps and compares Fast/Optimal bounds extents and compute times.",
-  landxmlViewer: "Parses and visualizes LandXML 1.2 files with TIN terrain surfaces and horizontal/vertical alignments.",
-  sweepBridgeGirder: "Sweeps a closed bulb-tee profile along a pre-cambered path to create a watertight bridge girder solid.",
-  loftBridgeDeck: "Lofts multiple cross-section curves to form a bridge deck surface with varying width.",
+  sweepSurface:
+    "Sweeps a curved profile along a 3D NURBS path to produce a surface, then tessellates and displays it.",
+  loftSurface:
+    "Lofts through multiple cross-section curves at varying stations to produce a smooth surface.",
+  meshVolume:
+    "Computes enclosed volumes of a torus and sphere mesh via the divergence theorem, comparing against analytic formulas.",
+  landxmlViewer: "Loads and visualizes LandXML terrain/surface data from uploaded files.",
 };
 
 export interface ExampleCategoryItem {
@@ -133,6 +109,7 @@ export const EXAMPLE_CATEGORIES: ExampleCategory[] = [
       { key: "meshIntersectMeshPlane", label: "Mesh × Plane" },
       { key: "meshBoolean", label: "CSG Difference (A − B)" },
       { key: "bboxMeshBooleanAssembly", label: "Bounds: Boolean Assembly" },
+      { key: "meshVolume", label: "Mesh Volume" },
     ],
   },
   {
@@ -146,36 +123,8 @@ export const EXAMPLE_CATEGORIES: ExampleCategory[] = [
       { key: "surfaceIntersectPlane", label: "Surface × Plane" },
       { key: "surfaceIntersectCurve", label: "Surface × Curve" },
       { key: "bboxSurfaceWarped", label: "Bounds: Warped Surface" },
-    ],
-  },
-  {
-    label: "Trim",
-    key: "trim",
-    items: [
-      { key: "trimEditWorkflow", label: "Edit Workflow" },
-      { key: "trimValidationFailures", label: "Validation Failures" },
-      { key: "trimMultiLoopSurgery", label: "Multi-Loop Surgery" },
-    ],
-  },
-  {
-    label: "BREP",
-    key: "brep",
-    items: [
-      { key: "brepShellAssembly", label: "Shell Assembly + Adjacency" },
-      { key: "brepSolidAssembly", label: "Solid Assembly Lifecycle" },
-      { key: "brepSolidRoundtripAudit", label: "Solid Roundtrip Audit" },
-      { key: "brepSolidFaceSurgery", label: "Solid Face Surgery Rebuild" },
-      { key: "brepFaceBridgeRoundtrip", label: "Face Bridge Roundtrip" },
-      { key: "brepNativeRoundtrip", label: "Native Save/Load Roundtrip" },
-      { key: "bboxBrepSolidLifecycle", label: "Bounds: Solid Lifecycle" },
-    ],
-  },
-  {
-    label: "Sweep / Loft",
-    key: "sweepLoft",
-    items: [
-      { key: "sweepBridgeGirder", label: "Sweep: Bridge Girder" },
-      { key: "loftBridgeDeck", label: "Loft: Bridge Deck" },
+      { key: "sweepSurface", label: "Sweep (profile along path)" },
+      { key: "loftSurface", label: "Loft (through sections)" },
     ],
   },
   {
@@ -195,11 +144,9 @@ export function parseExampleSelection(value: unknown): ExampleKey | null {
     "meshLarge", "meshTransform", "meshIntersectMeshMesh", "meshIntersectMeshPlane", "meshBoolean", "bboxMeshBooleanAssembly",
     "surfaceLarge", "surfaceTransform", "surfaceUvEval", "bboxSurfaceWarped",
     "surfaceIntersectSurface", "surfaceIntersectPlane", "surfaceIntersectCurve",
-    "trimEditWorkflow", "trimValidationFailures", "trimMultiLoopSurgery",
-    "brepShellAssembly", "brepSolidAssembly", "brepSolidRoundtripAudit", "brepSolidFaceSurgery",
-    "brepFaceBridgeRoundtrip", "brepNativeRoundtrip", "bboxBrepSolidLifecycle",
+    "sweepSurface", "loftSurface",
+    "meshVolume",
     "landxmlViewer",
-    "sweepBridgeGirder", "loftBridgeDeck",
   ];
   if (validKeys.includes(raw as ExampleKey)) {
     return raw as ExampleKey;

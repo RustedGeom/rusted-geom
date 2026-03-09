@@ -1,6 +1,6 @@
 //! Surface constructor and evaluation methods on `KernelSession`.
 
-use super::{flat_to_points, BrepHandle, MeshHandle, SurfaceHandle, KernelSession};
+use super::{flat_to_points, MeshHandle, SurfaceHandle, KernelSession};
 use crate::{
     rgm_loft, rgm_loft_typed, rgm_sweep, rgm_surface_bake_transform, rgm_surface_create_nurbs, rgm_surface_d1_at,
     rgm_surface_d2_at, rgm_surface_frame_at, rgm_surface_normal_at, rgm_surface_point_at,
@@ -225,47 +225,33 @@ impl KernelSession {
 
     // ── Sweep / Loft ──────────────────────────────────────────────────────────
 
-    /// Sweep a profile curve along a path curve.
-    ///
-    /// - `cap_faces = false`: returns a `SurfaceHandle` (via `JsValue`)
-    /// - `cap_faces = true`: validates profile is closed, returns a `BrepHandle`.
-    ///   Errors if the profile is open.
+    /// Sweep a profile curve along a path curve, returning a surface.
     pub fn sweep(
         &self,
         path: &super::CurveHandle,
         profile: &super::CurveHandle,
         n_stations: u32,
-        cap_faces: bool,
-    ) -> Result<JsValue, JsValue> {
+    ) -> Result<SurfaceHandle, JsValue> {
         let mut out = RgmObjectHandle(0);
         super::error::check(rgm_sweep(
             self.handle(),
             RgmObjectHandle(path.object_id),
             RgmObjectHandle(profile.object_id),
             n_stations,
-            cap_faces,
+            false,
             &mut out,
         ))?;
-        if cap_faces {
-            Ok(JsValue::from(BrepHandle::new(self.session_id, out.0)))
-        } else {
-            Ok(JsValue::from(SurfaceHandle::new(self.session_id, out.0)))
-        }
+        Ok(SurfaceHandle::new(self.session_id, out.0))
     }
 
-    /// Loft through multiple section curves.
+    /// Loft through multiple section curves, returning a surface.
     ///
     /// `section_ids` is a flat array of curve object IDs (as f64).
-    ///
-    /// - `cap_faces = false`: returns a `SurfaceHandle` (via `JsValue`)
-    /// - `cap_faces = true`: validates all sections are closed, returns `BrepHandle`.
-    ///   Errors if any section is open.
     pub fn loft(
         &self,
         section_ids: Vec<f64>,
         n_samples: u32,
-        cap_faces: bool,
-    ) -> Result<JsValue, JsValue> {
+    ) -> Result<SurfaceHandle, JsValue> {
         let handles: Vec<RgmObjectHandle> = section_ids
             .iter()
             .map(|&id| RgmObjectHandle(id as u64))
@@ -276,26 +262,21 @@ impl KernelSession {
             handles.as_ptr(),
             handles.len(),
             n_samples,
-            cap_faces,
+            false,
             &mut out,
         ))?;
-        if cap_faces {
-            Ok(JsValue::from(BrepHandle::new(self.session_id, out.0)))
-        } else {
-            Ok(JsValue::from(SurfaceHandle::new(self.session_id, out.0)))
-        }
+        Ok(SurfaceHandle::new(self.session_id, out.0))
     }
 
-    /// Loft with an explicit loft type.
+    /// Loft with an explicit loft type, returning a surface.
     ///
     /// `loft_type`: `"normal"` (default), `"loose"`, `"tight"`, `"straight"`.
     pub fn loft_typed(
         &self,
         section_ids: Vec<f64>,
         n_samples: u32,
-        cap_faces: bool,
         loft_type: String,
-    ) -> Result<JsValue, JsValue> {
+    ) -> Result<SurfaceHandle, JsValue> {
         let lt: u32 = match loft_type.as_str() {
             "normal" | "" => 0,
             "loose" => 1,
@@ -313,15 +294,11 @@ impl KernelSession {
             handles.as_ptr(),
             handles.len(),
             n_samples,
-            cap_faces,
+            false,
             lt,
             &mut out,
         ))?;
-        if cap_faces {
-            Ok(JsValue::from(BrepHandle::new(self.session_id, out.0)))
-        } else {
-            Ok(JsValue::from(SurfaceHandle::new(self.session_id, out.0)))
-        }
+        Ok(SurfaceHandle::new(self.session_id, out.0))
     }
 
     // ── Tessellation ──────────────────────────────────────────────────────────
