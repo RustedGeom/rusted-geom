@@ -5,3 +5,10 @@ dist
 .claude/**/*
 .vercel
 showcase/out
+
+# Playwright MCP artifacts
+.playwright-mcp/
+
+# WASM build outputs
+crates/kernel/pkg/
+showcase/public/wasm/
