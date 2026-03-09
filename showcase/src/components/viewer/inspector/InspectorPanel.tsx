@@ -5,6 +5,7 @@ import { LandXmlProbeSection } from "./LandXmlProbeSection";
 import { PerformanceSection } from "./PerformanceSection";
 import { ProbeSection, ProbeUnavailableSection } from "./ProbeSection";
 import { SurfaceProbeSection } from "./SurfaceProbeSection";
+import { ClosestPointSection, type ClosestPointPair } from "./ClosestPointSection";
 
 export interface LandXmlInspectorStats {
   surfCount: number;
@@ -27,6 +28,11 @@ export interface InspectorPanelProps {
   showMeshPlaneTargetControls: boolean;
   showSurfaceProbeControls: boolean;
   showProbeControls: boolean;
+  showClosestPointControls: boolean;
+  closestPointPairs: ClosestPointPair[];
+  selectedClosestIdx: number;
+  onSelectClosestPair: (idx: number) => void;
+  closestPointKind: "curve" | "surface";
   gizmoMode: GizmoMode;
   onSetGizmoMode: (mode: GizmoMode) => void;
   transformTargetsUi: Array<{ key: string; label: string }>;
@@ -65,6 +71,11 @@ export function InspectorPanel({
   showMeshPlaneTargetControls,
   showSurfaceProbeControls,
   showProbeControls,
+  showClosestPointControls,
+  closestPointPairs,
+  selectedClosestIdx,
+  onSelectClosestPair,
+  closestPointKind,
   gizmoMode,
   onSetGizmoMode,
   transformTargetsUi,
@@ -233,7 +244,14 @@ export function InspectorPanel({
           />
         ) : null}
 
-        {activeExample === "landxmlViewer" && landXmlAlignments && landXmlProbeState && onLandXmlStationChange ? (
+        {showClosestPointControls ? (
+          <ClosestPointSection
+            pairs={closestPointPairs}
+            selectedIdx={selectedClosestIdx}
+            onSelect={onSelectClosestPair}
+            kind={closestPointKind}
+          />
+        ) : activeExample === "landxmlViewer" && landXmlAlignments && landXmlProbeState && onLandXmlStationChange ? (
           <LandXmlProbeSection
             alignments={landXmlAlignments}
             probeState={landXmlProbeState}

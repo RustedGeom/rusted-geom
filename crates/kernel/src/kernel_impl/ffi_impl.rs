@@ -458,6 +458,68 @@ fn rgm_curve_create_polycurve_impl(
 }
 
 
+fn rgm_curve_closest_point_impl(
+    session: RgmKernelHandle,
+    curve_handle: RgmObjectHandle,
+    point: RgmPoint3,
+    out_closest: *mut RgmPoint3,
+    out_t: *mut f64,
+) -> RgmStatus {
+    let result = with_session_mut(session, |state| {
+        let tol = {
+            let curve = find_curve(state, curve_handle)?;
+            curve_canonical_nurbs(curve)
+                .map(|n| n.core.tol.abs_tol.max(1e-9))
+                .unwrap_or(1e-6)
+        };
+        let seeds: Vec<f64> = (0..=32).map(|i| i as f64 / 32.0).collect();
+        let curve = find_curve(state, curve_handle)?;
+        let (closest, t, _) =
+            project_point_to_curve_multi_seed(state, curve, point, &seeds, tol)
+                .ok_or(RgmStatus::NotFound)?;
+        write_out(out_closest, closest)?;
+        write_out(out_t, t)
+    });
+    match result {
+        Ok(()) => {
+            clear_error(session.0);
+            RgmStatus::Ok
+        }
+        Err(status) => map_err_with_session(session, status, "Curve closest-point failed"),
+    }
+}
+
+fn rgm_surface_closest_point_impl(
+    session: RgmKernelHandle,
+    surface_handle: RgmObjectHandle,
+    point: RgmPoint3,
+    out_closest: *mut RgmPoint3,
+    out_uv: *mut RgmUv2,
+) -> RgmStatus {
+    let result = with_session_mut(session, |state| {
+        let surface = find_surface(state, surface_handle)?.clone();
+        let tol = surface.core.tol.abs_tol.max(1e-9);
+        let seeds_raw = build_surface_projection_seed_grid(&surface, 12, 12);
+        let uv_seeds: Vec<RgmUv2> = seeds_raw.iter().map(|s| s.uv).collect();
+        let (closest, uv_native, _) =
+            project_point_to_surface_multi_seed(&surface, point, &uv_seeds, tol)
+                .ok_or(RgmStatus::NotFound)?;
+        let u_norm = (uv_native.u - surface.core.u_start)
+            / (surface.core.u_end - surface.core.u_start);
+        let v_norm = (uv_native.v - surface.core.v_start)
+            / (surface.core.v_end - surface.core.v_start);
+        write_out(out_closest, closest)?;
+        write_out(out_uv, RgmUv2 { u: u_norm, v: v_norm })
+    });
+    match result {
+        Ok(()) => {
+            clear_error(session.0);
+            RgmStatus::Ok
+        }
+        Err(status) => map_err_with_session(session, status, "Surface closest-point failed"),
+    }
+}
+
 include!("ffi_ptr.rs");
 include!("ffi_kernel.rs");
 include!("ffi_bounds.rs");

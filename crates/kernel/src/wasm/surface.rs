@@ -2,11 +2,12 @@
 
 use super::{flat_to_points, MeshHandle, SurfaceHandle, KernelSession};
 use crate::{
-    rgm_loft, rgm_loft_typed, rgm_sweep, rgm_surface_bake_transform, rgm_surface_create_nurbs, rgm_surface_d1_at,
-    rgm_surface_d2_at, rgm_surface_frame_at, rgm_surface_normal_at, rgm_surface_point_at,
-    rgm_surface_rotate, rgm_surface_scale, rgm_surface_tessellate_to_mesh, rgm_surface_translate,
-    RgmNurbsSurfaceDesc, RgmObjectHandle, RgmPoint3, RgmSurfaceEvalFrame,
-    RgmSurfaceTessellationOptions, RgmUv2, RgmVec3,
+    rgm_loft, rgm_loft_typed, rgm_surface_bake_transform, rgm_surface_closest_point,
+    rgm_surface_create_nurbs, rgm_surface_d1_at, rgm_surface_d2_at, rgm_surface_frame_at,
+    rgm_surface_normal_at, rgm_surface_point_at, rgm_surface_rotate, rgm_surface_scale,
+    rgm_surface_tessellate_to_mesh, rgm_surface_translate, rgm_sweep, RgmNurbsSurfaceDesc,
+    RgmObjectHandle, RgmPoint3, RgmSurfaceEvalFrame, RgmSurfaceTessellationOptions, RgmUv2,
+    RgmVec3,
 };
 use wasm_bindgen::prelude::*;
 
@@ -299,6 +300,30 @@ impl KernelSession {
             &mut out,
         ))?;
         Ok(SurfaceHandle::new(self.session_id, out.0))
+    }
+
+    // ── Closest Point ─────────────────────────────────────────────────────────
+
+    /// Closest point on `surface` to world-space point (x, y, z).
+    /// Returns `[px, py, pz, u, v]` where `u, v ∈ [0,1]` are normalised surface parameters.
+    pub fn surface_closest_point(
+        &self,
+        surface: &SurfaceHandle,
+        x: f64,
+        y: f64,
+        z: f64,
+    ) -> Result<Vec<f64>, JsValue> {
+        let pt = RgmPoint3 { x, y, z };
+        let mut closest = RgmPoint3 { x: 0., y: 0., z: 0. };
+        let mut uv = RgmUv2 { u: 0., v: 0. };
+        super::error::check(rgm_surface_closest_point(
+            self.handle(),
+            RgmObjectHandle(surface.object_id),
+            &pt,
+            &mut closest,
+            &mut uv,
+        ))?;
+        Ok(vec![closest.x, closest.y, closest.z, uv.u, uv.v])
     }
 
     // ── Tessellation ──────────────────────────────────────────────────────────

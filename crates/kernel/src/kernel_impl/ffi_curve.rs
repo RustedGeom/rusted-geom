@@ -161,3 +161,19 @@ pub extern "C" fn rgm_curve_create_polycurve(
 
     rgm_curve_create_polycurve_impl(session, segments, segment_count, out_object)
 }
+
+#[no_mangle]
+pub extern "C" fn rgm_curve_closest_point(
+    session: RgmKernelHandle,
+    curve: RgmObjectHandle,
+    point: *const RgmPoint3,
+    out_closest: *mut RgmPoint3,
+    out_t: *mut f64,
+) -> RgmStatus {
+    if point.is_null() {
+        return map_err_with_session(session, RgmStatus::InvalidInput, "Null point pointer");
+    }
+    // SAFETY: pointer is non-null by guard above.
+    let point = unsafe { *point };
+    rgm_curve_closest_point_impl(session, curve, point, out_closest, out_t)
+}

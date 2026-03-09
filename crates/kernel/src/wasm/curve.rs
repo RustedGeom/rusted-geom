@@ -2,15 +2,16 @@
 
 use super::{flat_to_points, CurveHandle, KernelSession};
 use crate::{
-    rgm_curve_create_arc, rgm_curve_create_arc_by_3_points, rgm_curve_create_arc_by_angles,
-    rgm_curve_create_circle, rgm_curve_create_line, rgm_curve_create_polycurve,
-    rgm_curve_create_polyline, rgm_curve_d0_at, rgm_curve_d0_at_length, rgm_curve_d1_at,
-    rgm_curve_d1_at_length, rgm_curve_d2_at, rgm_curve_d2_at_length, rgm_curve_length,
-    rgm_curve_length_at, rgm_curve_normal_at, rgm_curve_normal_at_length, rgm_curve_plane_at,
-    rgm_curve_plane_at_length, rgm_curve_point_at, rgm_curve_point_at_length,
-    rgm_curve_tangent_at, rgm_curve_tangent_at_length, rgm_curve_to_nurbs,
-    rgm_nurbs_interpolate_fit_points, rgm_point_convert_coordinate_system, RgmArc3, RgmCircle3,
-    RgmLine3, RgmObjectHandle, RgmPlane, RgmPoint3, RgmPolycurveSegment, RgmVec3,
+    rgm_curve_closest_point, rgm_curve_create_arc, rgm_curve_create_arc_by_3_points,
+    rgm_curve_create_arc_by_angles, rgm_curve_create_circle, rgm_curve_create_line,
+    rgm_curve_create_polycurve, rgm_curve_create_polyline, rgm_curve_d0_at,
+    rgm_curve_d0_at_length, rgm_curve_d1_at, rgm_curve_d1_at_length, rgm_curve_d2_at,
+    rgm_curve_d2_at_length, rgm_curve_length, rgm_curve_length_at, rgm_curve_normal_at,
+    rgm_curve_normal_at_length, rgm_curve_plane_at, rgm_curve_plane_at_length,
+    rgm_curve_point_at, rgm_curve_point_at_length, rgm_curve_tangent_at,
+    rgm_curve_tangent_at_length, rgm_curve_to_nurbs, rgm_nurbs_interpolate_fit_points,
+    rgm_point_convert_coordinate_system, RgmArc3, RgmCircle3, RgmLine3, RgmObjectHandle, RgmPlane,
+    RgmPoint3, RgmPolycurveSegment, RgmVec3,
 };
 use wasm_bindgen::prelude::*;
 
@@ -383,6 +384,28 @@ impl KernelSession {
             self.handle(), RgmObjectHandle(curve.object_id), t, &mut pt as *mut _,
         ))?;
         Ok(vec![pt.x, pt.y, pt.z])
+    }
+
+    /// Closest point on `curve` to world-space point (x, y, z).
+    /// Returns `[px, py, pz, t]` where `t ∈ [0,1]` is the normalised curve parameter.
+    pub fn curve_closest_point(
+        &self,
+        curve: &CurveHandle,
+        x: f64,
+        y: f64,
+        z: f64,
+    ) -> Result<Vec<f64>, JsValue> {
+        let pt = RgmPoint3 { x, y, z };
+        let mut closest = RgmPoint3 { x: 0., y: 0., z: 0. };
+        let mut t: f64 = 0.;
+        super::error::check(rgm_curve_closest_point(
+            self.handle(),
+            RgmObjectHandle(curve.object_id),
+            &pt,
+            &mut closest,
+            &mut t,
+        ))?;
+        Ok(vec![closest.x, closest.y, closest.z, t])
     }
 
     /// Convert a point between coordinate systems.

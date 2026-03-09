@@ -26,6 +26,8 @@ export const EXAMPLE_OPTIONS: Record<string, ExampleKey> = {
   "Sweep Surface (profile along path)": "sweepSurface",
   "Loft Surface (through sections)": "loftSurface",
   "Mesh Volume": "meshVolume",
+  "Closest Point (curve)": "closestPointCurve",
+  "Closest Point (surface)": "closestPointSurface",
   "LandXML File Viewer": "landxmlViewer",
 };
 
@@ -63,6 +65,10 @@ export const EXAMPLE_SUMMARIES: Record<ExampleKey, string> = {
     "Lofts through multiple cross-section curves at varying stations to produce a smooth surface.",
   meshVolume:
     "Computes enclosed volumes of a torus and sphere mesh via the divergence theorem, comparing against analytic formulas.",
+  closestPointCurve:
+    "Projects 5 query points onto a wavy NURBS curve, visualizing the foot points and connector lines with normalized t parameters and distances.",
+  closestPointSurface:
+    "Projects 6 query points onto a warped NURBS surface, visualizing foot points and connector lines with normalized (u,v) parameters and distances.",
   landxmlViewer: "Parses and visualizes LandXML 1.2 files with TIN terrain surfaces and horizontal/vertical alignments.",
 };
 
@@ -89,6 +95,7 @@ export const EXAMPLE_CATEGORIES: ExampleCategory[] = [
       { key: "arc", label: "Arc (tilted)" },
       { key: "circle", label: "Circle (tilted)" },
       { key: "bboxCurveNonTrivial", label: "Bounds: Fast vs Optimal" },
+      { key: "closestPointCurve", label: "Closest Point on Curve" },
     ],
   },
   {
@@ -125,6 +132,7 @@ export const EXAMPLE_CATEGORIES: ExampleCategory[] = [
       { key: "bboxSurfaceWarped", label: "Bounds: Warped Surface" },
       { key: "sweepSurface", label: "Sweep (profile along path)" },
       { key: "loftSurface", label: "Loft (through sections)" },
+      { key: "closestPointSurface", label: "Closest Point on Surface" },
     ],
   },
   {
@@ -146,6 +154,7 @@ export function parseExampleSelection(value: unknown): ExampleKey | null {
     "surfaceIntersectSurface", "surfaceIntersectPlane", "surfaceIntersectCurve",
     "sweepSurface", "loftSurface",
     "meshVolume",
+    "closestPointCurve", "closestPointSurface",
     "landxmlViewer",
   ];
   if (validKeys.includes(raw as ExampleKey)) {

@@ -362,6 +362,22 @@ pub extern "C" fn rgm_loft_typed(
     }
 }
 
+#[no_mangle]
+pub extern "C" fn rgm_surface_closest_point(
+    session: RgmKernelHandle,
+    surface: RgmObjectHandle,
+    point: *const RgmPoint3,
+    out_closest: *mut RgmPoint3,
+    out_uv: *mut RgmUv2,
+) -> RgmStatus {
+    if point.is_null() {
+        return map_err_with_session(session, RgmStatus::InvalidInput, "Null point pointer");
+    }
+    // SAFETY: pointer is non-null by guard above.
+    let point = unsafe { *point };
+    rgm_surface_closest_point_impl(session, surface, point, out_closest, out_uv)
+}
+
 fn polycurve_to_nurbs(
     state: &SessionState,
     poly: &PolycurveData,

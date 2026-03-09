@@ -80,6 +80,7 @@ import { LANDXML_FILE_LIST, isValidExampleKey, type LandXmlExampleKey, type Land
 import type { Bounds3 } from "@rustedgeom/kernel";
 import { ViewerToolbar } from "./viewer/toolbar/ViewerToolbar";
 import { InspectorPanel } from "./viewer/inspector/InspectorPanel";
+import type { ClosestPointPair } from "./viewer/inspector/ClosestPointSection";
 import { KernelConsole } from "./viewer/console/KernelConsole";
 import { ExampleBrowser } from "./viewer/ExampleBrowser";
 
@@ -170,6 +171,7 @@ interface BuiltExample {
   intersectionMs: number;
   boundsMs?: number;
   logs: string[];
+  closestPointPairs?: ClosestPointPair[];
 }
 
 
@@ -601,6 +603,8 @@ function shouldShowProbeForExample(example: ExampleKey): boolean {
     example !== "sweepSurface" &&
     example !== "loftSurface" &&
     example !== "meshVolume" &&
+    example !== "closestPointCurve" &&
+    example !== "closestPointSurface" &&
     example !== "landxmlViewer"
   );
 }
@@ -1464,6 +1468,12 @@ export function KernelViewer() {
   const intersectionMarkerRefs = useRef<
     THREE.Mesh<THREE.SphereGeometry, THREE.MeshStandardMaterial>[]
   >([]);
+  const closestQueryMarkerRefs = useRef<
+    THREE.Mesh<THREE.SphereGeometry, THREE.MeshStandardMaterial>[]
+  >([]);
+  const closestFootMarkerRefs = useRef<
+    THREE.Mesh<THREE.SphereGeometry, THREE.MeshStandardMaterial>[]
+  >([]);
   const planeMeshRef = useRef<THREE.Mesh<THREE.BufferGeometry, THREE.MeshStandardMaterial> | null>(
     null,
   );
@@ -1500,6 +1510,8 @@ export function KernelViewer() {
   const [segmentOverlays, setSegmentOverlays] = useState<SegmentOverlayVisual[]>([]);
   const [intersectionPoints, setIntersectionPoints] = useState<RgmPoint3[]>([]);
   const [intersectionPlane, setIntersectionPlane] = useState<RgmPlane | null>(null);
+  const [closestPointPairs, setClosestPointPairs] = useState<ClosestPointPair[]>([]);
+  const [selectedClosestIdx, setSelectedClosestIdx] = useState(0);
   const [gizmoMode, setGizmoMode] = useState<GizmoMode>("translate");
   const [transformTargetsUi, setTransformTargetsUi] = useState<Array<{ key: string; label: string }>>(
     [],
@@ -3098,6 +3110,160 @@ export function KernelViewer() {
         }
       }
 
+      if (example === "closestPointCurve") {
+        const built: AnyHandle[] = [];
+        try {
+          // Wavy 3D NURBS curve through 8 fit points
+          const fitPts = new Float64Array([
+            0, 0, 0,
+            1.5, 1.2, 0.8,
+            3, 0.3, 1.5,
+            4.5, -1.1, 0.9,
+            6, 0.2, 0,
+            7.5, 1.4, -0.7,
+            9, -0.4, -1.2,
+            10.5, 0.6, -0.4,
+          ]);
+          const curve = session.interpolate_nurbs_fit_points(fitPts, 3, false);
+          built.push(curve);
+
+          // 5 query points scattered around the curve
+          const queryPts: { x: number; y: number; z: number }[] = [
+            { x: 0.3, y: 2.5, z: 0.5 },
+            { x: 3.2, y: 1.8, z: -1.0 },
+            { x: 5.5, y: -2.0, z: 1.5 },
+            { x: 7.8, y: 0.5, z: 1.2 },
+            { x: 10.0, y: 1.8, z: -1.8 },
+          ];
+
+          const segmentPts: { x: number; y: number; z: number }[] = [];
+          const closestPairs: ClosestPointPair[] = [];
+
+          for (const qp of queryPts) {
+            const res = session.curve_closest_point(curve, qp.x, qp.y, qp.z);
+            const foot = { x: res[0], y: res[1], z: res[2] };
+            const t = res[3];
+            const dx = foot.x - qp.x;
+            const dy = foot.y - qp.y;
+            const dz = foot.z - qp.z;
+            const distance = Math.sqrt(dx * dx + dy * dy + dz * dz);
+            segmentPts.push(qp, foot);
+            closestPairs.push({ queryPt: qp, footPt: foot, t, distance });
+          }
+
+          const curveSamples = samplePolyline(session, curve, 256);
+
+          return {
+            kind: "curve" as const,
+            curveHandle: curve,
+            ownedHandles: built,
+            name: "Closest Point — Curve",
+            degreeLabel: "NURBS degree 3, 5 projections",
+            renderDegree: 3,
+            renderSamples: 256,
+            meshVisual: null,
+            overlayMeshes: [],
+            overlayCurves: [
+              { points: curveSamples, color: "#4a90d9", width: 2.5, opacity: 1.0, name: "curve" },
+            ],
+            segmentOverlays: [
+              { points: segmentPts, color: "#ffffff", opacity: 0.85, width: 1.5, name: "projections" },
+            ],
+            intersectionPoints: [],
+            planeVisual: null,
+            interactiveMeshHandle: null,
+            transformTargets: [],
+            defaultTransformTargetKey: null,
+            intersectionMs: 0,
+            logs: [],
+            closestPointPairs: closestPairs,
+          };
+        } catch (error) {
+          throw error;
+        }
+      }
+
+      if (example === "closestPointSurface") {
+        const built: AnyHandle[] = [];
+        try {
+          const net = buildWarpedSurfaceNet(14, 12, 10, 8, 1.2);
+          const surface = session.create_nurbs_surface(
+            net.desc.degree_u, net.desc.degree_v,
+            net.desc.control_u_count, net.desc.control_v_count,
+            net.desc.periodic_u, net.desc.periodic_v,
+            net.points, net.weights, net.knotsU, net.knotsV,
+          );
+          built.push(surface);
+          const mesh = session.surface_tessellate_to_mesh(
+            surface,
+            new Float64Array([16, 14, 56, 48, 1e-4, 0.06]),
+          );
+          built.push(mesh);
+          const buffers = meshToBuffers(session, mesh);
+
+          // 6 query points scattered above/below the surface
+          // Surface spans X: -5..5, Y: -4..4, Z: ~-2..2
+          const queryPts: { x: number; y: number; z: number }[] = [
+            { x: -4, y: -3, z: 5 },
+            { x: 0, y: 0, z: 5 },
+            { x: 3.5, y: 2, z: 4 },
+            { x: -2, y: 3, z: -4 },
+            { x: 4, y: -2.5, z: -4 },
+            { x: 1, y: -3.5, z: 4 },
+          ];
+
+          const segmentPts: { x: number; y: number; z: number }[] = [];
+          const closestPairs: ClosestPointPair[] = [];
+
+          for (const qp of queryPts) {
+            const res = session.surface_closest_point(surface, qp.x, qp.y, qp.z);
+            const foot = { x: res[0], y: res[1], z: res[2] };
+            const u = res[3];
+            const v = res[4];
+            const dx = foot.x - qp.x;
+            const dy = foot.y - qp.y;
+            const dz = foot.z - qp.z;
+            const distance = Math.sqrt(dx * dx + dy * dy + dz * dz);
+            segmentPts.push(qp, foot);
+            closestPairs.push({ queryPt: qp, footPt: foot, u, v, distance });
+          }
+
+          return {
+            kind: "mesh" as const,
+            curveHandle: null,
+            ownedHandles: built,
+            exportHandles: [surface],
+            name: "Closest Point — Surface",
+            degreeLabel: "warped NURBS surface, 6 projections",
+            renderDegree: 0,
+            renderSamples: 0,
+            meshVisual: {
+              vertices: buffers.vertices,
+              indices: buffers.indices,
+              color: "#7090a0",
+              opacity: 0.5,
+              wireframe: false,
+              name: "surface mesh",
+            },
+            overlayMeshes: [],
+            overlayCurves: [],
+            segmentOverlays: [
+              { points: segmentPts, color: "#ffffff", opacity: 0.9, width: 1.5, name: "projections" },
+            ],
+            intersectionPoints: [],
+            planeVisual: null,
+            interactiveMeshHandle: null,
+            transformTargets: [],
+            defaultTransformTargetKey: null,
+            intersectionMs: 0,
+            logs: [],
+            closestPointPairs: closestPairs,
+          };
+        } catch (error) {
+          throw error;
+        }
+      }
+
       if (example !== "polycurve") {
         throw new Error(`Unsupported example value: ${example}`);
       }
@@ -3264,6 +3430,8 @@ export function KernelViewer() {
       setSegmentOverlays(built.segmentOverlays);
       setIntersectionPoints(built.intersectionPoints);
       setIntersectionPlane(built.planeVisual);
+      setClosestPointPairs(built.closestPointPairs ?? []);
+      setSelectedClosestIdx(0);
       interactiveMeshHandleRef.current = built.interactiveMeshHandle;
       meshPlaneMeshHandleRef.current =
         example === "meshIntersectMeshPlane" ? built.interactiveMeshHandle : null;
@@ -3400,6 +3568,8 @@ export function KernelViewer() {
         setSegmentOverlays([]);
         setIntersectionPoints([]);
         setIntersectionPlane(null);
+        setClosestPointPairs([]);
+        setSelectedClosestIdx(0);
         setLandXmlStats(stats);
         setPerfStats({ loadMs: stats.parseMs, intersectionMs: 0, boundsMs: 0 });
 
@@ -4810,6 +4980,16 @@ export function KernelViewer() {
         marker.material.dispose();
       }
       intersectionMarkerRefs.current = [];
+      for (const m of closestQueryMarkerRefs.current) {
+        m.geometry.dispose();
+        m.material.dispose();
+      }
+      closestQueryMarkerRefs.current = [];
+      for (const m of closestFootMarkerRefs.current) {
+        m.geometry.dispose();
+        m.material.dispose();
+      }
+      closestFootMarkerRefs.current = [];
       if (planeGroupRef.current) {
         scene.remove(planeGroupRef.current);
       }
@@ -5219,6 +5399,67 @@ export function KernelViewer() {
 
   useEffect(() => {
     const scene = sceneRef.current;
+    if (!scene) return;
+
+    for (const m of closestQueryMarkerRefs.current) {
+      scene.remove(m);
+      m.geometry.dispose();
+      m.material.dispose();
+    }
+    closestQueryMarkerRefs.current = [];
+    for (const m of closestFootMarkerRefs.current) {
+      scene.remove(m);
+      m.geometry.dispose();
+      m.material.dispose();
+    }
+    closestFootMarkerRefs.current = [];
+
+    for (let i = 0; i < closestPointPairs.length; i++) {
+      const pair = closestPointPairs[i];
+      const isSelected = i === selectedClosestIdx;
+
+      const qMarker = new THREE.Mesh(
+        new THREE.SphereGeometry(isSelected ? 0.18 : 0.08, 16, 16),
+        new THREE.MeshStandardMaterial({
+          color: "#ff8c42",
+          emissive: "#ff8c42",
+          emissiveIntensity: isSelected ? 0.9 : 0.15,
+          roughness: 0.2,
+          metalness: 0.1,
+          transparent: !isSelected,
+          opacity: isSelected ? 1.0 : 0.35,
+          depthTest: false,
+          depthWrite: false,
+        }),
+      );
+      qMarker.position.set(pair.queryPt.x, pair.queryPt.y, pair.queryPt.z);
+      qMarker.renderOrder = isSelected ? 43 : 41;
+      scene.add(qMarker);
+      closestQueryMarkerRefs.current.push(qMarker);
+
+      const fMarker = new THREE.Mesh(
+        new THREE.SphereGeometry(isSelected ? 0.18 : 0.08, 16, 16),
+        new THREE.MeshStandardMaterial({
+          color: "#42d9c8",
+          emissive: "#42d9c8",
+          emissiveIntensity: isSelected ? 0.9 : 0.15,
+          roughness: 0.2,
+          metalness: 0.1,
+          transparent: !isSelected,
+          opacity: isSelected ? 1.0 : 0.35,
+          depthTest: false,
+          depthWrite: false,
+        }),
+      );
+      fMarker.position.set(pair.footPt.x, pair.footPt.y, pair.footPt.z);
+      fMarker.renderOrder = isSelected ? 43 : 41;
+      scene.add(fMarker);
+      closestFootMarkerRefs.current.push(fMarker);
+    }
+  }, [closestPointPairs, selectedClosestIdx]);
+
+  useEffect(() => {
+    const scene = sceneRef.current;
     if (!scene) {
       return;
     }
@@ -5475,6 +5716,14 @@ export function KernelViewer() {
 
   const showSurfaceProbeControls = useMemo(() => activeExample === "surfaceUvEval", [activeExample]);
   const showProbeControls = useMemo(() => shouldShowProbeForExample(activeExample), [activeExample]);
+  const showClosestPointControls = useMemo(
+    () => activeExample === "closestPointCurve" || activeExample === "closestPointSurface",
+    [activeExample],
+  );
+  const closestPointKind = useMemo(
+    (): "curve" | "surface" => activeExample === "closestPointSurface" ? "surface" : "curve",
+    [activeExample],
+  );
   const showGizmoControls = useMemo(
     () =>
       activeExample === "meshTransform" ||
@@ -5706,6 +5955,11 @@ export function KernelViewer() {
         showMeshPlaneTargetControls={showMeshPlaneTargetControls}
         showSurfaceProbeControls={showSurfaceProbeControls}
         showProbeControls={showProbeControls}
+        showClosestPointControls={showClosestPointControls}
+        closestPointPairs={closestPointPairs}
+        selectedClosestIdx={selectedClosestIdx}
+        onSelectClosestPair={setSelectedClosestIdx}
+        closestPointKind={closestPointKind}
         gizmoMode={gizmoMode}
         onSetGizmoMode={setGizmoMode}
         transformTargetsUi={transformTargetsUi}

@@ -113,6 +113,8 @@ export type ExampleKey =
   | "sweepSurface"
   | "loftSurface"
   | "meshVolume"
+  | "closestPointCurve"
+  | "closestPointSurface"
   | "landxmlViewer";
 
 export type LandXmlExampleKey = "landxmlViewer";
@@ -129,6 +131,8 @@ const VALID_EXAMPLE_KEYS = new Set<ExampleKey>([
   "sweepSurface",
   "loftSurface",
   "meshVolume",
+  "closestPointCurve",
+  "closestPointSurface",
   "landxmlViewer",
 ]);
 
