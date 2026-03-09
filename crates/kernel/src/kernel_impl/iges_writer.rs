@@ -292,123 +292,25 @@ pub(crate) fn export_iges_text(
     let state = entry.value().read();
 
     let mut writer = IgesWriter::new();
+    let stage_paths = collect_stage_subtree_paths(&state.stage, &collect_export_root_paths(&state, object_ids));
 
-    for &obj_id in object_ids {
-        let obj = state
-            .objects
-            .get(&obj_id)
-            .ok_or_else(|| format!("Object {obj_id} not found"))?;
-
-        match obj {
-            GeometryObject::Curve(data) => {
-                if let Some(nurbs) = curve_canonical_nurbs(data) {
-                    writer.add_entity_126(&nurbs.core);
+    for path in stage_paths {
+        if let Some(curves_prim) = state.stage.get::<rusted_usd::schema::generated::UsdGeomNurbsCurves>(&path) {
+            let world = world_transform_for_path(&state.stage, &path);
+            for index in 0..curves_prim.curve_vertex_counts.len() {
+                if let Ok(core) = nurbs_core_from_curves_prim(curves_prim, index) {
+                    writer.add_entity_126(&transform_curve_core(&core, world));
                 }
             }
-            GeometryObject::Surface(data) => {
-                writer.add_entity_128(&data.core, &data.transform);
+            continue;
+        }
+        if let Some(patch_prim) = state.stage.get::<rusted_usd::schema::generated::UsdGeomNurbsPatch>(&path) {
+            if let Ok(core) = nurbs_core_from_patch_prim(patch_prim) {
+                let world = world_transform_for_path(&state.stage, &path);
+                writer.add_entity_128(&core, &world);
             }
-            GeometryObject::LandXmlDoc(doc_data) => {
-                export_landxml_curves_as_nurbs(&mut writer, session, doc_data);
-            }
-            GeometryObject::Mesh(_)
-            | GeometryObject::Intersection(_) => {}
         }
     }
 
     Ok(writer.finish())
-}
-
-/// Sample each LandXML alignment (all profiles) as 3D points, fit a NURBS
-/// curve through them, and add Entity 126 entries to the IGES writer.
-fn export_landxml_curves_as_nurbs(
-    writer: &mut IgesWriter,
-    _session: RgmKernelHandle,
-    doc_data: &crate::session::objects::LandXmlDocData,
-) {
-    use crate::landxml::evaluate_alignment_3d;
-
-    let doc = &doc_data.doc;
-    let n_steps: usize = 500;
-
-    for alignment in &doc.alignments {
-        let sta_start = alignment.sta_start_m;
-        let sta_end = sta_start + alignment.length_m;
-        if sta_end <= sta_start {
-            continue;
-        }
-        let step = (sta_end - sta_start) / n_steps as f64;
-
-        for profile in &alignment.profiles {
-            let mut pts = Vec::new();
-            let mut s = sta_start;
-            while s <= sta_end + 1e-9 {
-                if let Ok(sample) = evaluate_alignment_3d(alignment, profile, s.min(sta_end)) {
-                    pts.push(sample.point);
-                }
-                s += step;
-            }
-
-            if pts.len() < 4 {
-                continue;
-            }
-
-            if let Some(core) = fit_nurbs_through_points(&pts, 3) {
-                writer.add_entity_126(&core);
-            }
-        }
-    }
-}
-
-/// Fit a NURBS curve through an ordered sequence of 3D points using global
-/// interpolation with chord-length parameterisation. Returns the NurbsCurveCore
-/// or None if the input is degenerate.
-fn fit_nurbs_through_points(pts: &[RgmPoint3], degree: usize) -> Option<NurbsCurveCore> {
-    let n = pts.len();
-    if n < degree + 1 {
-        return None;
-    }
-
-    let mut chord_lengths = Vec::with_capacity(n);
-    chord_lengths.push(0.0_f64);
-    for i in 1..n {
-        let dx = pts[i].x - pts[i - 1].x;
-        let dy = pts[i].y - pts[i - 1].y;
-        let dz = pts[i].z - pts[i - 1].z;
-        chord_lengths.push(chord_lengths[i - 1] + (dx * dx + dy * dy + dz * dz).sqrt());
-    }
-    let total_len = *chord_lengths.last().unwrap();
-    if total_len < 1e-14 {
-        return None;
-    }
-    let params: Vec<f64> = chord_lengths.iter().map(|&c| c / total_len).collect();
-
-    let p = degree;
-    let nk = n + p + 1;
-    let mut knots = vec![0.0_f64; nk];
-    for i in 0..=p {
-        knots[i] = 0.0;
-        knots[nk - 1 - i] = 1.0;
-    }
-    for j in 1..n - p {
-        let sum: f64 = (j..j + p).map(|idx| params[idx]).sum();
-        knots[j + p] = sum / p as f64;
-    }
-
-    let weights = vec![1.0; n];
-
-    Some(NurbsCurveCore {
-        degree,
-        knots,
-        weights,
-        control_points: pts.to_vec(),
-        periodic: false,
-        u_start: 0.0,
-        u_end: 1.0,
-        tol: RgmToleranceContext {
-            abs_tol: 1e-9,
-            rel_tol: 1e-9,
-            angle_tol: 1e-9,
-        },
-    })
 }

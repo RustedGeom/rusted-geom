@@ -10,6 +10,7 @@ use crate::math::arc_length::ArcLengthCache;
 use crate::math::nurbs_curve_eval::NurbsCurveCore;
 use crate::math::nurbs_surface_eval::NurbsSurfaceCore;
 use crate::{RgmBounds3, RgmBoundsMode, RgmObjectHandle, RgmPoint3, RgmStatus, RgmUv2};
+use rusted_usd::stage::UsdStage;
 use std::collections::HashMap;
 
 // ─── Geometry Data Types ──────────────────────────────────────────────────────
@@ -325,6 +326,9 @@ pub(crate) struct SessionState {
     pub(crate) bounds_cache: HashMap<u64, BoundsCacheEntry>,
     pub(crate) last_error_code: RgmStatus,
     pub(crate) last_error_message: String,
+    pub(crate) stage: UsdStage,
+    /// Maps legacy object IDs to their SdfPath on the stage.
+    pub(crate) path_index: HashMap<u64, rusted_usd::foundation::SdfPath>,
 }
 
 // ─── Object Lookup Helpers ────────────────────────────────────────────────────

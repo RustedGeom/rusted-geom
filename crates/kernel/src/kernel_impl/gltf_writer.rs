@@ -14,23 +14,30 @@ pub(crate) fn export_gltf_text(
         .ok_or_else(|| "Session not found".to_string())?;
     let state = entry.value().read();
 
-    let mut all_meshes: Vec<(&MeshData, u64)> = Vec::new();
+    let mut owned_meshes: Vec<MeshData> = Vec::new();
+    let stage_paths = collect_stage_subtree_paths(&state.stage, &collect_export_root_paths(&state, object_ids));
 
-    for &obj_id in object_ids {
-        let obj = state
-            .objects
-            .get(&obj_id)
-            .ok_or_else(|| format!("Object {obj_id} not found"))?;
-
-        match obj {
-            GeometryObject::Mesh(m) => all_meshes.push((m, obj_id)),
-            _ => continue,
-        };
+    for path in stage_paths {
+        if let Some(mesh_prim) = state.stage.get::<rusted_usd::schema::generated::UsdGeomMesh>(&path) {
+            let mut mesh = mesh_data_from_prim(mesh_prim);
+            mesh.transform = world_transform_for_path(&state.stage, &path);
+            owned_meshes.push(mesh);
+        }
     }
 
-    if all_meshes.is_empty() {
+    if owned_meshes.is_empty() {
+        for &obj_id in object_ids {
+            if let Some(GeometryObject::Mesh(m)) = state.objects.get(&obj_id) {
+                owned_meshes.push(m.clone());
+            }
+        }
+    }
+
+    if owned_meshes.is_empty() {
         return Err("No mesh objects found for glTF export".to_string());
     }
+
+    let all_meshes: Vec<&MeshData> = owned_meshes.iter().collect();
 
     let mut buffer_bytes: Vec<u8> = Vec::new();
     let mut buffer_views_json = Vec::new();
@@ -39,7 +46,7 @@ pub(crate) fn export_gltf_text(
 
     let mut accessor_idx = 0usize;
 
-    for (mesh, _obj_id) in &all_meshes {
+    for mesh in &all_meshes {
         let n_verts = mesh.vertices.len();
         let n_tris = mesh.triangles.len();
 

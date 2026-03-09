@@ -46,6 +46,7 @@ import {
   downloadText,
   downloadJson,
   downloadDataUrl,
+  downloadBinaryFile,
   downloadTextFile,
 } from "@/lib/download-utils";
 import {
@@ -5710,6 +5711,47 @@ export function KernelViewer() {
     }
   }, [collectActiveObjectIds, appendLog]);
 
+  const onExportGlb = useCallback(async () => {
+    const session = sessionRef.current;
+    if (!session) return;
+    try {
+      const ids = new Float64Array(collectActiveObjectIds());
+      const glbBytes = await session.export_glb(ids);
+      downloadBinaryFile(glbBytes, "export.glb", "model/gltf-binary");
+    } catch (err) {
+      appendLog("error", `GLB export failed: ${err}`);
+    }
+  }, [collectActiveObjectIds, appendLog]);
+
+  const onExportUsda = useCallback(() => {
+    const session = sessionRef.current;
+    if (!session) return;
+    try {
+      const ids = collectActiveObjectIds();
+      const usdaText =
+        ids.length > 0
+          ? (session as any).export_usda_prims(new Float64Array(ids))
+          : (session as any).export_usda();
+      downloadTextFile(usdaText, "export.usda", "text/plain");
+      appendLog("info", "USDA exported successfully");
+    } catch (err) {
+      appendLog("error", `USDA export failed: ${err}`);
+    }
+  }, [appendLog, collectActiveObjectIds]);
+
+  const onExportUsdc = useCallback(async () => {
+    const session = sessionRef.current;
+    if (!session) return;
+    try {
+      const ids = new Float64Array(collectActiveObjectIds());
+      const usdcBytes = await session.export_usdc(ids.length > 0 ? ids : undefined);
+      downloadBinaryFile(usdcBytes, "export.usdc", "application/octet-stream");
+      appendLog("info", "USDC exported successfully");
+    } catch (err) {
+      appendLog("error", `USDC export failed: ${err}`);
+    }
+  }, [appendLog, collectActiveObjectIds]);
+
   const exportMode = useMemo((): "cad" | "mesh" => {
     return isMeshOnlyExample(activeExample) ? "mesh" : "cad";
   }, [activeExample]);
@@ -5915,6 +5957,9 @@ export function KernelViewer() {
         onExportSat={onExportSat}
         onExportStl={onExportStl}
         onExportGltf={onExportGltf}
+        onExportGlb={onExportGlb}
+        onExportUsda={onExportUsda}
+        onExportUsdc={onExportUsdc}
         exportMode={exportMode}
         orbitEnabled={orbitEnabled}
         showGrid={showGrid}

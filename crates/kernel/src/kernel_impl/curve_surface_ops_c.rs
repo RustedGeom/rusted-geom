@@ -1,6 +1,6 @@
-struct TessSampleMesh {
-    vertices: Vec<RgmPoint3>,
-    triangles: Vec<[u32; 3]>,
+pub(crate) struct TessSampleMesh {
+    pub(crate) vertices: Vec<RgmPoint3>,
+    pub(crate) triangles: Vec<[u32; 3]>,
 }
 
 fn add_triangle_indices(
@@ -17,7 +17,7 @@ fn add_triangle_indices(
     Ok(())
 }
 
-fn tessellate_surface_samples(
+pub(crate) fn tessellate_surface_samples(
     surface: &SurfaceData,
     options: Option<RgmSurfaceTessellationOptions>,
 ) -> Result<TessSampleMesh, RgmStatus> {
@@ -49,7 +49,7 @@ fn tessellate_surface_samples(
     let mut vertices = Vec::with_capacity(grid_uvs.len());
     for uv in &grid_uvs {
         let eval = eval_nurbs_surface_uv_unchecked(&surface.core, *uv)?;
-        vertices.push(matrix_apply_point(surface.transform, eval.point));
+        vertices.push(eval.point);
     }
 
     let remap = |iu: usize, iv: usize| -> usize {
@@ -76,11 +76,13 @@ fn tessellate_surface_samples(
     })
 }
 
-fn build_mesh_from_tessellation(samples: &TessSampleMesh) -> MeshData {
+pub(crate) fn build_mesh_from_tessellation(
+    samples: &TessSampleMesh,
+    transform: [[f64; 4]; 4],
+) -> MeshData {
     MeshData {
         vertices: samples.vertices.clone(),
         triangles: samples.triangles.clone(),
-        transform: matrix_identity(),
+        transform,
     }
 }
-
