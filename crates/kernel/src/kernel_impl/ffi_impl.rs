@@ -85,7 +85,7 @@ fn rgm_surface_tessellate_to_mesh_impl(
         |state| {
             let surface = find_surface(state, surface)?;
             let samples = tessellate_surface_samples(surface, options)?;
-            Ok(build_mesh_from_tessellation(&samples))
+            Ok(build_mesh_from_tessellation(&samples, surface.transform))
         },
         "Surface tessellation failed",
     )

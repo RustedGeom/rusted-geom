@@ -49,6 +49,19 @@ export function downloadDataUrl(filename: string, dataUrl: string): void {
   anchor.click();
 }
 
+export function downloadBinaryFile(bytes: ArrayBuffer | Uint8Array, filename: string, mimeType: string): void {
+  const payload = bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes);
+  const blobBytes = new Uint8Array(new ArrayBuffer(payload.byteLength));
+  blobBytes.set(payload);
+  const blob = new Blob([blobBytes], { type: mimeType });
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = filename;
+  anchor.click();
+  URL.revokeObjectURL(url);
+}
+
 export function downloadTextFile(text: string, filename: string, mimeType: string): void {
   const blob = new Blob([text], { type: mimeType });
   const url = URL.createObjectURL(blob);

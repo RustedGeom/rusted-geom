@@ -17,20 +17,21 @@ pub(crate) fn export_stl_text(
 
     let mut out = String::with_capacity(4096);
     out.push_str("solid rusted-geom\n");
+    let stage_paths = collect_stage_subtree_paths(&state.stage, &collect_export_root_paths(&state, object_ids));
 
-    for &obj_id in object_ids {
-        let obj = state
-            .objects
-            .get(&obj_id)
-            .ok_or_else(|| format!("Object {obj_id} not found"))?;
+    for path in stage_paths {
+        if let Some(mesh_prim) = state.stage.get::<rusted_usd::schema::generated::UsdGeomMesh>(&path) {
+            let mut mesh = mesh_data_from_prim(mesh_prim);
+            mesh.transform = world_transform_for_path(&state.stage, &path);
+            write_mesh_stl(&mut out, &mesh);
+        }
+    }
 
-        let meshes: Vec<&MeshData> = match obj {
-            GeometryObject::Mesh(m) => vec![m],
-            _ => continue,
-        };
-
-        for mesh in meshes {
-            write_mesh_stl(&mut out, mesh);
+    if out == "solid rusted-geom\n" {
+        for &obj_id in object_ids {
+            if let Some(GeometryObject::Mesh(m)) = state.objects.get(&obj_id) {
+                write_mesh_stl(&mut out, m);
+            }
         }
     }
 

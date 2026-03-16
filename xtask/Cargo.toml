@@ -1,0 +1,13 @@
+[package]
+name = "xtask"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[dependencies]
+anyhow = "1"
+quote = "1"
+proc-macro2 = "1"
+prettyplease = "0.2"
+syn = { version = "2", features = ["full"] }
+heck = "0.5"

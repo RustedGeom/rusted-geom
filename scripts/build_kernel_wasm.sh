@@ -24,3 +24,7 @@ fi
 mkdir -p "$repo_root/showcase/public/wasm"
 cp "$repo_root/crates/kernel/pkg/rusted_geom_bg.wasm" \
    "$repo_root/showcase/public/wasm/rusted_geom.wasm"
+cp "$repo_root/crates/kernel/pkg/rusted_geom.js" \
+   "$repo_root/showcase/public/wasm/rusted_geom.js"
+cp "$repo_root/crates/kernel/pkg/rusted_geom.d.ts" \
+   "$repo_root/showcase/public/wasm/rusted_geom.d.ts"
